@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Eye, EyeOff, Mail, Lock, X as CloseIcon, Sparkles } from "lucide-react";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -337,5 +337,20 @@ export default function LoginPage() {
         © 2026 Candy & Rose Salon. All rights reserved.
       </p>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+       <div className="min-h-screen flex items-center justify-center bg-[#fac2d9]">
+          <div className="flex flex-col items-center gap-4">
+             <div className="w-12 h-12 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+             <p className="text-pink-600 font-bold animate-pulse">Loading...</p>
+          </div>
+       </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
