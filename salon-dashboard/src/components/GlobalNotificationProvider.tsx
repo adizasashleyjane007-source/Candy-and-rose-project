@@ -73,7 +73,7 @@ export default function GlobalNotificationProvider() {
           schema: 'public',
           table: 'notifications',
         },
-        (payload) => {
+        (payload: any) => {
           console.log("[GlobalNotification] Received DB event:", payload.new);
           const newNotif = payload.new;
           
