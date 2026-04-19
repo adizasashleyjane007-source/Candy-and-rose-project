@@ -18,7 +18,7 @@ export default function ForgotPasswordPage() {
 
     const supabase = createClient();
     const { error: resError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
     });
 
     if (resError) {
@@ -83,7 +83,7 @@ export default function ForgotPasswordPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    placeholder=""
+                    placeholder="name@gmail.com"
                     className="w-full pl-10 pr-4 py-3 rounded-xl text-sm text-gray-900 placeholder-gray-400 bg-gray-50/50 border border-gray-200 transition-all duration-150 focus:border-pink-500/50 focus:ring-1 focus:ring-pink-500/10 outline-none"
                   />
                 </div>

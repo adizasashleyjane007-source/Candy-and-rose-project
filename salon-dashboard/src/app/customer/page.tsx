@@ -32,8 +32,8 @@ const emptyForm = {
 export default function CustomerPage() {
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [editingId, setEditingId] = useState<number | null>(null);
-    const [customerToDelete, setCustomerToDelete] = useState<number | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [customerToDelete, setCustomerToDelete] = useState<string | null>(null);
     const [filterOpen, setFilterOpen] = useState(false);
     const [filterType, setFilterType] = useState("All Customers");
     const [searchQuery, setSearchQuery] = useState("");
@@ -115,7 +115,7 @@ export default function CustomerPage() {
         setIsFormModalOpen(true);
     };
 
-    const handleDeleteClick = (id: number) => {
+    const handleDeleteClick = (id: string) => {
         setCustomerToDelete(id);
         setIsDeleteModalOpen(true);
     };
@@ -142,8 +142,8 @@ export default function CustomerPage() {
     const filteredCustomers = customers.filter(c => {
         const matchesType =
             filterType === "All Customers" ? true
-            : filterType === "New" ? (c.visits ?? 0) <= 1
-            : (c.visits ?? 0) > 1;
+            : filterType === "New" ? (c.visits ?? 0) <= 7
+            : (c.visits ?? 0) > 7;
         return matchesType && (
             c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (c.email ?? "").toLowerCase().includes(searchQuery.toLowerCase())
@@ -158,16 +158,16 @@ export default function CustomerPage() {
     );
 
     const totalRegistered = customers.length;
-    const newCustomers = customers.filter(c => (c.visits ?? 0) <= 1).length;
-    const regularCustomers = customers.filter(c => (c.visits ?? 0) > 1).length;
+    const newCustomers = customers.filter(c => (c.visits ?? 0) <= 7).length;
+    const regularCustomers = customers.filter(c => (c.visits ?? 0) > 7).length;
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-pink-50 via-white to-pink-100 overflow-y-auto w-full max-w-full">
+        <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-pink-50 via-white to-pink-100 overflow-y-auto overflow-x-hidden w-full max-w-full">
             <Header />
-            <div className="px-8 pb-8 flex-1 max-w-7xl mx-auto w-full">
-                <div className="mb-8 mt-2">
-                    <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Customers</h2>
-                    <p className="text-gray-500 mt-1 font-medium">Manage your client base and view their history</p>
+            <div className="px-4 sm:px-8 pb-8 flex-1 max-w-7xl mx-auto w-full">
+                <div className="mb-6 mt-2">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Customers</h2>
+                    <p className="text-sm sm:text-base text-gray-500 mt-1 font-medium">Manage your client base and view their history</p>
                 </div>
 
                 {error && (
@@ -264,7 +264,7 @@ export default function CustomerPage() {
                 </div>
 
                 {/* Table Card */}
-                <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-pink-200 overflow-hidden">
+                <div className="bg-white rounded-3xl p-4 sm:p-8 shadow-sm border border-pink-200 overflow-hidden">
                     {loading ? (
                         <div className="flex items-center justify-center py-16">
                             <Loader2 className="w-8 h-8 animate-spin text-pink-400" />
@@ -272,7 +272,7 @@ export default function CustomerPage() {
                         </div>
                     ) : (
                         <div className="overflow-x-auto w-full">
-                            <table className="w-full text-left border-separate min-w-max" style={{ borderSpacing: "0 10px" }}>
+                            <table className="w-full text-left border-separate min-w-max" style={{ borderSpacing: "0 6px" }}>
                                 <thead>
                                     <tr>
                                         <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Name</th>
@@ -280,7 +280,7 @@ export default function CustomerPage() {
                                         <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Phone</th>
                                         <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Visits</th>
                                         <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Total Spent</th>
-                                        <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap w-[120px] text-center">Status</th>
+                                        <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap w-[120px] text-center">Type</th>
                                         <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap text-center">Action</th>
                                     </tr>
                                 </thead>
@@ -293,19 +293,19 @@ export default function CustomerPage() {
                                         </tr>
                                     ) : paginatedCustomers.map((cust) => (
                                         <tr key={cust.id} className="bg-gray-50/50 hover:bg-pink-50/50 transition-all shadow-sm group">
-                                            <td className="py-3.5 px-4 text-sm font-bold text-gray-900 rounded-l-xl border border-transparent group-hover:border-pink-200 border-r-0 whitespace-nowrap">{cust.name}</td>
-                                            <td className="py-3.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{cust.email || "—"}</td>
-                                            <td className="py-3.5 px-4 text-sm font-medium text-gray-500 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{cust.phone || "—"}</td>
-                                            <td className="py-3.5 px-4 text-sm font-semibold text-gray-900 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{cust.visits ?? 0}</td>
-                                            <td className="py-3.5 px-4 text-sm font-bold text-gray-900 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">
+                                            <td className="py-2.5 px-4 text-sm font-bold text-gray-900 rounded-l-xl border border-transparent group-hover:border-pink-200 border-r-0 whitespace-nowrap">{cust.name}</td>
+                                            <td className="py-2.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{cust.email || "—"}</td>
+                                            <td className="py-2.5 px-4 text-sm font-medium text-gray-500 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{cust.phone || "—"}</td>
+                                            <td className="py-2.5 px-4 text-sm font-semibold text-gray-900 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{cust.visits ?? 0}</td>
+                                            <td className="py-2.5 px-4 text-sm font-bold text-gray-900 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">
                                                 ₱{Number(cust.total_spent ?? 0).toLocaleString()}
                                             </td>
-                                            <td className="py-3.5 px-4 text-sm text-center border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">
-                                                <span className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-tight border ${cust.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
-                                                    {cust.status}
+                                            <td className="py-2.5 px-4 text-sm text-center border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">
+                                                <span className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-tight border ${((cust.membership_type || ((cust.visits || 0) > 7 ? 'Regular' : 'New')) === 'Regular') ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-pink-50 text-pink-600 border-pink-200'}`}>
+                                                    {cust.membership_type || ((cust.visits || 0) > 7 ? 'Regular' : 'New')}
                                                 </span>
                                             </td>
-                                            <td className="py-3.5 px-4 text-sm rounded-r-xl border border-transparent group-hover:border-pink-200 border-l-0 text-center whitespace-nowrap">
+                                            <td className="py-2.5 px-4 text-sm rounded-r-xl border border-transparent group-hover:border-pink-200 border-l-0 text-center whitespace-nowrap">
                                                 <div className="flex items-center justify-center gap-3">
                                                     <button onClick={() => handleEditClick(cust)} className="p-2 bg-white text-pink-500 rounded-xl border border-pink-200 shadow-sm hover:bg-pink-50 hover:scale-105 transition-all" title="Edit">
                                                         <Edit2 className="w-4 h-4" />
@@ -360,55 +360,55 @@ export default function CustomerPage() {
                             <p className="text-sm text-gray-500 mt-1">{editingId ? "Update the details for this customer." : "Provide the details for the new customer."}</p>
                         </div>
 
-                        <form onSubmit={handleFormSave} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                                <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-2 border border-pink-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900" placeholder="e.g. Jane Doe" />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Email / Gmail</label>
-                                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-4 py-2 border border-pink-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900" placeholder="e.g. jane.doe@example.com" />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                                <input
-                                    type="text"
-                                    maxLength={11}
-                                    value={formData.phone}
-                                    onChange={(e) => {
-                                        const val = e.target.value.replace(/\D/g, '');
-                                        if (val.length <= 11) setFormData({ ...formData, phone: val });
-                                    }}
-                                    className="w-full px-4 py-2 border border-pink-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900"
-                                    placeholder="e.g. 09123456789"
-                                />
-                            </div>
-
-                            {editingId && (
+                        <form onSubmit={handleFormSave} className="space-y-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="sm:col-span-2">
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
+                                    <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all" placeholder="e.g. Jane Doe" />
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Email / Gmail</label>
+                                    <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-4 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all" placeholder="e.g. jane.doe@example.com" />
+                                </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                    <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2 border border-pink-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900">
-                                        <option>Active</option>
-                                        <option>Inactive</option>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number</label>
+                                    <input
+                                        type="text"
+                                        maxLength={11}
+                                        value={formData.phone}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/\D/g, '');
+                                            if (val.length > 0 && val[0] !== '0') return;
+                                            if (val.length > 1 && val[1] !== '9') return;
+                                            if (val.length <= 11) setFormData({ ...formData, phone: val });
+                                        }}
+                                        className="w-full px-4 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all"
+                                        placeholder="09..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Customer Type</label>
+                                    <select 
+                                        value={formData.membership_type} 
+                                        onChange={(e) => setFormData({ ...formData, membership_type: e.target.value })} 
+                                        className="w-full px-4 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all cursor-pointer"
+                                    >
+                                        <option value="New">New Member</option>
+                                        <option value="Regular">Regular Member</option>
                                     </select>
                                 </div>
-                            )}
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Customer Type</label>
-                                <select 
-                                    value={formData.membership_type} 
-                                    onChange={(e) => setFormData({ ...formData, membership_type: e.target.value })} 
-                                    className="w-full px-4 py-2 border border-pink-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900"
-                                >
-                                    <option value="New">New</option>
-                                    <option value="Regular">Regular</option>
-                                </select>
+                                {editingId && (
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Account Status</label>
+                                        <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all cursor-pointer">
+                                            <option>Active</option>
+                                            <option>Inactive</option>
+                                        </select>
+                                    </div>
+                                )}
                             </div>
 
-                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-pink-50">
+                            <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-pink-50">
                                 <button type="button" onClick={() => setIsFormModalOpen(false)} className="px-5 py-2.5 text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-full font-medium transition-colors">Cancel</button>
                                 <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2.5 text-white bg-pink-500 hover:bg-pink-600 rounded-full font-medium shadow-md shadow-pink-200 transition-colors disabled:opacity-60">
                                     {saving && <Loader2 className="w-4 h-4 animate-spin" />}

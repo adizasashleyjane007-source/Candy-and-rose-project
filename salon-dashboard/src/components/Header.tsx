@@ -1,13 +1,16 @@
 "use client";
 
-import { Search, Bell, ChevronDown, User, Settings, LogOut } from "lucide-react";
+import { Bell, ChevronDown, User, Settings, LogOut, Menu } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useSidebar } from "./SidebarContext";
+import GlobalSearch from "./GlobalSearch";
 
 export default function Header() {
     const router = useRouter();
+    const { toggle } = useSidebar();
     const [unreadCount, setUnreadCount] = useState(0);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -27,7 +30,7 @@ export default function Header() {
                 .eq("is_read", false);
             setUnreadCount(count ?? 0);
         } catch {
-            // silently fail — count stays at previous value
+            // silently fail
         }
     }, []);
 
@@ -37,7 +40,6 @@ export default function Header() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // Try to load from profiles table first
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('name, email, image_url, phone, role, bio')
@@ -51,18 +53,9 @@ export default function Header() {
                     image: profile.image_url || null,
                 };
                 setAdminProfile(headerProfile);
-                // Sync to localStorage for admin-profile page
-                const fullProfile = {
-                    ...headerProfile,
-                    phone: profile.phone || '09123456789',
-                    role: profile.role || 'Administrator',
-                    bio: profile.bio || '',
-                };
-                localStorage.setItem('salon_admin_profile', JSON.stringify(fullProfile));
                 return;
             }
 
-            // Fallback: seed from auth metadata if no profile row
             const meta = user.user_metadata ?? {};
             const name = meta.full_name || meta.name || user.email?.split('@')[0] || 'Admin User';
             const avatar = meta.avatar_url || meta.picture || null;
@@ -81,13 +74,9 @@ export default function Header() {
 
         const onNotifUpdate = () => updateCount();
         const onProfileChange = () => loadProfile();
-        const onStorage = (e: StorageEvent) => {
-            if (e.key === 'salon_admin_profile') loadProfile();
-        };
 
         window.addEventListener('notificationsUpdated', onNotifUpdate);
         window.addEventListener('salon_profile_changed', onProfileChange);
-        window.addEventListener('storage', onStorage);
 
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -99,29 +88,34 @@ export default function Header() {
         return () => {
             window.removeEventListener('notificationsUpdated', onNotifUpdate);
             window.removeEventListener('salon_profile_changed', onProfileChange);
-            window.removeEventListener('storage', onStorage);
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, [updateCount, loadProfile]);
 
     return (
-        <header className="flex items-center justify-between px-6 py-4 bg-transparent">
-            <div className="flex-1 max-w-xl relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                    type="text"
-                    className="block w-full pl-10 pr-3 py-2.5 border border-transparent rounded-full leading-5 bg-white shadow-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-white sm:text-sm transition-shadow"
-                    placeholder="Search..."
-                />
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-pink-400" />
-                </div>
-            </div>
+        <header className="flex items-center justify-between px-4 sm:px-6 py-4 bg-transparent gap-4 relative z-30">
+            <button
+                onClick={toggle}
+                className="lg:hidden p-2 rounded-full bg-white text-gray-600 hover:text-pink-500 shadow-sm transition-colors shrink-0"
+            >
+                <Menu className="w-5 h-5" />
+            </button>
 
-            <div className="ml-4 flex items-center gap-6">
-                <Link href="/notifications" className="flex-shrink-0 bg-white p-2 rounded-full text-pink-400 hover:text-pink-500 shadow-sm transition-colors relative block">
+            {/* Global Search Component */}
+            <GlobalSearch />
+
+            <div className="flex items-center gap-3 sm:gap-6 ml-auto">
+                <div className="hidden md:block">
+                    <p className="text-sm font-bold text-gray-500">
+                        Welcome Back, <span className="text-pink-600">
+                            {adminProfile.name.toLowerCase().startsWith('admin') 
+                                ? adminProfile.name 
+                                : `Admin ${adminProfile.name.split(' ')[0]}`}
+                        </span>
+                    </p>
+                </div>
+
+                <Link href="/notifications" className="p-2 rounded-full bg-white text-pink-400 hover:text-pink-500 shadow-sm transition-colors relative">
                     <span className="sr-only">View notifications</span>
                     <Bell className="h-5 w-5" aria-hidden="true" />
                     {unreadCount > 0 && (
@@ -134,50 +128,52 @@ export default function Header() {
                 <div className="relative" ref={dropdownRef}>
                     <button
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        className="flex items-center gap-3 hover:bg-gray-50 p-1.5 pr-3 rounded-full transition-colors cursor-pointer select-none border border-transparent outline-none focus:bg-pink-50"
+                        className="flex items-center gap-2 sm:gap-3 hover:bg-white p-1 pr-1 sm:pr-3 rounded-full transition-all cursor-pointer select-none border border-transparent outline-none shadow-sm sm:shadow-none bg-white sm:bg-transparent"
                     >
                         {adminProfile.image ? (
-                            <div className="w-10 h-10 rounded-full overflow-hidden border border-pink-200 shadow-sm shrink-0 bg-white">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-pink-200 shadow-sm shrink-0 bg-white">
                                 <img src={adminProfile.image} alt={adminProfile.name} className="w-full h-full object-cover" />
                             </div>
                         ) : (
-                            <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center border border-pink-200 shadow-sm shrink-0">
-                                <span className="text-pink-600 font-semibold uppercase">{adminProfile.name ? adminProfile.name.slice(0, 2) : 'AD'}</span>
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-pink-100 flex items-center justify-center border border-pink-200 shadow-sm shrink-0">
+                                <span className="text-pink-600 font-semibold uppercase text-xs sm:text-sm">{adminProfile.name ? adminProfile.name.slice(0, 2) : 'AD'}</span>
                             </div>
                         )}
                         <div className="hidden md:block text-left">
-                            <p className="text-sm font-medium text-gray-900">{adminProfile.name}</p>
-                            <p className="text-xs font-medium text-gray-500">{adminProfile.email}</p>
+                            <p className="text-sm font-bold text-gray-900 leading-tight">{adminProfile.name}</p>
+                            <p className="text-[10px] font-bold text-gray-400 lowercase truncate max-w-[120px]">{adminProfile.email}</p>
                         </div>
-                        <ChevronDown className={`h-4 w-4 text-gray-500 hidden md:block transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`h-4 w-4 text-gray-500 hidden sm:block transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
 
-                    {/* Dropdown Menu */}
                     {isDropdownOpen && (
-                        <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-pink-100 z-50 animate-in fade-in slide-in-from-top-2 duration-200 py-1.5 overflow-hidden">
+                        <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-pink-100 z-40 animate-in fade-in slide-in-from-bottom-2 duration-300 py-1.5 overflow-hidden">
+                            {/* User Info Summary */}
+                            <div className="px-4 py-3 border-b border-gray-50 bg-gray-50/30">
+                                <p className="text-xs font-bold text-gray-900 truncate">{adminProfile.name}</p>
+                                <p className="text-[10px] font-medium text-gray-500 lowercase truncate">{adminProfile.email}</p>
+                            </div>
                             <Link
                                 href="/admin-profile"
-                                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors font-medium"
+                                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors font-semibold"
                                 onClick={() => setIsDropdownOpen(false)}
                             >
                                 <User className="w-4 h-4" /> Profile
                             </Link>
                             <Link
                                 href="/settings"
-                                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors font-medium"
+                                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors font-semibold"
                                 onClick={() => setIsDropdownOpen(false)}
                             >
                                 <Settings className="w-4 h-4" /> Settings
                             </Link>
                             <div className="h-px bg-gray-100 my-1 mx-3"></div>
                             <button
-                                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium text-left"
+                                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors font-bold text-left"
                                 onClick={async () => {
                                     setIsDropdownOpen(false);
                                     const supabase = createClient();
                                     await supabase.auth.signOut();
-                                    localStorage.removeItem('salon_admin_profile');
-                                    localStorage.removeItem('salon_settings_info');
                                     router.push('/login');
                                     router.refresh();
                                 }}

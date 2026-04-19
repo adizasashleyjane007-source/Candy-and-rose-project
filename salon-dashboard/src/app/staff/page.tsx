@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { addNotification } from "@/lib/notifications";
+import { StaffDB, AttendanceDB, type Staff, type Attendance } from "@/lib/db";
+import { Loader2 } from "lucide-react";
 
 export default function StaffPage() {
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -61,9 +63,9 @@ export default function StaffPage() {
         }
     ];
 
-    const [staffMembers, setStaffMembers] = useState<{ id: string, name: string, role: string, contact: string, schedule: string, status: string, email?: string }[]>([]);
+    const [staffMembers, setStaffMembers] = useState<Staff[]>([]);
     const [attendanceLedger, setAttendanceLedger] = useState<Record<string, Record<string, string>>>({});
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -91,75 +93,84 @@ export default function StaffPage() {
         schedule: "",
     });
 
-    useEffect(() => {
-        let activeStaff = defaultStaff;
-        const saved = localStorage.getItem('salon_staff');
-        if (saved) {
-            activeStaff = JSON.parse(saved);
-        } else {
-            localStorage.setItem('salon_staff', JSON.stringify(defaultStaff));
-        }
+    const loadData = async () => {
+        try {
+            setLoading(true);
+            const [staffData, ledgerData] = await Promise.all([
+                StaffDB.list(),
+                AttendanceDB.listAll()
+            ]);
 
-        let parsedLedger: Record<string, Record<string, string>> = {};
-        const savedLedger = localStorage.getItem('salon_attendance');
-        if (savedLedger) {
-            parsedLedger = JSON.parse(savedLedger);
-        }
-
-        // Automatic Daily Reset & Ledger Initialization
-        // Detects if a new calendar day has started without an existing record securely.
-        if (!parsedLedger[todayKey]) {
-            const freshDailyRecord: Record<string, string> = {};
-
-            // Revert all staff to standard "Present" baseline for the new shift automatically
-            activeStaff = activeStaff.map(staff => {
-                freshDailyRecord[staff.id] = "Present";
-                return { ...staff, status: "Present" };
+            // Convert ledger data (array) to the nested record format the page expects
+            const ledgerMap: Record<string, Record<string, string>> = {};
+            ledgerData.forEach((record: Attendance) => {
+                if (!ledgerMap[record.date]) ledgerMap[record.date] = {};
+                ledgerMap[record.date][record.staff_id] = record.status;
             });
 
-            parsedLedger[todayKey] = freshDailyRecord;
+            setStaffMembers(staffData);
+            setAttendanceLedger(ledgerMap);
 
-            // Push modifications immediately tracking securely to storage
-            localStorage.setItem('salon_staff', JSON.stringify(activeStaff));
-            localStorage.setItem('salon_attendance', JSON.stringify(parsedLedger));
+            // Logic for today's reset
+            const todayRecord = ledgerMap[todayKey];
+            if (!todayRecord) {
+                // Initialize today's status as "Present" if no record exists
+                await Promise.all(staffData.map(s => 
+                    AttendanceDB.upsert({ staff_id: s.id!, staff_name: s.name, date: todayKey, status: "Present" })
+                ));
+                // Reload to get today's record
+                const updatedLedger = await AttendanceDB.listAll();
+                const newLedgerMap: Record<string, Record<string, string>> = {};
+                updatedLedger.forEach(record => {
+                    if (!newLedgerMap[record.date]) newLedgerMap[record.date] = {};
+                    newLedgerMap[record.date][record.staff_id] = record.status;
+                });
+                setAttendanceLedger(newLedgerMap);
+            }
+        } catch (error) {
+            console.error("Failed to load staff data:", error);
+        } finally {
+            setLoading(false);
         }
-
-        setStaffMembers(activeStaff);
-        setAttendanceLedger(parsedLedger);
-        setIsLoaded(true);
-    }, []);
+    };
 
     useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem('salon_staff', JSON.stringify(staffMembers));
-        }
-    }, [staffMembers, isLoaded]);
+        loadData();
+    }, []);
 
-    const handleFormSave = (e: React.FormEvent) => {
+
+    const handleFormSave = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (editingId !== null) {
-            setStaffMembers(staffMembers.map(s => s.id === editingId ? { ...s, name: formData.name, email: formData.email, role: formData.role, contact: formData.phone, schedule: formData.schedule } : s));
-        } else {
-            const numPart = staffMembers.length > 0 ? Math.max(...staffMembers.map(s => parseInt(s.id.split('-')[1] || "0"))) + 1 : 1;
-            const newId = `EMP-${numPart.toString().padStart(2, '0')}`;
-
-            setStaffMembers([...staffMembers, {
-                id: newId,
-                name: formData.name,
-                email: formData.email,
-                role: formData.role,
-                contact: formData.phone,
-                schedule: formData.schedule || "Mon-Fri",
-                status: "Present"
-            }]);
-
-            addNotification("New Staff Added", `${formData.name} was successfully registered as ${formData.role}.`, "system");
+        try {
+            if (editingId !== null) {
+                await StaffDB.update(editingId, {
+                    name: formData.name,
+                    email: formData.email,
+                    role: formData.role,
+                    phone: formData.phone,
+                    schedule: formData.schedule
+                });
+                addNotification("Staff Updated", `${formData.name} updated successfully.`, "system");
+            } else {
+                await StaffDB.create({
+                    name: formData.name,
+                    email: formData.email,
+                    role: formData.role,
+                    phone: formData.phone,
+                    schedule: formData.schedule || "Mon-Fri",
+                    status: "Present"
+                });
+                addNotification("New Staff Added", `${formData.name} was successfully registered as ${formData.role}.`, "system");
+            }
+            await loadData();
+            setIsFormModalOpen(false);
+            setEditingId(null);
+            setFormData({ name: "", email: "", phone: "", role: "", schedule: "" });
+        } catch (error: any) {
+            console.error("Save staff failed:", error);
+            alert(`Failed to save staff member: ${error.message || "Unknown error"}`);
         }
-
-        setIsFormModalOpen(false);
-        setEditingId(null);
-        setFormData({ name: "", email: "", phone: "", role: "", schedule: "" });
     };
 
     const handleEditClick = (staff: any) => {
@@ -167,7 +178,7 @@ export default function StaffPage() {
         setFormData({
             name: staff.name,
             email: staff.email || "",
-            phone: staff.contact || "",
+            phone: staff.phone || "",
             role: staff.role,
             schedule: staff.schedule || ""
         });
@@ -179,23 +190,36 @@ export default function StaffPage() {
         setIsDeleteModalOpen(true);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (staffToDelete !== null) {
-            setStaffMembers(staffMembers.filter(s => s.id !== staffToDelete));
+            try {
+                await StaffDB.remove(staffToDelete);
+                await loadData();
+            } catch (error) {
+                console.error("Delete failed:", error);
+                alert("Failed to delete staff.");
+            }
         }
         setIsDeleteModalOpen(false);
         setStaffToDelete(null);
     };
 
-    const updateStaffStatus = (id: string, newStatus: string) => {
-        setStaffMembers(prev => prev.map(staff => staff.id === id ? { ...staff, status: newStatus } : staff));
-
-        const updatedLedger = { ...attendanceLedger };
-        if (!updatedLedger[todayKey]) updatedLedger[todayKey] = {};
-        updatedLedger[todayKey] = { ...updatedLedger[todayKey], [id]: newStatus };
-
-        setAttendanceLedger(updatedLedger);
-        localStorage.setItem('salon_attendance', JSON.stringify(updatedLedger));
+    const updateStaffStatus = async (id: string, newStatus: string) => {
+        try {
+            await Promise.all([
+                StaffDB.update(id, { status: newStatus }),
+                AttendanceDB.upsert({ staff_id: id, staff_name: staffMembers.find(s => s.id === id)?.name || "", date: todayKey, status: newStatus })
+            ]);
+            
+            // Local update for responsiveness
+            setStaffMembers(prev => prev.map(staff => staff.id === id ? { ...staff, status: newStatus } : staff));
+            setAttendanceLedger(prev => ({
+                ...prev,
+                [todayKey]: { ...prev[todayKey], [id]: newStatus }
+            }));
+        } catch (error) {
+            console.error("Failed to update status:", error);
+        }
     };
 
     // Calendar generation logic
@@ -272,7 +296,7 @@ export default function StaffPage() {
                         status = attendanceLedger[scanKey][staffId];
                     } else if (scanKey === todayKey) {
                         const liveStaff = staffMembers.find(s => s.id === staffId);
-                        if (liveStaff) status = liveStaff.status;
+                        if (liveStaff) status = liveStaff.status || "Present";
                     }
 
                     history.push({
@@ -299,7 +323,7 @@ export default function StaffPage() {
             } else if (scanKey === todayKey) {
                 // If it is today, fetch active dynamic state if ledger hasn't completely synced visually
                 const liveStaff = staffMembers.find(s => s.id === staffId);
-                if (liveStaff) status = liveStaff.status;
+                if (liveStaff) status = liveStaff.status || "Present";
             }
 
             history.push({
@@ -314,7 +338,7 @@ export default function StaffPage() {
 
     const filteredStaff = staffMembers.filter(s =>
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.role.toLowerCase().includes(searchQuery.toLowerCase())
+        (s.role || "").toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const totalPages = Math.max(1, Math.ceil(filteredStaff.length / itemsPerPage));
@@ -394,7 +418,7 @@ export default function StaffPage() {
                                             <span className="font-bold text-sm whitespace-nowrap">{staff.name}</span>
                                         </div>
                                         <button
-                                            onClick={() => setSelectedAttendanceStaff(staff.id)}
+                                            onClick={() => staff.id && setSelectedAttendanceStaff(staff.id)}
                                             className="text-[10px] sm:text-xs font-bold px-3 py-1.5 bg-white text-pink-600 rounded-lg shadow-sm hover:bg-gray-50 transition-all whitespace-nowrap active:scale-95"
                                         >
                                             View Logs
@@ -510,7 +534,7 @@ export default function StaffPage() {
                 <div>
                     <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-pink-200 overflow-hidden h-full flex flex-col">
                         <div className="overflow-x-auto w-full flex-1">
-                            <table className="w-full text-left border-separate min-w-max" style={{ borderSpacing: "0 8px" }}>
+                            <table className="w-full text-left border-separate min-w-max" style={{ borderSpacing: "0 6px" }}>
                                 <thead>
                                     <tr>
                                         <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Employee</th>
@@ -525,7 +549,7 @@ export default function StaffPage() {
                                 <tbody>
                                     {paginatedStaff.map((staff) => (
                                         <tr key={staff.id} className="bg-gray-50/50 hover:bg-pink-50/50 transition-all shadow-sm group">
-                                            <td className="py-3.5 px-4 text-sm font-bold text-gray-900 rounded-l-xl border border-transparent group-hover:border-pink-200 border-r-0 whitespace-nowrap">
+                                            <td className="py-2.5 px-4 text-sm font-bold text-gray-900 rounded-l-xl border border-transparent group-hover:border-pink-200 border-r-0 whitespace-nowrap">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-9 h-9 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 font-bold text-sm shrink-0 shadow-sm">
                                                         {staff.name.charAt(0)}
@@ -533,13 +557,14 @@ export default function StaffPage() {
                                                     {staff.name}
                                                 </div>
                                             </td>
-                                            <td className="py-3.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{staff.role}</td>
-                                            <td className="py-3.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{staff.email || "N/A"}</td>
-                                            <td className="py-3.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{staff.contact}</td>
-                                            <td className="py-3.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{staff.schedule}</td>
-                                            <td className="py-3.5 px-4 text-sm text-center border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">
+                                            <td className="py-2.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{staff.role}</td>
+                                            <td className="py-2.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{staff.email || "N/A"}</td>
+                                            <td className="py-2.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{staff.phone || "N/A"}</td>
+                                            <td className="py-2.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{staff.schedule}</td>
+                                            <td className="py-2.5 px-4 text-sm text-center border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">
                                                 <button
                                                     onClick={() => {
+                                                        if (!staff.id) return;
                                                         const nextStatus = staff.status === 'Present' ? 'Absent' : staff.status === 'Absent' ? 'On Leave' : 'Present';
                                                         updateStaffStatus(staff.id, nextStatus);
                                                     }}
@@ -552,12 +577,12 @@ export default function StaffPage() {
                                                     {staff.status}
                                                 </button>
                                             </td>
-                                            <td className="py-3.5 px-4 text-sm rounded-r-xl border border-transparent group-hover:border-pink-200 border-l-0 text-center whitespace-nowrap">
+                                            <td className="py-2.5 px-4 text-sm rounded-r-xl border border-transparent group-hover:border-pink-200 border-l-0 text-center whitespace-nowrap">
                                                 <div className="flex items-center justify-center gap-3">
-                                                    <button onClick={() => handleEditClick(staff)} className="p-2 bg-white text-pink-500 rounded-xl border border-pink-200 shadow-sm hover:bg-pink-50 hover:scale-105 transition-all" title="Edit">
+                                                    <button onClick={() => staff.id && handleEditClick(staff)} className="p-2 bg-white text-pink-500 rounded-xl border border-pink-200 shadow-sm hover:bg-pink-50 hover:scale-105 transition-all" title="Edit">
                                                         <Edit2 className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => handleDeleteClick(staff.id)} className="p-2 bg-white text-red-500 rounded-xl border border-red-200 shadow-sm hover:bg-red-50 hover:scale-105 transition-all" title="Delete">
+                                                    <button onClick={() => staff.id && handleDeleteClick(staff.id)} className="p-2 bg-white text-red-500 rounded-xl border border-red-200 shadow-sm hover:bg-red-50 hover:scale-105 transition-all" title="Delete">
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </div>
@@ -650,82 +675,82 @@ export default function StaffPage() {
                         </div>
 
                         <form onSubmit={handleFormSave} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Name</label>
-                                <input
-                                    type="text"
-                                    required
-                                    className="w-full px-4 py-3 rounded-xl border border-pink-100 bg-gray-50 focus:bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all font-medium"
-                                    placeholder="e.g. Lily Woods"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                />
-                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="sm:col-span-2">
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Full Name</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        className="w-full px-4 py-2.5 rounded-xl border border-pink-100 bg-gray-50 focus:bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all font-medium"
+                                        placeholder="e.g. Lily Woods"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    />
+                                </div>
 
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Email</label>
-                                <input
-                                    type="email"
-                                    required
-                                    className="w-full px-4 py-3 rounded-xl border border-pink-100 bg-gray-50 focus:bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all font-medium"
-                                    placeholder="e.g. employee@gmail.com"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                />
-                            </div>
+                                <div className="sm:col-span-2">
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Email Address</label>
+                                    <input
+                                        type="email"
+                                        required
+                                        className="w-full px-4 py-2.5 rounded-xl border border-pink-100 bg-gray-50 focus:bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all font-medium"
+                                        placeholder="e.g. employee@gmail.com"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    />
+                                </div>
 
-                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Phone</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Phone Number</label>
                                     <input
                                         type="tel"
                                         required
                                         pattern="[0-9]{11}"
                                         maxLength={11}
-                                        className="w-full px-4 py-3 rounded-xl border border-pink-100 bg-gray-50 focus:bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all font-medium"
-                                        placeholder="11 digits"
+                                        className="w-full px-4 py-2.5 rounded-xl border border-pink-100 bg-gray-50 focus:bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all font-medium"
+                                        placeholder="09..."
                                         value={formData.phone}
                                         onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Role</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Professional Role</label>
                                     <input
                                         type="text"
                                         required
-                                        className="w-full px-4 py-3 rounded-xl border border-pink-100 bg-gray-50 focus:bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all font-medium"
+                                        className="w-full px-4 py-2.5 rounded-xl border border-pink-100 bg-gray-50 focus:bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all font-medium"
                                         placeholder="e.g. Artist"
                                         value={formData.role}
                                         onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                                     />
                                 </div>
+
+                                <div className="sm:col-span-2">
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Working Schedule</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        className="w-full px-4 py-2.5 rounded-xl border border-pink-100 bg-gray-50 focus:bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all font-medium"
+                                        placeholder="e.g. Mon-Fri (9AM-6PM)"
+                                        value={formData.schedule}
+                                        onChange={(e) => setFormData({ ...formData, schedule: e.target.value })}
+                                    />
+                                </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Schedule</label>
-                                <input
-                                    type="text"
-                                    required
-                                    className="w-full px-4 py-3 rounded-xl border border-pink-100 bg-gray-50 focus:bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all font-medium"
-                                    placeholder="e.g. Mon-Fri"
-                                    value={formData.schedule}
-                                    onChange={(e) => setFormData({ ...formData, schedule: e.target.value })}
-                                />
-                            </div>
-
-                            <div className="pt-6 flex gap-3">
+                            <div className="pt-4 flex gap-3 border-t border-pink-50 mt-2">
                                 <button
                                     type="button"
                                     onClick={() => setIsFormModalOpen(false)}
-                                    className="flex-1 px-4 py-3 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-bold transition-colors shadow-sm"
+                                    className="flex-1 px-4 py-2.5 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-xl font-bold transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-[2] px-4 py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold transition-all shadow-md hover:shadow-lg active:scale-95"
+                                    className="flex-[2] px-4 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold transition-all shadow-md active:scale-95"
                                 >
-                                    Save Profile
+                                    {editingId ? "Update Profile" : "Register Staff"}
                                 </button>
                             </div>
                         </form>
@@ -778,7 +803,7 @@ export default function StaffPage() {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6 w-full md:w-auto flex-1">
                                             <div>
                                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Phone</p>
-                                                <p className="text-sm font-semibold text-gray-800">{staff.contact || 'N/A'}</p>
+                                                <p className="text-sm font-semibold text-gray-800">{staff.phone || 'N/A'}</p>
                                             </div>
                                             <div>
                                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Email</p>

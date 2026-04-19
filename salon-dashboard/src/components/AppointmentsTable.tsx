@@ -1,8 +1,10 @@
 "use client";
 
-import { ArrowUpRight, Edit2, Trash2, Clock } from "lucide-react";
+import { ArrowUpRight, Clock, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Appointments, type Appointment } from "@/lib/db";
+import AppointmentDetailsModal from "./AppointmentDetailsModal";
 
 function formatAMPM(timeStr: string) {
     if (!timeStr) return '';
@@ -18,76 +20,80 @@ function formatAMPM(timeStr: string) {
 }
 
 export default function AppointmentsTable() {
-    const [appointments, setAppointments] = useState<any[]>([]);
+    const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [loading, setLoading] = useState(true);
+    
+    // Details Modal State
+    const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+    const [selectedAptDetails, setSelectedAptDetails] = useState<any | null>(null);
+
+    const loadData = async () => {
+        try {
+            setLoading(true);
+            const allAppointments = await Appointments.list();
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayTime = today.getTime();
+            
+            // Helper to get time
+            const getAptTime = (apt: Appointment) => {
+                try {
+                    const d = new Date(apt.appointment_date);
+                    if (apt.appointment_time) {
+                        const timeMatch = apt.appointment_time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+                        if (timeMatch) {
+                            let h = parseInt(timeMatch[1], 10);
+                            const m = parseInt(timeMatch[2], 10);
+                            const ampm = timeMatch[3]?.toUpperCase();
+                            if (ampm === "PM" && h < 12) h += 12;
+                            if (ampm === "AM" && h === 12) h = 0;
+                            d.setHours(h, m, 0, 0);
+                        }
+                    }
+                    return d.getTime() || 0;
+                } catch {
+                    return 0;
+                }
+            };
+
+            const upcomingApps = allAppointments.filter((apt) => {
+                if (apt.status === "Cancelled" || apt.status === "Completed") return false;
+                const aptTime = getAptTime(apt);
+                return aptTime >= todayTime;
+            });
+
+            // Sort by closest date first
+            upcomingApps.sort((a, b) => {
+                return getAptTime(a) - getAptTime(b);
+            });
+
+            setAppointments(upcomingApps.slice(0, 5));
+        } catch (error) {
+            console.error("Failed to load dashboard appointments:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const loadData = () => {
-            const savedAppointments = localStorage.getItem('salon_appointments');
-            if (savedAppointments) {
-                const allAppointments = JSON.parse(savedAppointments);
-                
-                const now = new Date().getTime();
-                
-                // Helper to get time
-                const getAptTime = (apt: any) => {
-                    try {
-                        let d: Date;
-                        if (/^\d{4}-\d{2}-\d{2}$/.test(apt.date)) {
-                            const [y, m, day] = apt.date.split("-").map(Number);
-                            d = new Date(y, m - 1, day);
-                        } else {
-                            d = new Date(apt.date);
-                        }
-                        
-                        if (apt.time) {
-                            const timeMatch = apt.time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
-                            if (timeMatch) {
-                                let h = parseInt(timeMatch[1], 10);
-                                const m = parseInt(timeMatch[2], 10);
-                                const ampm = timeMatch[3]?.toUpperCase();
-                                if (ampm === "PM" && h < 12) h += 12;
-                                if (ampm === "AM" && h === 12) h = 0;
-                                d.setHours(h, m, 0, 0);
-                            }
-                        }
-                        return d.getTime() || 0;
-                    } catch {
-                        return 0;
-                    }
-                };
-
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const todayTime = today.getTime();
-                
-                const upcomingApps = allAppointments.filter((apt: any) => {
-                    if (apt.status === "Cancelled" || apt.status === "Completed") return false;
-                    const aptTime = getAptTime(apt);
-                    // Show appointments from today onwards
-                    return aptTime >= todayTime;
-                });
-
-                // Sort by closest date first
-                upcomingApps.sort((a: any, b: any) => {
-                    return getAptTime(a) - getAptTime(b);
-                });
-
-                setAppointments(upcomingApps.slice(0, 5));
-            }
-        };
-
         loadData();
-
-        // Auto-refresh every minute to remove appointments that have passed
         const interval = setInterval(loadData, 60000);
-
-        window.addEventListener('storage', loadData);
-        
-        return () => {
-            clearInterval(interval);
-            window.removeEventListener('storage', loadData);
-        };
+        return () => clearInterval(interval);
     }, []);
+
+    const handleViewDetails = (apt: any) => {
+        setSelectedAptDetails(apt);
+        setIsDetailsModalOpen(true);
+    };
+
+    if (loading) {
+        return (
+            <div className="bg-white rounded-3xl p-8 shadow-sm border border-pink-200 flex items-center justify-center h-[300px]">
+                <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+            </div>
+        );
+    }
 
     return (
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-pink-200 flex flex-col h-full relative">
@@ -109,21 +115,27 @@ export default function AppointmentsTable() {
                             <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase whitespace-nowrap">Customer</th>
                             <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase whitespace-nowrap">Service</th>
                             <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase whitespace-nowrap">Staff</th>
+                            <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase whitespace-nowrap">Booked Via</th>
                             <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase whitespace-nowrap">Price</th>
                             <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase whitespace-nowrap w-[120px] text-center">Status</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {appointments.slice(0, 5).map((apt: any) => (
+                        {appointments.slice(0, 5).map((apt) => (
                             <tr key={apt.id} className="bg-gray-50/50 hover:bg-pink-50/50 transition-all shadow-sm group">
-                                <td className="py-3 px-4 text-sm font-medium text-gray-900 rounded-l-xl border border-transparent group-hover:border-pink-200 border-r-0">{formatAMPM(apt.time)}</td>
-                                <td className="py-3 px-4 text-sm font-semibold text-gray-900 border border-transparent group-hover:border-pink-200 border-x-0">{apt.customer}</td>
-                                <td className="py-3 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0">{apt.service}</td>
-                                <td className="py-3 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0">{apt.staff}</td>
-                                <td className="py-3 px-4 text-sm font-semibold text-gray-900 border border-transparent group-hover:border-pink-200 border-x-0">{apt.price}</td>
+                                <td className="py-3 px-4 text-sm font-medium text-gray-900 rounded-l-xl border border-transparent group-hover:border-pink-200 border-r-0">{formatAMPM(apt.appointment_time)}</td>
+                                <td className="py-3 px-4 text-sm font-semibold text-gray-900 border border-transparent group-hover:border-pink-200 border-x-0">
+                                    <div className="flex items-center gap-2">
+                                        <span>{apt.customers?.name || apt.customer_name || "Walk-in"}</span>
+                                    </div>
+                                </td>
+                                <td className="py-3 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0">{apt.services?.name || apt.service_name}</td>
+                                <td className="py-3 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0">{apt.staff?.name || apt.staff_name}</td>
+                                <td className="py-3 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0">{apt.source || "Walk-in"}</td>
+                                <td className="py-3 px-4 text-sm font-semibold text-gray-900 border border-transparent group-hover:border-pink-200 border-x-0">₱{(apt.services?.price || apt.price || 0).toLocaleString()}</td>
                                 <td className="py-3 px-4 text-sm text-center rounded-r-xl border border-transparent group-hover:border-pink-200 border-l-0">
                                     <span className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-tight border ${apt.status === 'Pending' ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                                        apt.status === 'Active' ? 'bg-pink-50 text-pink-600 border-pink-200' :
+                                        apt.status === 'Scheduled' ? 'bg-pink-50 text-pink-600 border-pink-200' :
                                             'bg-emerald-50 text-emerald-600 border-emerald-200'
                                         }`}>
                                         {apt.status}
@@ -133,7 +145,7 @@ export default function AppointmentsTable() {
                         ))}
                         {appointments.length === 0 && (
                             <tr>
-                                <td colSpan={6} className="py-6 text-center text-sm font-medium text-gray-500 bg-gray-50/50 rounded-xl border border-transparent">
+                                <td colSpan={7} className="py-6 text-center text-sm font-medium text-gray-500 bg-gray-50/50 rounded-xl border border-transparent">
                                     No appointments scheduled recently.
                                 </td>
                             </tr>
@@ -141,6 +153,13 @@ export default function AppointmentsTable() {
                     </tbody>
                 </table>
             </div>
+
+            {/* Appointment Details Modal */}
+            <AppointmentDetailsModal 
+                isOpen={isDetailsModalOpen}
+                onClose={() => setIsDetailsModalOpen(false)}
+                appointment={selectedAptDetails}
+            />
         </div>
     );
 }

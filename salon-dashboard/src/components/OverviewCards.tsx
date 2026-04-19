@@ -1,8 +1,9 @@
 "use client";
 
-import { CalendarIcon, Users, PhilippinePeso } from "lucide-react";
+import { CalendarIcon, Users, PhilippinePeso, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Appointments, Customers, Billing } from "@/lib/db";
 
 export default function OverviewCards() {
     const [stats, setStats] = useState({
@@ -11,70 +12,74 @@ export default function OverviewCards() {
         confirmedBookings: 0,
         totalCustomers: 0
     });
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const loadData = () => {
-            let revenue = 0;
-            let todaysBookings = 0;
-            let confirmedBookings = 0;
-            
-            const savedAppointments = localStorage.getItem('salon_appointments');
-            const now = new Date();
-            const todayStr = now.toDateString();
-            
-            if (savedAppointments) {
-                const appointments = JSON.parse(savedAppointments);
+        const loadData = async () => {
+            try {
+                setLoading(true);
+                const [appointments, customers] = await Promise.all([
+                    Appointments.list(),
+                    Customers.list()
+                ]);
+
+                let revenue = 0;
+                let todaysBookings = 0;
+                let confirmedBookings = 0;
                 
-                appointments.forEach((apt: any) => {
-                    // 1. Revenue: Only count completed bookings
+                const now = new Date();
+                const todayStr = now.toDateString();
+                
+                appointments.forEach((apt) => {
+                    // 1. Revenue: Only count completed bookings based on appointment date
                     if (apt.status === 'Completed') {
-                        // Use receiptDate (collected date) if available, fallback to date
-                        const pricePaid = apt.pricePaid || apt.price;
-                        const priceNum = parseInt(String(pricePaid).replace(/[^0-9]/g, '')) || 0;
-                        revenue += priceNum;
+                        revenue += (apt.price || apt.services?.price || 0);
                     }
                     
                     // 2. Bookings for today
-                    if (apt.date) {
-                        const aptDate = new Date(apt.date);
+                    if (apt.appointment_date) {
+                        const aptDate = new Date(apt.appointment_date);
                         if (!isNaN(aptDate.getTime()) && aptDate.toDateString() === todayStr) {
                             todaysBookings++;
-                            if (apt.status === 'Active' || apt.status === 'Completed') {
+                            if (apt.status === 'Scheduled' || apt.status === 'Completed') {
                                 confirmedBookings++;
                             }
                         }
                     }
                 });
-            }
 
-            let totalCustomers = 0;
-            const savedCustomers = localStorage.getItem('salon_customers');
-            if (savedCustomers) {
-                const customers = JSON.parse(savedCustomers);
-                totalCustomers = customers.length;
+                setStats({
+                    revenue,
+                    todaysBookings,
+                    confirmedBookings,
+                    totalCustomers: customers.length
+                });
+            } catch (error) {
+                console.error("Failed to load overview stats:", error);
+            } finally {
+                setLoading(false);
             }
-
-            setStats({
-                revenue,
-                todaysBookings,
-                confirmedBookings,
-                totalCustomers
-            });
         };
 
         loadData();
-        window.addEventListener('salon_appointments_changed', loadData);
-        window.addEventListener('storage', loadData);
-        return () => {
-            window.removeEventListener('salon_appointments_changed', loadData);
-            window.removeEventListener('storage', loadData);
-        };
     }, []);
+
+    if (loading) {
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                {[1, 2, 3].map(i => (
+                    <div key={i} className="bg-white rounded-2xl p-8 shadow-sm border border-pink-100 flex items-center justify-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-pink-200" />
+                    </div>
+                ))}
+            </div>
+        );
+    }
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <Link 
-                href="/appointment?status=Completed"
+                href="/billing?status=Paid"
                 className="bg-white rounded-2xl p-5 shadow-sm border border-pink-100 flex flex-col justify-between hover:bg-pink-50 transition-colors"
             >
                 <div className="flex justify-between items-start">

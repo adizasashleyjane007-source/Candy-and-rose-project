@@ -5,7 +5,6 @@ import {
     Package,
     CheckCircle,
     AlertTriangle,
-    XCircle,
     Search,
     Plus,
     ArrowLeft,
@@ -13,19 +12,15 @@ import {
     Edit2,
     Trash2,
     X,
-    Layers
+    Layers,
+    Loader2,
+    User,
+    XCircle,
 } from "lucide-react";
-import { useState, useEffect } from "react";
-import { addNotification } from "@/lib/notifications";
 
-interface InventoryItem {
-    id: number;
-    product: string;
-    service: string;
-    stock: number;
-    measurement: string;
-    status: string;
-}
+import { useState, useEffect, useRef, Suspense } from "react";
+import { addNotification } from "@/lib/notifications";
+import { Inventory, Services, type InventoryItem } from "@/lib/db";
 
 export default function InventoryPage() {
     const [searchQuery, setSearchQuery] = useState("");
@@ -35,13 +30,13 @@ export default function InventoryPage() {
     // Modal states
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [editingId, setEditingId] = useState<number | null>(null);
-    const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
     // Data states
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
     const [services, setServices] = useState<any[]>([]);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     const [formData, setFormData] = useState({
         product: "",
@@ -50,31 +45,25 @@ export default function InventoryPage() {
         measurement: ""
     });
 
-    const defaultInventory = [
-        { id: 1, product: "L'Oreal Hair Serum", service: "Haircut", stock: 45, measurement: "100ml", status: "In Stock" },
-        { id: 2, product: "OPI Nail Polish (Red)", service: "Manicure", stock: 12, measurement: "15ml", status: "Low Stock" },
-        { id: 3, product: "Keratin Treatment Pack", service: "Hair Color", stock: 0, measurement: "500g", status: "Out of Stock" }
-    ];
+    const loadData = async () => {
+        try {
+            setLoading(true);
+            const [invData, svcData] = await Promise.all([
+                Inventory.list(),
+                Services.list()
+            ]);
+            setInventory(invData);
+            setServices(svcData);
+        } catch (error) {
+            console.error("Failed to load inventory data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const savedInv = localStorage.getItem('salon_inventory');
-        const savedSvc = localStorage.getItem('salon_services');
-        
-        if (savedInv) setInventory(JSON.parse(savedInv));
-        else {
-            setInventory(defaultInventory);
-            localStorage.setItem('salon_inventory', JSON.stringify(defaultInventory));
-        }
-
-        if (savedSvc) setServices(JSON.parse(savedSvc));
-        setIsLoaded(true);
+        loadData();
     }, []);
-
-    useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem('salon_inventory', JSON.stringify(inventory));
-        }
-    }, [inventory, isLoaded]);
 
     const getStatus = (stock: number) => {
         if (stock === 0) return "Out of Stock";
@@ -82,24 +71,38 @@ export default function InventoryPage() {
         return "In Stock";
     };
 
-    const handleFormSave = (e: React.FormEvent) => {
+    const handleFormSave = async (e: React.FormEvent) => {
         e.preventDefault();
         const stockNum = parseInt(formData.stock) || 0;
         const status = getStatus(stockNum);
         
-        if (editingId !== null) {
-            setInventory(inventory.map(item => 
-                item.id === editingId ? { ...item, ...formData, stock: stockNum, status } : item
-            ));
-            addNotification("Product Updated", `${formData.product} has been updated.`, "system");
-        } else {
-            const newId = inventory.length > 0 ? Math.max(...inventory.map(i => i.id)) + 1 : 1;
-            setInventory([...inventory, { id: newId, ...formData, stock: stockNum, status }]);
-            addNotification("New Product Added", `${formData.product} was added to inventory.`, "system");
+        try {
+            if (editingId !== null) {
+                await Inventory.update(editingId, {
+                    name: formData.product,
+                    category: formData.service,
+                    quantity: stockNum,
+                    unit: formData.measurement,
+                    status
+                });
+                addNotification("Product Updated", `${formData.product} has been updated.`, "system");
+            } else {
+                await Inventory.create({
+                    name: formData.product,
+                    category: formData.service,
+                    quantity: stockNum,
+                    unit: formData.measurement,
+                    status
+                });
+                addNotification("New Product Added", `${formData.product} was added to inventory.`, "system");
+            }
+            await loadData();
+            setIsFormModalOpen(false);
+            resetForm();
+        } catch (error) {
+            console.error("Save failed:", error);
+            alert("Failed to save product.");
         }
-
-        setIsFormModalOpen(false);
-        resetForm();
     };
 
     const resetForm = () => {
@@ -108,34 +111,40 @@ export default function InventoryPage() {
     };
 
     const handleEditClick = (item: InventoryItem) => {
-        setEditingId(item.id);
+        setEditingId(item.id!);
         setFormData({
-            product: item.product,
-            service: item.service,
-            stock: item.stock.toString(),
-            measurement: item.measurement
+            product: item.name,
+            service: item.category || "",
+            stock: (item.quantity || 0).toString(),
+            measurement: item.unit || ""
         });
         setIsFormModalOpen(true);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (itemToDelete !== null) {
-            setInventory(inventory.filter(i => i.id !== itemToDelete));
-            addNotification("Product Deleted", "The item has been removed from inventory.", "system");
+            try {
+                await Inventory.remove(itemToDelete);
+                await loadData();
+                addNotification("Product Deleted", "The item has been removed from inventory.", "system");
+            } catch (error) {
+                console.error("Delete failed:", error);
+                alert("Failed to delete product.");
+            }
         }
         setIsDeleteModalOpen(false);
         setItemToDelete(null);
     };
 
     // Derived stats
-    const totalItems = inventory.reduce((sum, item) => sum + item.stock, 0);
+    const totalItems = inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
     const inStockCount = inventory.filter(i => i.status === 'In Stock').length;
     const lowStockCount = inventory.filter(i => i.status === 'Low Stock').length;
     const outOfStockCount = inventory.filter(i => i.status === 'Out of Stock').length;
 
     const filteredInventory = inventory.filter(item => {
-        const matchesSearch = item.product.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                             item.service.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                             (item.category || "").toLowerCase().includes(searchQuery.toLowerCase());
         return matchesSearch;
     });
 
@@ -144,13 +153,22 @@ export default function InventoryPage() {
 
     const categoryOptions = Array.from(new Set(services.map((s: any) => s.category || s.service || "General")));
 
+    if (loading) {
+        return (
+            <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-pink-50 via-white to-pink-100 items-center justify-center">
+                <Loader2 className="w-12 h-12 animate-spin text-pink-500" />
+                <p className="mt-4 text-gray-500 font-medium tracking-tight">Loading inventory...</p>
+            </div>
+        );
+    }
+
     return (
-        <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-pink-50 via-white to-pink-100 overflow-y-auto">
+        <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-pink-50 via-white to-pink-100 overflow-y-auto overflow-x-hidden">
             <Header />
-            <div className="px-8 pb-8 flex-1 max-w-7xl mx-auto w-full">
-                <div className="mb-8 mt-2">
-                    <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Inventory</h2>
-                    <p className="text-gray-500 mt-1 font-medium">Manage products and stock levels</p>
+            <div className="px-4 sm:px-8 pb-8 flex-1 max-w-7xl mx-auto w-full">
+                <div className="mb-6 mt-2">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Inventory</h2>
+                    <p className="text-sm sm:text-base text-gray-500 mt-1 font-medium">Manage products and stock levels</p>
                 </div>
 
                 {/* 4 Summary Cards */}
@@ -223,9 +241,9 @@ export default function InventoryPage() {
                 </div>
 
                 {/* Inventory Table Card */}
-                <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-pink-200 overflow-hidden">
+                <div className="bg-white rounded-3xl p-4 sm:p-8 shadow-sm border border-pink-200 overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-separate" style={{ borderSpacing: "0 10px" }}>
+                        <table className="w-full text-left border-separate" style={{ borderSpacing: "0 6px" }}>
                             <thead>
                                 <tr>
                                     <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Product</th>
@@ -239,18 +257,18 @@ export default function InventoryPage() {
                             <tbody>
                                 {paginatedInventory.map((item) => (
                                     <tr key={item.id} className="bg-gray-50/50 hover:bg-pink-50/50 transition-all shadow-sm group">
-                                        <td className="py-3.5 px-4 text-sm font-bold text-gray-900 rounded-l-xl border border-transparent group-hover:border-pink-200 border-r-0">
+                                        <td className="py-2.5 px-4 text-sm font-bold text-gray-900 rounded-l-xl border border-transparent group-hover:border-pink-200 border-r-0">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-lg bg-pink-100 flex items-center justify-center text-pink-600">
                                                     <Layers className="w-4 h-4" />
                                                 </div>
-                                                {item.product}
+                                                {item.name}
                                             </div>
                                         </td>
-                                        <td className="py-3.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0">{item.service}</td>
-                                        <td className="py-3.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0">{item.measurement || "N/A"}</td>
-                                        <td className="py-3.5 px-4 text-sm font-bold text-gray-900 border border-transparent group-hover:border-pink-200 border-x-0 text-center">{item.stock} unit(s)</td>
-                                        <td className="py-3.5 px-4 text-sm text-center border border-transparent group-hover:border-pink-200 border-x-0">
+                                        <td className="py-2.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0">{item.category || "N/A"}</td>
+                                        <td className="py-2.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0">{item.unit || "N/A"}</td>
+                                        <td className="py-2.5 px-4 text-sm font-bold text-gray-900 border border-transparent group-hover:border-pink-200 border-x-0 text-center">{item.quantity} unit(s)</td>
+                                        <td className="py-2.5 px-4 text-sm text-center border border-transparent group-hover:border-pink-200 border-x-0">
                                             <span className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border shadow-sm whitespace-nowrap ${
                                                 item.status === 'Low Stock' ? 'bg-amber-50 text-amber-600 border-amber-200' :
                                                 item.status === 'Out of Stock' ? 'bg-red-50 text-red-600 border-red-200' :
@@ -259,12 +277,12 @@ export default function InventoryPage() {
                                                 {item.status}
                                             </span>
                                         </td>
-                                        <td className="py-3.5 px-4 text-sm rounded-r-xl border border-transparent group-hover:border-pink-200 border-l-0">
+                                        <td className="py-2.5 px-4 text-sm rounded-r-xl border border-transparent group-hover:border-pink-200 border-l-0">
                                             <div className="flex items-center justify-center gap-2">
                                                 <button onClick={() => handleEditClick(item)} className="p-2 bg-white text-pink-500 rounded-xl border border-pink-100 shadow-sm hover:bg-pink-100 transition-all hover:scale-105" title="Edit">
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>
-                                                <button onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }} className="p-2 bg-white text-red-500 rounded-xl border border-red-100 shadow-sm hover:bg-red-100 transition-all hover:scale-105" title="Delete">
+                                                <button onClick={() => { setItemToDelete(item.id!); setIsDeleteModalOpen(true); }} className="p-2 bg-white text-red-500 rounded-xl border border-red-100 shadow-sm hover:bg-red-100 transition-all hover:scale-105" title="Delete">
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
@@ -331,29 +349,29 @@ export default function InventoryPage() {
                             <p className="text-sm text-gray-500 font-medium mt-1">Fill in the details for your salon inventory.</p>
                         </div>
 
-                        <form onSubmit={handleFormSave} className="space-y-5">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Product Name</label>
-                                <div className="relative">
-                                    <Package className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-pink-400" />
-                                    <input
-                                        type="text"
-                                        required
-                                        className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-pink-50 rounded-2xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition-all font-bold text-gray-900"
-                                        placeholder="e.g. Keratin Serum"
-                                        value={formData.product}
-                                        onChange={e => setFormData({ ...formData, product: e.target.value })}
-                                    />
+                        <form onSubmit={handleFormSave} className="space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="sm:col-span-2 space-y-1.5">
+                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Product Name</label>
+                                    <div className="relative">
+                                        <Package className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-pink-400" />
+                                        <input
+                                            type="text"
+                                            required
+                                            className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition-all font-bold text-gray-900"
+                                            placeholder="e.g. Keratin Serum"
+                                            value={formData.product}
+                                            onChange={e => setFormData({ ...formData, product: e.target.value })}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Stock Amount</label>
                                     <input
                                         type="number"
                                         required
-                                        className="w-full px-4 py-3 bg-gray-50 border border-pink-50 rounded-2xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition-all font-bold text-gray-900"
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition-all font-bold text-gray-900"
                                         placeholder="0"
                                         value={formData.stock}
                                         onChange={e => setFormData({ ...formData, stock: e.target.value })}
@@ -363,33 +381,33 @@ export default function InventoryPage() {
                                     <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Measurement</label>
                                     <input
                                         type="text"
-                                        className="w-full px-4 py-3 bg-gray-50 border border-pink-50 rounded-2xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition-all font-bold text-gray-900"
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition-all font-bold text-gray-900"
                                         placeholder="e.g. 500ml"
                                         value={formData.measurement}
                                         onChange={e => setFormData({ ...formData, measurement: e.target.value })}
                                     />
                                 </div>
+
+                                <div className="sm:col-span-2 space-y-1.5">
+                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Associated Service</label>
+                                    <select
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition-all font-bold text-gray-900 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%23fb7185%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1em_1em] bg-[right_1rem_center] bg-no-repeat cursor-pointer"
+                                        value={formData.service}
+                                        onChange={e => setFormData({ ...formData, service: e.target.value })}
+                                    >
+                                        <option value="">Select Category</option>
+                                        {categoryOptions.map((o: string) => (
+                                            <option key={o} value={o}>{o}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
 
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Associated Service</label>
-                                <select
-                                    className="w-full px-4 py-3 bg-gray-50 border border-pink-50 rounded-2xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none transition-all font-bold text-gray-900 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%23fb7185%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1em_1em] bg-[right_1rem_center] bg-no-repeat"
-                                    value={formData.service}
-                                    onChange={e => setFormData({ ...formData, service: e.target.value })}
-                                >
-                                    <option value="">Select Category</option>
-                                    {categoryOptions.map((o: string) => (
-                                        <option key={o} value={o}>{o}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="flex gap-3 pt-6">
-                                <button type="button" onClick={() => setIsFormModalOpen(false)} className="flex-1 px-6 py-3.5 bg-gray-50 text-gray-600 rounded-full font-bold hover:bg-gray-100 transition-all border border-gray-100">
+                            <div className="flex gap-3 pt-6 border-t border-pink-50 mt-2">
+                                <button type="button" onClick={() => setIsFormModalOpen(false)} className="flex-1 px-6 py-2.5 bg-gray-50 text-gray-600 rounded-full font-bold hover:bg-gray-100 transition-all border border-gray-100 uppercase text-xs tracking-widest">
                                     Cancel
                                 </button>
-                                <button type="submit" className="flex-[2] px-6 py-3.5 bg-pink-500 text-white rounded-full font-black shadow-lg shadow-pink-200 hover:bg-pink-600 transition-all hover:scale-[1.02] active:scale-95">
+                                <button type="submit" className="flex-[2] px-6 py-2.5 bg-pink-500 text-white rounded-full font-black shadow-lg shadow-pink-200 hover:bg-pink-600 transition-all hover:scale-[1.02] active:scale-95 uppercase text-xs tracking-widest">
                                     {editingId ? "Update Product" : "Save Product"}
                                 </button>
                             </div>
