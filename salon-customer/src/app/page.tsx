@@ -485,12 +485,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white font-sans selection:bg-pink-500 selection:text-white">
-
-      {/* Top Banner */}
-      <div className="bg-pink-500 text-white text-[9px] py-2 text-center uppercase tracking-[0.2em] font-bold w-full relative z-[60]">
-        FREE LUXURY UPGRADE ON SERVICES OVER ₱1000
-      </div>
-
+      
       {/* Header & Navigation */}
       <Header 
         salonInfo={salonInfo} 
