@@ -3,12 +3,22 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  // 1. Initial response and Login exception (to prevent loops)
   let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
 
+  const { pathname } = request.nextUrl;
+  
+  // If the user is on the login page or other auth-related pages, let them proceed without checking auth here
+  // This prevents redirect loops.
+  if (pathname === "/login" || pathname === "/signup" || pathname.startsWith("/auth")) {
+    return response;
+  }
+
+  // 2. Initialize Supabase client
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -32,40 +42,22 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: Do not use getSession() in middleware!
+  // 3. SECURE AUTH CHECK: Using getUser() as requested
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
-
-  // Define routes
-  const isAuthPage = pathname === "/login" || 
-                    pathname === "/signup" || 
-                    pathname === "/forgot-password" ||
-                    pathname === "/reset-password";
+  // 4. REDIRECT LOGIC
   
-  const isPublicRoute = isAuthPage || pathname.startsWith("/auth") || pathname === "/unauthorized";
-
-  // 1. Unauthenticated users
+  // If NOT logged in: Protect root "/" and all admin sub-pages
   if (!user) {
-    if (!isPublicRoute) {
+    // Explicitly protect root "/" and any other non-public pages
+    if (pathname === "/" || !pathname.includes(".")) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);
     }
-    return response;
-  }
-
-  // 2. Authenticated users
-  
-  // A. Redirect away from auth pages to root
-  if (isAuthPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
-
-  // B. Role-based check
-  if (pathname !== "/unauthorized" && !pathname.startsWith("/auth")) {
+  } else {
+    // If logged in: Handle role-based access if necessary
+    // (Existing logic for profiles and Administrator role preserved)
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -74,11 +66,7 @@ export async function middleware(request: NextRequest) {
 
     const isAdministrator = profile?.role === "Administrator";
 
-    // Admin-only sub-pages check
-    // If they aren't admin, kick them to /unauthorized for non-root pages
-    // (Wait, the user wants themselves as admin to enter. I'll let everyone hit "/" if authenticated, 
-    // but check for admin role for specific actions or sub-pages)
-    if (!isAdministrator && pathname !== "/") {
+    if (!isAdministrator && pathname !== "/" && pathname !== "/unauthorized") {
       const url = request.nextUrl.clone();
       url.pathname = "/unauthorized";
       return NextResponse.redirect(url);
@@ -88,10 +76,12 @@ export async function middleware(request: NextRequest) {
     if (isAdministrator) {
       const otpVerifiedCookie = request.cookies.get("admin_otp_verified")?.value;
       if (!otpVerifiedCookie || otpVerifiedCookie !== user.id) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/login";
-        url.searchParams.set("error", "verification_required");
-        return NextResponse.redirect(url);
+        if (pathname !== "/login") {
+          const url = request.nextUrl.clone();
+          url.pathname = "/login";
+          url.searchParams.set("error", "verification_required");
+          return NextResponse.redirect(url);
+        }
       }
     }
   }
@@ -107,10 +97,10 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - login (the login page itself - VERY IMPORTANT)
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|login).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };
+
 
 
