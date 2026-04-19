@@ -1,0 +1,122 @@
+// Final Vercel Fix
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  // This will also refresh the session if it's expired but still valid
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+
+  // Define route types
+  const isAuthPage = pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/update-password");
+
+  const isAuthCallback = pathname.startsWith("/auth/callback");
+  const isUnauthorizedPage = pathname.startsWith("/unauthorized");
+  
+  // Public assets and API are already excluded by the matcher, 
+  // but we can explicitly allow them here if needed.
+  const isPublicRoute = isAuthPage || isAuthCallback || isUnauthorizedPage;
+
+  // Handle Authentication Redirects
+  if (!user) {
+    // Not Logged In: Redirect to login if trying to access any protected route (including root "/")
+    if (!isPublicRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+  } else {
+    // Already Logged In
+    
+    // 1. Redirect away from auth pages to dashboard
+    if (isAuthPage) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
+
+    // 2. Role-based Authorization check
+    // We only perform this check if they aren't already on the unauthorized page
+    if (!isUnauthorizedPage && !isAuthCallback) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      const isAdministrator = profile?.role === "Administrator";
+
+      // SECONDARY OTP CHECK FOR ADMINISTRATORS (Existing logic preserved)
+      if (isAdministrator) {
+        const otpVerifiedCookie = request.cookies.get("admin_otp_verified")?.value;
+        
+        // If Admin is logged in but has no valid OTP verification cookie
+        if (!otpVerifiedCookie || otpVerifiedCookie !== user.id) {
+          // If they aren't on the login page (where OTP prompt is shown)
+          if (!isAuthPage) {
+            const url = request.nextUrl.clone();
+            url.pathname = "/login";
+            url.searchParams.set("error", "verification_required");
+            return NextResponse.redirect(url);
+          }
+        }
+      }
+
+      // If they are NOT an administrator, they can only see the unauthorized page or self-profile (if exists)
+      // For now, let's keep the existing logic: restrict almost everything to Admins
+      if (!isAdministrator && pathname !== "/unauthorized" && pathname !== "/") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/unauthorized";
+        return NextResponse.redirect(url);
+      }
+    }
+  }
+
+  return response;
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - images, logos, etc (from public folder)
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
+};
+
