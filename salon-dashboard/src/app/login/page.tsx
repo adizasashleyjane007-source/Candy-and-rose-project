@@ -212,7 +212,13 @@ function LoginContent() {
       }
       
       // If not admin, proceed normally
-      router.push("/");
+      const pendingAptId = localStorage.getItem("pending_appointment_id");
+      if (pendingAptId) {
+        localStorage.removeItem("pending_appointment_id");
+        router.push(`/?viewApt=${pendingAptId}`);
+      } else {
+        router.push("/");
+      }
       router.refresh();
     }
   };
@@ -262,7 +268,13 @@ function LoginContent() {
       if (result.success) {
         setOtpSuccess(true);
         setTimeout(() => {
-          router.push("/");
+          const pendingAptId = localStorage.getItem("pending_appointment_id");
+          if (pendingAptId) {
+            localStorage.removeItem("pending_appointment_id");
+            router.push(`/?viewApt=${pendingAptId}`);
+          } else {
+            router.push("/");
+          }
           router.refresh();
         }, 1500);
       } else {

@@ -12,7 +12,8 @@ export async function POST(request: Request) {
       time, 
       service, 
       price, 
-      staff 
+      staff,
+      checkoutUrl
     } = await request.json();
 
     if (!process.env.RESEND_API_KEY) {
@@ -65,6 +66,17 @@ export async function POST(request: Request) {
               </tr>
             </table>
           </div>
+
+          ${checkoutUrl ? `
+          <div style="text-align: center; margin: 40px 0;">
+            <a href="${checkoutUrl}" style="background-color: #ec4899; color: #ffffff; padding: 18px 32px; border-radius: 16px; text-decoration: none; font-weight: 800; font-size: 16px; display: inline-block; box-shadow: 0 10px 20px rgba(236, 72, 153, 0.2);">
+              Complete Your Payment
+            </a>
+            <p style="color: #9ca3af; font-size: 12px; margin-top: 15px;">
+              Secure payment powered by PayMongo
+            </p>
+          </div>
+          ` : ''}
 
           <p style="color: #4b5563; font-size: 14px; text-align: center; font-style: italic;">
             We look forward to seeing you soon! If you need to reschedule, please contact us at least 24 hours in advance.
