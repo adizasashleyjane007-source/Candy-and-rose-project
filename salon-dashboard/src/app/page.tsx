@@ -1,6 +1,6 @@
-export const dynamic = 'force-dynamic';
-"use client";
+"use client"; // If you are using hooks like useRouter, this MUST be line 1
 
+export const dynamic = 'force-dynamic'; // This tells Vercel not to cache the dashboard
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
