@@ -21,6 +21,7 @@ import {
   ArrowRight,
   X
 } from "lucide-react";
+import Header from "../components/Header";
 
 interface Appointment {
   id?: string | number;
@@ -490,29 +491,15 @@ export default function LandingPage() {
         FREE LUXURY UPGRADE ON SERVICES OVER ₱1000
       </div>
 
-      {/* Navbar */}
-      <nav className="sticky top-0 inset-x-0 bg-black z-50 border-b border-gray-900">
-        <div className="w-full px-8 md:px-12 xl:px-16 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <img src="/LOGO.jpg" alt="Candy & Rose Logo" className="w-12 h-12 rounded-full object-cover shrink-0 shadow-[0_0_15px_rgba(255,20,147,0.3)]" />
-            <span className="font-serif italic font-medium text-3xl tracking-tighter text-white">{salonInfo.name || "Candy & Rose"}</span>
-          </div>
-          <div className="flex gap-8 items-center text-[10px] font-bold tracking-[0.2em] uppercase text-white">
-            <Link href="/" className="hover:text-pink-500 transition-colors">Home</Link>
-            <Link href="/#about" className="hover:text-pink-500 transition-colors">About Us</Link>
-            <Link href="/#services" className="hover:text-pink-500 transition-colors">Services</Link>
-            <Link href="/#reviews" className="hover:text-pink-500 transition-colors">Reviews</Link>
-            <Link href="/#contact" className="hover:text-pink-500 transition-colors">Contact Us</Link>
-
-            <button
-              onClick={() => { setIsBookingMode(true); setStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              className="ml-4 bg-white text-black px-8 py-3 rounded-none hover:bg-gray-200 transition-all font-bold text-[10px] uppercase tracking-[0.2em] shadow-sm flex items-center justify-center shrink-0"
-            >
-              Book Now
-            </button>
-          </div>
-        </div>
-      </nav>
+      {/* Header & Navigation */}
+      <Header 
+        salonInfo={salonInfo} 
+        onBookNow={() => { 
+          setIsBookingMode(true); 
+          setStep(1); 
+          window.scrollTo({ top: 0, behavior: "smooth" }); 
+        }} 
+      />
 
       {/* Main Content Area */}
       <div>
