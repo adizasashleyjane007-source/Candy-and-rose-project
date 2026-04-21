@@ -50,7 +50,6 @@ export default function GlobalNotificationProvider() {
 
   // Processing State
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isAddingReason, setIsAddingReason] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
 
   // --- Reminder State ---
@@ -64,6 +63,8 @@ export default function GlobalNotificationProvider() {
   useEffect(() => {
     const supabase = createClient();
 
+    console.log("Initializing Global Notification Subscription...");
+
     const channel = supabase
       .channel('global-dashboard-events')
       .on(
@@ -74,6 +75,7 @@ export default function GlobalNotificationProvider() {
           table: 'notifications',
         },
         (payload: any) => {
+          console.log("Real-time notification received via INSERT:", payload);
           const newNotif = payload.new;
 
           if (newNotif.type === 'appointment' || newNotif.type === 'customer') {
@@ -86,7 +88,14 @@ export default function GlobalNotificationProvider() {
           }
         }
       )
-      .subscribe();
+      .subscribe((status: string, err?: any) => {
+        if (status !== 'SUBSCRIBED') {
+          console.warn(`Global Notification Subscription Status: ${status}`, err || '');
+        }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`Supabase Realtime issues: ${status}. Notifications might be delayed.`);
+        }
+      });
 
     // Fetch latest unread appointment notification on mount for persistence
     const fetchUnread = async () => {
@@ -99,8 +108,9 @@ export default function GlobalNotificationProvider() {
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-        
+
         if (data) {
+          console.log("Fetched unread notification on mount:", data);
           setActiveNotification(data);
         }
       } catch (err) {
@@ -110,6 +120,7 @@ export default function GlobalNotificationProvider() {
     fetchUnread();
 
     return () => {
+      console.log("Cleaning up Global Notification Subscription...");
       supabase.removeChannel(channel);
     };
   }, []);
@@ -228,7 +239,10 @@ export default function GlobalNotificationProvider() {
 
   // --- Action Handlers (Appointments) ---
   const handleViewAppointmentDetails = async () => {
-    if (!activeNotification?.message) return;
+    if (!activeNotification?.message || typeof activeNotification.message !== 'string') {
+      console.warn("Invalid notification message for appointment view");
+      return;
+    }
     const aptId = activeNotification.message.replace('ID:', '');
     if (!aptId) return;
 
@@ -322,7 +336,7 @@ export default function GlobalNotificationProvider() {
       setShowApprovalConfirm(false);
       setActiveNotification(null);
       setShowDetails(false);
-      alert(checkoutUrl 
+      alert(checkoutUrl
         ? "Success: Appointment approved, PayMongo link generated, and email sent."
         : "Success: Appointment approved and email sent (PayMongo link failed).");
     } catch (err) {
@@ -370,7 +384,6 @@ export default function GlobalNotificationProvider() {
       window.dispatchEvent(new Event("appointmentsUpdated"));
       setShowRejectConfirm(false);
       setRejectionReason("");
-      setIsAddingReason(false);
       setActiveNotification(null);
       setShowDetails(false);
       alert("Appointment rejected and customer notified.");
@@ -435,7 +448,7 @@ export default function GlobalNotificationProvider() {
 
             <button
               onClick={() => setDailySummary(null)}
-              className="w-full py-4 rounded-2xl bg-gray-900 text-white font-black hover:bg-black transition-all shadow-lg active:scale-95"
+              className="w-full py-4 rounded-full bg-gray-900 text-white font-black hover:bg-black transition-all shadow-lg active:scale-95"
             >
               Close Summary
             </button>
@@ -494,13 +507,13 @@ export default function GlobalNotificationProvider() {
             <div className="flex gap-4">
               <button
                 onClick={() => setReminderAppt(null)}
-                className="flex-1 py-4 rounded-2xl border-2 border-gray-100 text-gray-400 font-bold hover:bg-gray-50 hover:text-gray-600 transition-all active:scale-95"
+                className="flex-1 py-4 rounded-full border-2 border-gray-100 text-gray-400 font-bold hover:bg-gray-50 hover:text-gray-600 transition-all active:scale-95"
               >
                 Dismiss
               </button>
               <button
                 onClick={() => { setReminderAppt(null); router.push("/appointment"); }}
-                className="flex-[2] py-4 rounded-2xl bg-pink-500 hover:bg-pink-600 text-white font-black shadow-lg shadow-pink-200 transition-all active:scale-95 flex items-center justify-center gap-3"
+                className="flex-[2] py-4 rounded-full bg-pink-500 hover:bg-pink-600 text-white font-black shadow-lg shadow-pink-200 transition-all active:scale-95 flex items-center justify-center gap-3"
               >
                 View Schedule
               </button>
@@ -518,14 +531,14 @@ export default function GlobalNotificationProvider() {
     return (
       <>
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="relative p-[1.5px] overflow-hidden rounded-[2.5rem] shadow-[0_32px_128px_rgba(0,0,0,0.25),0_0_60px_rgba(255,51,153,0.15)] group">
-            {/* Animated Magic Border */}
-            <div className="absolute inset-[-150%] bg-[conic-gradient(from_0deg,transparent_0%,transparent_25%,#FF3399_50%,transparent_75%,transparent_100%)] animate-[spin_4s_linear_infinite] opacity-70" />
+          <div className="relative p-[1px] overflow-hidden rounded-3xl shadow-2xl group">
+            {/* Subtle Animated Border */}
+            <div className="absolute inset-[-150%] bg-[conic-gradient(from_0deg,transparent_0%,transparent_25%,#FF3399_50%,transparent_75%,transparent_100%)] animate-[spin_6s_linear_infinite] opacity-40" />
 
-            <div className="bg-white rounded-[2.4rem] w-[440px] overflow-hidden relative z-10 animate-in zoom-in-95 duration-500">
+            <div className="bg-white rounded-[1.4rem] w-[440px] overflow-hidden relative z-10 animate-in zoom-in-95 duration-500">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#FF3399]/40 to-transparent" />
 
-              <button onClick={() => setActiveNotification(null)} className="absolute top-6 right-8 text-gray-300 hover:text-gray-900 transition-colors z-20">
+              <button aria-label="Close modal" onClick={() => setActiveNotification(null)} className="absolute top-6 right-8 text-gray-300 hover:text-gray-900 transition-colors z-20">
                 <X className="w-6 h-6 stroke-[1.5]" />
               </button>
 
@@ -535,19 +548,19 @@ export default function GlobalNotificationProvider() {
                     {isAppointment ? <Calendar className="w-8 h-8 text-rose-500" /> : <Mail className="w-8 h-8 text-pink-500" />}
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black text-gray-900 tracking-tight">
+                    <h3 className="text-2xl font-normal text-gray-900 tracking-tight">
                       {isAppointment ? 'New Appointment' : 'Client Message'}
                     </h3>
-                    <p className="text-[10px] font-bold text-pink-500 uppercase tracking-[0.2em] mb-0.5">Notification Alert</p>
+                    <p className="text-[10px] font-bold text-brand-pink uppercase tracking-[0.2em] mb-0.5">Notification Alert</p>
                   </div>
                 </div>
 
                 <div className="text-center">
-                  <h4 className="text-xl font-black text-gray-900 mb-2 px-4 leading-tight">
+                  <h4 className="text-xl font-normal text-brand-pink mb-4 px-4 leading-tight">
                     {isAppointment ? getCustomerName() : (activeNotification.title?.split(' from ')[1] || 'Guest Client')}
                   </h4>
 
-                  <p className="text-gray-400 font-medium mb-10 px-8 leading-relaxed text-sm">
+                  <p className="text-gray-400 font-normal mb-10 px-8 leading-relaxed text-sm">
                     {isAppointment
                       ? "A new booking request requires your attention and confirmation."
                       : (activeNotification.title?.replace('New Message: ', '').split(' from ')[0] || "You have a new direct inquiry from a client.")}
@@ -555,9 +568,9 @@ export default function GlobalNotificationProvider() {
 
                   <button
                     onClick={isAppointment ? handleViewAppointmentDetails : () => { router.push('/notifications'); setActiveNotification(null); }}
-                    className="w-full py-4 rounded-2xl bg-gray-900 text-white font-black text-sm transition-all shadow-xl hover:bg-black active:scale-[0.98]"
+                    className="w-full py-4 rounded-full bg-brand-pink text-white font-medium text-sm transition-all shadow-xl hover:opacity-90 active:scale-[0.98]"
                   >
-                    {isAppointment ? "View Details & Approve" : "Read Inquiry"}
+                    {isAppointment ? "View booking details" : "Read Inquiry"}
                   </button>
                 </div>
               </div>
@@ -568,68 +581,71 @@ export default function GlobalNotificationProvider() {
         {/* Appointment Sub-Modals (Details, Approval, Rejection) */}
         {showDetails && detailedAppointment && (
           <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-gray-900/70 backdrop-blur-md animate-in fade-in duration-300">
-            <div className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-500">
-              <div className="h-2 w-full bg-gradient-to-r from-rose-400 via-pink-500 to-rose-600" />
+            <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-500">
+              <div className="h-1.5 w-full bg-gradient-to-r from-rose-400 via-pink-500 to-rose-600" />
 
-              <div className="p-10">
-                <div className="flex justify-between items-start mb-10">
+              <div className="p-8">
+                <div className="flex justify-between items-start mb-8">
                   <div>
                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Booking Confirmation</span>
-                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">{detailedAppointment.customer_name}</h2>
+                    <h2 className="text-3xl font-light text-gray-900 tracking-tight">{detailedAppointment.customer_name}</h2>
                   </div>
                   <button onClick={() => setShowDetails(false)} className="p-2 hover:bg-gray-50 rounded-full transition-colors">
                     <X className="w-7 h-7 text-gray-300" />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-8 mb-10 bg-gray-50 p-8 rounded-[2rem] border border-gray-100">
+                <div className="grid grid-cols-2 gap-6 mb-8 bg-gray-50 p-8 rounded-3xl border border-gray-100">
                   <div className="space-y-6">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center border border-gray-100">
-                        <Calendar className="w-5 h-5 text-pink-500" />
+                        <Calendar className="w-5 h-5 text-brand-pink" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date</p>
-                        <p className="text-sm font-black text-gray-800">{detailedAppointment.appointment_date}</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">Date</p>
+                        <p className="text-base font-black text-gray-800">{detailedAppointment.appointment_date}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center border border-gray-100">
-                        <Clock className="w-5 h-5 text-pink-500" />
+                        <Clock className="w-5 h-5 text-brand-pink" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Time</p>
-                        <p className="text-sm font-black text-gray-800">{formatAMPM(detailedAppointment.appointment_time || "")}</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">Time</p>
+                        <p className="text-base font-black text-gray-800">{formatAMPM(detailedAppointment.appointment_time || "")}</p>
                       </div>
                     </div>
                   </div>
                   <div className="space-y-6">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center border border-gray-100">
-                        <Scissors className="w-5 h-5 text-pink-500" />
+                        <Scissors className="w-5 h-5 text-brand-pink" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Service</p>
-                        <p className="text-sm font-black text-gray-800 truncate max-w-[120px]">{detailedAppointment.service_name}</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">Service</p>
+                        <p className="text-base font-black text-gray-800 truncate max-w-[140px]">{detailedAppointment.service_name}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center border border-gray-100 font-black text-pink-500">₱</div>
+                      <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center border border-gray-100 font-black text-brand-pink">₱</div>
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Price</p>
-                        <p className="text-sm font-black text-gray-800">₱{Number(detailedAppointment.price || 0).toLocaleString()}</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">Price</p>
+                        <p className="text-base font-black text-gray-800">₱{Number(detailedAppointment.price || 0).toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="mb-10 px-8 py-5 rounded-2xl bg-pink-50/50 border border-pink-100/50 italic text-sm text-gray-600">
-                  "{detailedAppointment.notes || "No special instructions provided."}"
+                <div className="mb-8">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] block mb-2">Customer Notes</span>
+                  <div className="px-6 py-5 rounded-2xl bg-pink-50/50 border border-pink-100/50 italic text-sm text-gray-600">
+                    "{detailedAppointment.notes || "No special instructions provided."}"
+                  </div>
                 </div>
 
                 <div className="flex gap-4">
-                  <button onClick={handleRejectAppointment} className="flex-1 py-4 rounded-2xl border-2 border-rose-100 text-rose-500 font-black tracking-wide hover:bg-rose-50 active:scale-95 transition-all">Reject</button>
-                  <button onClick={handleApproveAppointment} className="flex-[2] py-4 rounded-2xl bg-gray-900 text-white font-black tracking-wide shadow-xl hover:bg-black active:scale-95 transition-all">Approve Booking</button>
+                  <button onClick={handleApproveAppointment} className="flex-1 py-4 rounded-full bg-brand-pink text-white font-medium tracking-wide shadow-xl shadow-pink-100 hover:opacity-90 active:scale-95 transition-all">Approve</button>
+                  <button onClick={handleRejectAppointment} className="flex-1 py-4 rounded-full bg-red-500 text-white font-medium tracking-wide shadow-xl shadow-red-100 hover:bg-red-600 active:scale-95 transition-all">Reject</button>
                 </div>
               </div>
             </div>
@@ -639,23 +655,23 @@ export default function GlobalNotificationProvider() {
         {/* Action Confirmations */}
         {showApprovalConfirm && (
           <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-md animate-in fade-in duration-300">
-            <div className="bg-white rounded-[2rem] w-[400px] p-10 text-center shadow-2xl relative animate-in zoom-in-95 duration-500">
+            <div className="bg-white rounded-3xl w-full max-w-lg p-8 text-center shadow-2xl relative animate-in zoom-in-95 duration-500">
               <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center mx-auto mb-8 border border-emerald-100">
                 <Check className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-black text-gray-900 mb-3">Send Confirmation?</h3>
-              <p className="text-gray-400 font-medium text-sm leading-relaxed mb-10 px-4">
+              <h3 className="text-2xl font-light text-gray-900 mb-4 tracking-tight">Send Confirmation?</h3>
+              <p className="text-gray-400 font-normal text-sm leading-relaxed mb-10 px-8">
                 We'll notify <span className="text-gray-900 font-bold">{detailedAppointment?.customers?.email}</span> that their visit is scheduled.
               </p>
               <div className="flex flex-col gap-3">
                 <button
                   disabled={isProcessing}
                   onClick={confirmApproval}
-                  className="w-full py-4 rounded-2xl bg-gray-900 text-white font-black shadow-xl hover:bg-black disabled:opacity-50 flex items-center justify-center gap-3"
+                  className="w-full py-4 rounded-full bg-brand-pink text-white font-medium shadow-xl shadow-pink-100 hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-3 transition-all"
                 >
                   {isProcessing ? <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" /> : "Yes, Send Email"}
                 </button>
-                <button onClick={() => setShowApprovalConfirm(false)} className="w-full py-4 rounded-2xl text-gray-400 font-black hover:bg-gray-50">Cancel</button>
+                <button onClick={() => setShowApprovalConfirm(false)} className="w-full py-4 rounded-full text-gray-400 font-medium hover:bg-gray-50 transition-colors">Cancel</button>
               </div>
             </div>
           </div>
@@ -663,30 +679,30 @@ export default function GlobalNotificationProvider() {
 
         {showRejectConfirm && (
           <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-md animate-in fade-in duration-300">
-            <div className="bg-white rounded-[2rem] w-[400px] p-10 text-center shadow-2xl relative animate-in zoom-in-95 duration-500">
+            <div className="bg-white rounded-3xl w-full max-w-lg p-8 text-center shadow-2xl relative animate-in zoom-in-95 duration-500">
               <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-8 border border-rose-100">
                 <XCircle className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-black text-gray-900 mb-3">State Reason</h3>
-              <p className="text-gray-400 font-medium text-sm leading-relaxed mb-6">
+              <h3 className="text-2xl font-light text-gray-900 mb-4 tracking-tight">State Reason</h3>
+              <p className="text-gray-400 font-normal text-sm leading-relaxed mb-6 px-8">
                 Tell <span className="text-gray-900 font-bold">{detailedAppointment?.customer_name}</span> why we can't accept this booking.
               </p>
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="Reason (Optional)..."
-                className="w-full h-24 p-5 rounded-2xl bg-gray-50 border-gray-100 text-sm focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all resize-none mb-8"
+                className="w-full h-20 p-6 rounded-2xl bg-gray-50 border-gray-100 text-sm focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all resize-none mb-10"
                 autoFocus
               />
               <div className="flex flex-col gap-3">
                 <button
                   disabled={isProcessing}
                   onClick={confirmRejection}
-                  className="w-full py-4 rounded-2xl bg-rose-500 text-white font-black shadow-xl hover:bg-rose-600 disabled:opacity-50 flex items-center justify-center gap-3"
+                  className="w-full py-4 rounded-full bg-red-500 text-white font-medium shadow-xl shadow-red-100 hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-3 transition-all"
                 >
                   {isProcessing ? <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" /> : "Confirm Rejection"}
                 </button>
-                <button onClick={() => { setShowRejectConfirm(false); setRejectionReason(""); }} className="w-full py-4 rounded-2xl text-gray-400 font-black hover:bg-gray-50">Cancel</button>
+                <button onClick={() => { setShowRejectConfirm(false); setRejectionReason(""); }} className="w-full py-4 rounded-full text-gray-400 font-medium hover:bg-gray-50 transition-colors">Cancel</button>
               </div>
             </div>
           </div>

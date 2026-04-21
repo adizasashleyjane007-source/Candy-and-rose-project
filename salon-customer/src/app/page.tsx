@@ -19,7 +19,9 @@ import {
   Sparkles,
   MapPin,
   ArrowRight,
-  X
+  X,
+  CalendarX,
+  Users
 } from "lucide-react";
 import Header from "../components/Header";
 
@@ -313,11 +315,24 @@ export default function LandingPage() {
     // A date is reserved/occupied if it has at least one appointment that is NOT 'Completed' or 'Cancelled'
     const dayApts = appointments.filter(apt => {
       const aptDate = apt.appointment_date || apt.date;
-      return aptDate === dateStr && apt.status !== 'Cancelled';
+      // Filter by date and ensure it's not cancelled
+      const isOnDate = aptDate === dateStr && apt.status !== 'Cancelled';
+      // ALSO filter by the selected staff member
+      const isForStaff = !selectedStaff || apt.staff_id === selectedStaff.id;
+      return isOnDate && isForStaff;
     });
 
-    const hasActiveApt = dayApts.some(apt => apt.status !== 'Completed');
-    if (hasActiveApt) return true; // Date is reserved or occupied
+    const DAILY_LIMIT = 5;
+    const GLOBAL_LIMIT = 15;
+    
+    if (dayApts.length >= DAILY_LIMIT) return true; // Selected staff is full
+    
+    const totalDayApts = appointments.filter(apt => {
+      const aptDate = apt.appointment_date || apt.date;
+      return aptDate === dateStr && apt.status !== 'Cancelled';
+    });
+    
+    if (totalDayApts.length >= GLOBAL_LIMIT) return true; // Shop reached maximum capacity
 
     // 4. If no active appointments, check if there are available time slots
     // This handles the case where all appointments are 'Completed' or it's today
@@ -342,6 +357,43 @@ export default function LandingPage() {
     }
   };
 
+  const checkCapacity = async (selectedDate: string, staffId: string | number | null) => {
+    const supabase = createClient();
+    const STAFF_LIMIT = 5;
+    const GLOBAL_LIMIT = 15;
+
+    // 1. Check Global Capacity
+    const { count: globalCount, error: globalErr } = await supabase
+      .from('appointments')
+      .select('*', { count: 'exact', head: true })
+      .eq('appointment_date', selectedDate)
+      .not('status', 'eq', 'Cancelled');
+
+    if (globalErr) {
+      console.error("Error checking global capacity:", globalErr);
+    } else if ((globalCount ?? 0) >= GLOBAL_LIMIT) {
+      return { status: 'global_full', count: globalCount };
+    }
+
+    // 2. Check Staff Capacity
+    if (staffId) {
+      const { count: staffCount, error: staffErr } = await supabase
+        .from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .eq('appointment_date', selectedDate)
+        .eq('staff_id', staffId)
+        .not('status', 'eq', 'Cancelled');
+
+      if (staffErr) {
+        console.error("Error checking staff capacity:", staffErr);
+      } else if ((staffCount ?? 0) >= STAFF_LIMIT) {
+        return { status: 'staff_full', count: staffCount };
+      }
+    }
+
+    return { status: 'available' };
+  };
+
   const handleBookingSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!selectedService || !selectedDate || !customerDetails.fullName || !selectedStaff) {
@@ -357,6 +409,22 @@ export default function LandingPage() {
 
     setIsSubmitting(true);
 
+    // 0. Check Capacity
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const capacity = await checkCapacity(dateStr, selectedStaff.id);
+
+    if (capacity.status === 'global_full') {
+      setStep(6); // Global limit reached
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (capacity.status === 'staff_full') {
+      setStep(5); // Staff limit reached
+      setIsSubmitting(false);
+      return;
+    }
+
     // Format granular time back into HH:mm:ss for DB
     let h = parseInt(timeSelection.hour);
     if (timeSelection.period === "PM" && h < 12) h += 12;
@@ -371,8 +439,8 @@ export default function LandingPage() {
     }
 
 
+
     const fullName = customerDetails.fullName;
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
     try {
       const today = new Date();
@@ -406,21 +474,24 @@ export default function LandingPage() {
         return;
       }
 
-      // 2. Check for Global Phone Conflict (Does this phone number already have ANY active booking in the system?)
-      // This requirement ensures that a phone number can only have one pending visit across the system.
-      const phoneConflict = freshApts.find((apt: Appointment) => {
-        // We block if they have an active (not cancelled or completed) appointment
-        if (apt.status === 'Cancelled' || apt.status === 'Completed') return false;
+      // 2. Check for Duplicate Reservation (Same phone, Same date, Same time)
+      const duplicateBooking = freshApts.find((apt: Appointment) => {
+        if (apt.status === 'Cancelled') return false;
         
         const existingPhone = apt.customers?.phone || "";
         const existingPhoneNorm = existingPhone.replace(/\D/g, '');
+        const existingDate = apt.appointment_date || apt.date;
+        const existingTime = apt.appointment_time || apt.time;
+        const existingTimePrefix = existingTime ? existingTime.substring(0, 5) : "";
+        const currentTimePrefix = formattedTime.substring(0, 5);
         
-        return existingPhoneNorm === currentPhoneNorm;
+        return existingPhoneNorm === currentPhoneNorm && 
+               existingDate === dateStr && 
+               existingTimePrefix === currentTimePrefix;
       });
 
-      if (phoneConflict) {
-        const conflictDate = phoneConflict.appointment_date || phoneConflict.date;
-        alert(`This phone number (${customerDetails.phone}) is already associated with an active appointment for ${conflictDate}. To prevent double booking, the system only allows one active appointment per phone number. Please complete or cancel your existing appointment before booking a new one.`);
+      if (duplicateBooking) {
+        alert("You already have an appointment at this exact date and time. Please choose a different slot.");
         setIsSubmitting(false);
         return;
       }
@@ -1079,7 +1150,7 @@ export default function LandingPage() {
                   </div>
 
                 </form>
-              ) : (
+              ) : step === 4 ? (
                 /* Success View - Ultra-Minimalist & Ultra-Compact (Light Redesign) */
                 <div className="text-center pt-2 pb-8 px-8 animate-in zoom-in duration-500 flex flex-col items-center relative w-full">
                   {/* Pink Heading - Single Line */}
@@ -1098,6 +1169,49 @@ export default function LandingPage() {
                     className="w-full sm:w-72 bg-[#FF3399] hover:bg-pink-600 text-white px-10 py-4 rounded-full font-bold text-sm transition-all active:scale-[0.98] shadow-[0_10px_20px_rgba(255,51,153,0.3)] hover:shadow-[0_15px_30px_rgba(255,51,153,0.45)]"
                   >
                     Dismiss
+                  </button>
+                </div>
+              ) : step === 5 ? (
+                /* Staff Full View */
+                <div className="text-center pt-2 pb-8 px-8 animate-in zoom-in duration-500 flex flex-col items-center relative w-full">
+                  <div className="w-16 h-16 bg-pink-50 rounded-full flex items-center justify-center mb-6">
+                    <Users className="w-8 h-8 text-pink-500" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4 tracking-tight">
+                    Staff Member Fully Booked
+                  </h2>
+                  <p className="text-slate-600 text-base max-w-[340px] mx-auto mb-10 leading-relaxed font-medium">
+                    This staff is fully booked today, please book another time. Thank you
+                  </p>
+                  <button 
+                    onClick={() => setStep(1)} 
+                    className="w-full sm:w-72 bg-[#FF3399] hover:bg-pink-600 text-white px-10 py-4 rounded-full font-bold text-sm transition-all active:scale-[0.98] shadow-[0_10px_20px_rgba(255,51,153,0.3)]"
+                  >
+                    Choose Another Date
+                  </button>
+                </div>
+              ) : (
+                /* Global Full View */
+                <div className="text-center pt-2 pb-8 px-8 animate-in zoom-in duration-500 flex flex-col items-center relative w-full">
+                  <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mb-6">
+                    <CalendarX className="w-8 h-8 text-orange-500" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4 tracking-tight">
+                    Salon Fully Booked Today
+                  </h2>
+                  <p className="text-slate-600 text-base max-w-[340px] mx-auto mb-10 leading-relaxed font-medium">
+                    Our salon has reached its maximum capacity of 15 customers for today. We recommend booking for tomorrow! Thank you for your understanding.
+                  </p>
+                  <button 
+                    onClick={() => {
+                        const tomorrow = addDays(selectedDate, 1);
+                        setSelectedDate(tomorrow);
+                        setCurrentMonth(tomorrow);
+                        setStep(1);
+                    }} 
+                    className="w-full sm:w-72 bg-[#FF3399] hover:bg-pink-600 text-white px-10 py-4 rounded-full font-bold text-sm transition-all active:scale-[0.98] shadow-[0_10px_20px_rgba(255,51,153,0.3)]"
+                  >
+                    View Tomorrow's Availability
                   </button>
                 </div>
               )}
