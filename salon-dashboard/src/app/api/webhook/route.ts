@@ -41,13 +41,13 @@ export async function POST(req: Request) {
         const amountPaid = apt.price || (paymentData.attributes.amount / 100);
         
         const { error: billingError } = await supabase
-          .from('billing_records')
+          .from('billing')
           .insert({
             appointment_id: appointmentId,
             customer_id: apt.customer_id,
             amount: amountPaid,
             payment_method: 'GCash',
-            status: 'Paid',
+            status: 'Completed',
             notes: `Online Payment for ${apt.service_name || 'service'}`
           });
 

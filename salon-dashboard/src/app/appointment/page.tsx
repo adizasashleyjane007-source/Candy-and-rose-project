@@ -240,6 +240,9 @@ function AppointmentContent() {
             }
 
             // 3. Create or Update Appointment
+            const isWalkIn = formData.source === 'Walk-in';
+            const finalStatus = isWalkIn ? "Scheduled" : "Pending";
+
             if (editingId) {
                 await Appointments.update(editingId, {
                     customer_name: formData.customerName,
@@ -254,9 +257,14 @@ function AppointmentContent() {
                     duration: duration,
                     source: formData.source,
                     notes: formData.notes,
-                    status: "Pending" // Initial status when paying
+                    status: finalStatus
                 });
-                addNotification("Booking Updated", `Appointment for ${formData.customerName} updated.`, "appointment");
+                
+                if (isWalkIn) {
+                    addNotification(`Appointment Updated`, `Walk-in booking for ${formData.customerName} has been updated.`, "appointment");
+                } else {
+                    addNotification(`Appointment Updated: ${formData.customerName}`, `ID:${editingId}`, "appointment");
+                }
             } else {
                 const createdApt = await Appointments.create({
                     customer_name: formData.customerName,
@@ -269,11 +277,16 @@ function AppointmentContent() {
                     appointment_time: formData.time,
                     price: Number(price),
                     duration: duration,
-                    status: "Pending",
+                    status: finalStatus,
                     source: formData.source,
                     notes: formData.notes
                 });
-                addNotification("Booking Created", `New appointment for ${formData.customerName} saved successfully.`, "appointment");
+
+                if (isWalkIn) {
+                    addNotification(`Walk-in Booking Saved`, `Appointment for ${formData.customerName} is now scheduled.`, "appointment");
+                } else {
+                    addNotification(`New Appointment from ${formData.customerName}`, `ID:${createdApt.id}`, "appointment");
+                }
             }
 
             // Refresh data
@@ -801,6 +814,284 @@ function AppointmentContent() {
                 onClose={() => setIsDetailsModalOpen(false)}
                 appointment={selectedAptDetails}
             />
+            
+            {/* Booking Form Modal */}
+            {isModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl p-8 relative animate-in zoom-in-95 duration-200 border border-pink-100 max-h-[90vh] overflow-y-auto">
+                        <button
+                            onClick={() => setIsModalOpen(false)}
+                            className="absolute right-6 top-6 p-2 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full transition-colors"
+                        >
+                            <X className="w-5 h-5 font-bold" />
+                        </button>
+
+                        <div className="mb-8">
+                            <h3 className="text-2xl font-bold text-gray-900">{editingId ? "Edit Booking" : "New Booking"}</h3>
+                            <p className="text-sm text-gray-500 mt-1 font-medium">
+                                {editingId ? "Update existing appointment details." : "Schedule a new client appointment."}
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleSaveBooking} className="space-y-5">
+                            {/* Customer Searchable Dropdown */}
+                            <div className="relative" ref={customerDropdownRef}>
+                                <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Customer Name</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <User className="h-4 w-4 text-pink-300" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        required
+                                        autoComplete="off"
+                                        className="w-full pl-11 pr-10 py-3 bg-gray-50 border border-pink-100 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium"
+                                        placeholder="Search or enter customer name..."
+                                        value={formData.customerName}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                                            setFormData({ ...formData, customerName: val });
+                                            setShowCustomerDropdown(true);
+                                        }}
+                                        onFocus={() => setShowCustomerDropdown(true)}
+                                    />
+                                    {showCustomerDropdown && formData.customerName && filteredCustomers.length > 0 && (
+                                        <div className="absolute z-30 w-full mt-2 bg-white rounded-2xl shadow-xl border border-pink-100 py-2 max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-2">
+                                            {filteredCustomers.map((c) => (
+                                                <button
+                                                    key={c.id}
+                                                    type="button"
+                                                    className="w-full text-left px-5 py-2.5 hover:bg-pink-50 transition-colors flex items-center justify-between group"
+                                                    onClick={() => {
+                                                        setFormData({ ...formData, customerName: c.name });
+                                                        setShowCustomerDropdown(false);
+                                                    }}
+                                                >
+                                                    <span className="font-semibold text-gray-700 group-hover:text-pink-600">{c.name}</span>
+                                                    {c.phone && <span className="text-xs text-gray-400">{c.phone}</span>}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div>
+                                    <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Service</label>
+                                    <select
+                                        className="w-full px-4 py-3 bg-gray-50 border border-pink-100 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium appearance-none cursor-pointer"
+                                        value={formData.serviceName}
+                                        onChange={(e) => {
+                                            const serviceName = e.target.value;
+                                            const selectedService = services.find(s => s.name === serviceName);
+                                            let autoStaffName = formData.staffName;
+
+                                            // Auto-select staff based on required_role
+                                            if (selectedService && selectedService.required_role) {
+                                                const matchingStaff = staffList.filter(s => s.role === selectedService.required_role);
+                                                // If there's only one staff with this role, or current staff doesn't match role, pick first one
+                                                if (matchingStaff.length > 0) {
+                                                    const currentStaff = staffList.find(s => s.name === formData.staffName);
+                                                    if (!currentStaff || currentStaff.role !== selectedService.required_role) {
+                                                        autoStaffName = matchingStaff[0].name;
+                                                    }
+                                                }
+                                            }
+
+                                            setFormData({ 
+                                                ...formData, 
+                                                serviceName: serviceName,
+                                                staffName: autoStaffName 
+                                            });
+                                        }}
+                                        required
+                                    >
+                                        <option value="">Select Service</option>
+                                        {services.map((s) => (
+                                            <option key={s.id} value={s.name}>{s.name} - ₱{s.price}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Assigned Staff</label>
+                                    <select
+                                        className="w-full px-4 py-3 bg-gray-100 border border-pink-100 rounded-2xl text-gray-400 transition-all font-medium appearance-none cursor-not-allowed"
+                                        value={formData.staffName}
+                                        onChange={(e) => setFormData({ ...formData, staffName: e.target.value })}
+                                        disabled
+                                    >
+                                        <option value="">{formData.staffName || "Auto-assigned"}</option>
+                                        {staffList.map((s) => (
+                                            <option key={s.id} value={s.name}>{s.name} ({s.role})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div>
+                                    <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Date</label>
+                                    <input
+                                        type="date"
+                                        required
+                                        className="w-full px-4 py-3 bg-gray-50 border border-pink-100 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium"
+                                        value={formData.date}
+                                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                        min={new Date().toISOString().split("T")[0]}
+                                    />
+                                </div>
+                                {/* Time Searchable Dropdown */}
+                                <div className="relative" ref={timeDropdownRef}>
+                                    <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Time Slot</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        autoComplete="off"
+                                        className="w-full px-4 py-3 bg-gray-50 border border-pink-100 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium"
+                                        placeholder="e.g. 10:30 AM"
+                                        value={timeInputValue}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setTimeInputValue(val);
+                                            setShowTimeDropdown(true);
+                                            const normalized = to24h(val);
+                                            if (normalized) {
+                                                setFormData({ ...formData, time: normalized });
+                                            }
+                                        }}
+                                        onFocus={() => setShowTimeDropdown(true)}
+                                    />
+                                    {showTimeDropdown && (
+                                        <div className="absolute z-30 w-full mt-2 bg-white rounded-2xl shadow-xl border border-pink-100 py-2 max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-2">
+                                            {(() => {
+                                                const slots = [];
+                                                // Generate 30min slots 8AM-8PM
+                                                for (let h = 8; h <= 19; h++) {
+                                                    for (let m = 0; m <= 30; m += 30) {
+                                                        const hStr = h.toString().padStart(2, '0');
+                                                        const mStr = m.toString().padStart(2, '0');
+                                                        const time24 = `${hStr}:${mStr}`;
+                                                        const time12 = to12h(time24);
+                                                        if (time12.toLowerCase().includes(timeInputValue.toLowerCase())) {
+                                                            slots.push({ t12: time12, t24: time24 });
+                                                        }
+                                                    }
+                                                }
+                                                return slots.map((s) => (
+                                                    <button
+                                                        key={s.t24}
+                                                        type="button"
+                                                        className="w-full text-left px-5 py-2.5 hover:bg-pink-50 transition-colors font-medium text-gray-700 hover:text-pink-600"
+                                                        onClick={() => {
+                                                            setFormData({ ...formData, time: s.t24 });
+                                                            setTimeInputValue(s.t12);
+                                                            setShowTimeDropdown(false);
+                                                        }}
+                                                    >
+                                                        {s.t12}
+                                                    </button>
+                                                ));
+                                            })()}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div>
+                                    <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Booked Via</label>
+                                    <select
+                                        className="w-full px-4 py-3 bg-gray-50 border border-pink-100 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium appearance-none cursor-pointer"
+                                        value={formData.source}
+                                        onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                                        required
+                                    >
+                                        <option value="Walk-in">Walk-in</option>
+                                        <option value="Phone">Phone</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Special Instructions / Notes</label>
+                                <textarea
+                                    className="w-full px-4 py-3 bg-gray-50 border border-pink-100 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium resize-none h-24"
+                                    value={formData.notes}
+                                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                    placeholder="Add any specific requests or notes here..."
+                                ></textarea>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-5 mt-5 border-t border-pink-50">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsModalOpen(false)}
+                                    className="px-8 py-3.5 text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-full font-bold transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-10 py-3.5 text-white bg-pink-500 hover:bg-pink-600 rounded-full font-bold shadow-lg shadow-pink-100 transition-all hover:scale-105 active:scale-95"
+                                >
+                                    {editingId ? "Update Appointment" : "Save Booking"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Conflict Warning Modal */}
+            {isConflictModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-8 relative animate-in zoom-in-95 duration-200 border border-amber-100 text-center">
+                        <div className="mx-auto w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mb-6 border border-amber-100">
+                            <Clock className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-3">Time Slot Conflict!</h3>
+                        <p className="text-gray-500 font-medium mb-8 leading-relaxed">
+                            This time slot is already taken by another appointment. Please select a different time or date.
+                        </p>
+                        <button
+                            onClick={() => setIsConflictModalOpen(false)}
+                            className="w-full py-4 text-white bg-amber-500 hover:bg-amber-600 rounded-full font-bold shadow-lg shadow-amber-100 transition-all"
+                        >
+                            Select Different Time
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {isDeleteModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-8 relative animate-in zoom-in-95 duration-200 border border-red-100 text-center">
+                        <div className="mx-auto w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6 border border-red-100">
+                            <Trash2 className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-3">Delete Appointment?</h3>
+                        <p className="text-gray-500 font-medium mb-8 leading-relaxed">
+                            Are you sure you want to remove this booking? This action cannot be undone.
+                        </p>
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => setIsDeleteModalOpen(false)}
+                                className="flex-1 py-4 text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-full font-bold transition-all border border-gray-100"
+                            >
+                                No, Keep it
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                className="flex-1 py-4 text-white bg-red-500 hover:bg-red-600 rounded-full font-bold shadow-lg shadow-red-100 transition-all"
+                            >
+                                Yes, Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

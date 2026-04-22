@@ -1,8 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Services, Appointments, Customers, StaffDB, SettingsDB, MessagesDB, NotificationsDB } from "@/lib/db";
-import { format, addDays, isBefore, startOfToday, parse, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isSameMonth, startOfWeek, endOfWeek } from "date-fns";
+import { 
+  format, 
+  addDays, 
+  isBefore, 
+  startOfToday, 
+  parse, 
+  addMonths, 
+  subMonths, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval, 
+  getDay, 
+  isSameDay, 
+  isSameMonth, 
+  startOfWeek, 
+  endOfWeek,
+  parseISO
+} from "date-fns";
+import { DayPicker } from "react-day-picker";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import {
@@ -109,6 +127,7 @@ export default function LandingPage() {
     minute: "00",
     period: "AM"
   });
+  const [disabledDays, setDisabledDays] = useState<Date[]>([]);
 
   // Reset hour if it becomes invalid after period change
   useEffect(() => {
@@ -176,9 +195,22 @@ export default function LandingPage() {
     }
   };
 
+  const fetchDisabledDates = useCallback(async () => {
+    try {
+      const apts = await Appointments.list();
+      const disabled = (apts as Appointment[])
+        .filter(apt => ['Pending', 'Scheduled', 'Reserved', 'Occupied'].includes(apt.status))
+        .map(apt => parseISO(apt.appointment_date || apt.date || ''));
+      setDisabledDays(disabled);
+    } catch (err) {
+      console.error("Failed to fetch disabled dates", err);
+    }
+  }, []);
+
   useEffect(() => {
     const loadData = async () => {
       try {
+        setIsLoading(true);
         const [svc, apts, stf, info, hours] = await Promise.all([
           Services.list(),
           Appointments.list(),
@@ -192,6 +224,12 @@ export default function LandingPage() {
         setStaff((stf || []).filter(s => s.status !== "Inactive"));
         setSalonInfo(info || { name: "Candy And Rose Salon", tagline: "Your beauty, our passion." });
         setOperatingHours(hours || getDefaultHours());
+
+        // Initial disabled dates fetch
+        const disabled = (apts as Appointment[])
+          .filter(apt => ['Pending', 'Scheduled', 'Reserved', 'Occupied'].includes(apt.status))
+          .map(apt => parseISO(apt.appointment_date || apt.date || ''));
+        setDisabledDays(disabled);
 
         // Generate time slots based on hours
         const schedule = (hours || getDefaultHours());
@@ -233,16 +271,33 @@ export default function LandingPage() {
     };
     loadData();
 
+    // Set up Realtime Sync
+    const supabase = createClient();
+    const channel = supabase
+      .channel('calendar-updates')
+      .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'appointments' }, 
+          (payload) => {
+            console.log('Realtime update received:', payload);
+            fetchDisabledDates();
+          }
+      )
+      .subscribe();
+
     // Check if URL has book=true
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('book') === 'true') {
         setIsBookingMode(true);
-        // Remove the param so a refresh doesn't trigger it again unnecessarily, though it's optional
+        setStep(1);
         window.history.replaceState({}, '', '/');
       }
     }
-  }, []);
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchDisabledDates]);
 
   const getDefaultHours = () => ({
     Monday: { isOpen: true, open: "08:00", close: "19:00" },
@@ -980,70 +1035,127 @@ export default function LandingPage() {
                         </div>
 
                         {showDateDropdown && (
-                          <div className="absolute top-full left-0 w-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl z-[70] p-3 animate-in fade-in slide-in-from-top-2 overflow-hidden min-w-[280px]">
-                            {/* Calendar Header */}
-                            <div className="flex items-center justify-between mb-2">
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setCurrentMonth(subMonths(currentMonth, 1)); }}
-                                className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
-                              >
-                                <ChevronLeft className="w-3.5 h-3.5" />
-                              </button>
-                              <h3 className="font-serif italic text-base text-gray-900">
-                                {format(currentMonth, "MMMM yyyy")}
-                              </h3>
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setCurrentMonth(addMonths(currentMonth, 1)); }}
-                                className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
-                              >
-                                <ChevronRight className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-
-                            {/* Calendar Grid */}
-                            <div className="grid grid-cols-7 gap-1 text-center mb-1">
-                              {["S", "M", "T", "W", "T", "F", "S"].map((d, index) => (
-                                <div key={`${d}-${index}`} className="text-[9px] font-bold text-gray-400 uppercase py-1">{d}</div>
-                              ))}
-                            </div>
-                            <div className="grid grid-cols-7 gap-0.5">
-                              {eachDayOfInterval({
-                                start: startOfWeek(startOfMonth(currentMonth)),
-                                end: endOfWeek(endOfMonth(currentMonth))
-                              }).map((day, i) => {
-                                  const isSelected = isSameDay(day, selectedDate);
-                                  const isCurrentMonth = isSameMonth(day, currentMonth);
-                                  const isPast = isBefore(day, startOfToday());
-                                  const isFull = isDateFullyBooked(day);
-                                  const isDisabled = isPast || isFull;
-
-                                  return (
-                                    <button
-                                      key={i}
-                                      type="button"
-                                      disabled={isDisabled}
-                                      onMouseDown={(e) => {
-                                        e.preventDefault();
-                                        if (isDisabled) return;
-                                        setSelectedDate(day);
-                                        setShowDateDropdown(false);
-                                      }}
-                                      className={`
-                                        h-8 w-full rounded-lg text-[10px] font-semibold transition-all flex items-center justify-center
-                                        ${isSelected ? 'bg-pink-500 text-white shadow-md shadow-pink-200' : ''}
-                                        ${!isSelected && isCurrentMonth && !isDisabled ? 'text-gray-900 hover:bg-pink-50 hover:text-pink-600' : ''}
-                                        ${!isCurrentMonth ? 'text-gray-300' : ''}
-                                        ${isDisabled ? 'opacity-20 cursor-not-allowed grayscale' : 'cursor-pointer'}
-                                        ${isFull && !isPast ? 'bg-gray-50' : ''}
-                                      `}
-                                    >
-                                    {format(day, "d")}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                          <div className="absolute top-full left-0 w-full mt-2 bg-white border border-pink-100/50 rounded-3xl shadow-[0_20px_50px_rgba(255,182,193,0.3)] z-[70] p-5 animate-in fade-in slide-in-from-top-3 overflow-hidden min-w-[320px] backdrop-blur-sm">
+                            <style>{`
+                              .rdp-premium {
+                                --rdp-accent-color: #ff4d8d;
+                                --rdp-background-color: #fce7f3;
+                                --rdp-accent-color-foreground: white;
+                                margin: 0;
+                              }
+                              .rdp-premium .rdp-month_caption {
+                                font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+                                font-style: italic;
+                                font-size: 1.1rem;
+                                color: #1f2937;
+                                margin-bottom: 1rem;
+                                display: flex;
+                                justify-content: center;
+                                font-weight: 600;
+                              }
+                              .rdp-premium .rdp-nav {
+                                position: absolute;
+                                top: 1.25rem;
+                                width: calc(100% - 2.5rem);
+                                display: flex;
+                                justify-content: space-between;
+                                pointer-events: none;
+                              }
+                              .rdp-premium .rdp-button_next, .rdp-premium .rdp-button_previous {
+                                pointer-events: auto;
+                                background: #fdf2f8;
+                                border: none;
+                                border-radius: 12px;
+                                width: 32px;
+                                height: 32px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                color: #ff4d8d;
+                                transition: all 0.2s;
+                                cursor: pointer;
+                              }
+                              .rdp-premium .rdp-button_next:hover, .rdp-premium .rdp-button_previous:hover {
+                                background: #ff4d8d;
+                                color: white;
+                                transform: scale(1.1);
+                              }
+                              .rdp-premium .rdp-day {
+                                width: 42px;
+                                height: 42px;
+                                border-radius: 12px !important;
+                                font-weight: 500;
+                                transition: all 0.2s;
+                                font-size: 0.85rem;
+                              }
+                              .rdp-premium .rdp-day_selected {
+                                background-color: #ff4d8d !important;
+                                color: white !important;
+                                font-weight: 700;
+                                box-shadow: 0 4px 12px rgba(255, 77, 141, 0.3);
+                              }
+                              .rdp-premium .rdp-day:hover:not([disabled]):not(.rdp-day_selected) {
+                                background-color: #fce7f3;
+                                color: #ff4d8d;
+                              }
+                              /* Reserved/Occupied dates */
+                              .rdp-premium .rdp-day_reserved {
+                                text-decoration: line-through;
+                                color: #9ca3af !important;
+                                opacity: 0.4;
+                                cursor: not-allowed !important;
+                              }
+                              /* Past dates */
+                              .rdp-premium .rdp-day_disabled {
+                                color: #d1d5db !important;
+                                opacity: 0.25;
+                                text-decoration: none;
+                                cursor: not-allowed !important;
+                                pointer-events: none !important;
+                              }
+                              .rdp-premium .rdp-day_today {
+                                color: #ff4d8d;
+                                font-weight: 800;
+                                position: relative;
+                              }
+                              .rdp-premium .rdp-day_today::after {
+                                content: '';
+                                position: absolute;
+                                bottom: 6px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                width: 4px;
+                                height: 4px;
+                                background-color: #ff4d8d;
+                                border-radius: 50%;
+                              }
+                              .rdp-premium .rdp-head_cell {
+                                text-transform: uppercase;
+                                font-size: 0.65rem;
+                                font-weight: 800;
+                                color: #9ca3af;
+                                letter-spacing: 0.1em;
+                                padding-bottom: 0.5rem;
+                              }
+                            `}</style>
+                            <DayPicker
+                              mode="single"
+                              selected={selectedDate}
+                              onSelect={(date) => {
+                                if (date) {
+                                  setSelectedDate(date);
+                                  setShowDateDropdown(false);
+                                }
+                              }}
+                              disabled={[
+                                { before: startOfToday() },
+                                ...disabledDays
+                              ]}
+                              className="rdp-premium border-none"
+                              modifiers={{
+                                reserved: disabledDays
+                              }}
+                            />
                           </div>
                         )}
                       </div>

@@ -33,17 +33,17 @@ export default async function SuccessPage(props: any) {
           
         if (!aptError) {
           const { error: billingError } = await supabase
-            .from('billing_records')
+            .from('billing')
             .insert({
               appointment_id: appointmentId,
               customer_id: apt.customer_id,
               amount: apt.price || 0,
               payment_method: 'GCash',
-              status: 'Paid',
+              status: 'Completed',
               notes: `Online Payment for ${apt.service_name || 'service'}`
             });
 
-            if (billingError) console.error("Success Page Billing Insert Error:", billingError);
+            if (billingError) console.error("Success Page Billing Insert Error:", JSON.stringify(billingError, null, 2));
         }
       }
   }

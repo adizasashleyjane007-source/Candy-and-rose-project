@@ -47,10 +47,23 @@ export default function GlobalNotificationProvider() {
   const [showDetails, setShowDetails] = useState(false);
   const [showApprovalConfirm, setShowApprovalConfirm] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | null>(null);
 
   // Processing State
   const [isProcessing, setIsProcessing] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [statusModal, setStatusModal] = useState({
+    isOpen: false,
+    type: 'success' as 'success' | 'error',
+    title: "",
+    message: ""
+  });
+
+  const showStatus = (type: 'success' | 'error', title: string, message: string) => {
+    setStatusModal({ isOpen: true, type, title, message });
+  };
 
   // --- Reminder State ---
   const [reminderAppt, setReminderAppt] = useState<Appointment | null>(null);
@@ -79,6 +92,17 @@ export default function GlobalNotificationProvider() {
           const newNotif = payload.new;
 
           if (newNotif.type === 'appointment' || newNotif.type === 'customer') {
+            // Handle Walk-in success specifically to show a simple modal instead of the alert
+            if (newNotif.title === 'Walk-in Booking Saved' || newNotif.title === 'Appointment Updated' && newNotif.message.includes('Walk-in')) {
+              showStatus('success', 'Success', 'The appointment successfully saved');
+              
+              // Still dispatch event for any lists (like notification bell) to refresh
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new Event("notificationsUpdated"));
+              }
+              return;
+            }
+
             setActiveNotification(newNotif);
 
             // Dispatch global event for generic UI updates
@@ -241,10 +265,23 @@ export default function GlobalNotificationProvider() {
   const handleViewAppointmentDetails = async () => {
     if (!activeNotification?.message || typeof activeNotification.message !== 'string') {
       console.warn("Invalid notification message for appointment view");
+      setActiveNotification(null);
       return;
     }
-    const aptId = activeNotification.message.replace('ID:', '');
-    if (!aptId) return;
+
+    // Safety: Check if it's the expected ID format
+    if (!activeNotification.message.startsWith('ID:')) {
+      console.info("Notification message is plain text, not a fetchable ID:", activeNotification.message);
+      // For plain text messages, we just dismiss the notification as there's no detail view to show
+      setActiveNotification(null);
+      return;
+    }
+
+    const aptId = activeNotification.message.replace('ID:', '').trim();
+    if (!aptId) {
+      setActiveNotification(null);
+      return;
+    }
 
     // Check if user is logged in
     const supabase = createClient();
@@ -263,16 +300,27 @@ export default function GlobalNotificationProvider() {
       if (detailedApt) {
         setDetailedAppointment(detailedApt);
         setShowDetails(true);
+      } else {
+        showStatus('error', 'Appointment Not Found', "The details for this appointment could not be found. It may have been deleted.");
+        setActiveNotification(null);
       }
     } catch (err) {
       console.error("Failed to fetch appointment details", err);
+      showStatus('error', 'Fetch Error', "Something went wrong while loading appointment details.");
+      setActiveNotification(null);
     }
   };
 
   const handleApproveAppointment = async () => {
     if (!detailedAppointment?.id) return;
-    if (!detailedAppointment.customers?.email) {
-      alert("Error: Customer email is missing. Required for confirmation email.");
+    
+    // Bypass email check for Walk-ins
+    const isWalkIn = detailedAppointment.source === 'Walk-in';
+    
+    if (!isWalkIn && !detailedAppointment.customers?.email) {
+      setPendingAction('approve');
+      setEmailInput("");
+      setShowEmailPrompt(true);
       return;
     }
     setShowApprovalConfirm(true);
@@ -285,46 +333,50 @@ export default function GlobalNotificationProvider() {
       // 1. Update Database Status
       await Appointments.update(detailedAppointment.id, { status: 'Scheduled' });
 
-      // 2. Generate PayMongo Link
+      // 2. Generate PayMongo Link & Email (Skip for Walk-ins)
       let checkoutUrl = "";
-      try {
-        const checkoutRes = await fetch('/api/create-checkout', {
+      const isWalkIn = detailedAppointment.source === 'Walk-in';
+
+      if (!isWalkIn) {
+        try {
+          const checkoutRes = await fetch('/api/create-checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              appointmentId: detailedAppointment.id,
+              amount: detailedAppointment.price,
+              serviceName: detailedAppointment.service_name,
+              customerName: detailedAppointment.customer_name,
+              email: detailedAppointment.customers?.email,
+              phone: detailedAppointment.customers?.phone
+            })
+          });
+          if (checkoutRes.ok) {
+            const checkoutData = await checkoutRes.json();
+            checkoutUrl = checkoutData.checkout_url;
+          }
+        } catch (err) {
+          console.error("PayMongo generation failed", err);
+        }
+
+        // Trigger Email API
+        const response = await fetch('/api/appointment-approval', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            appointmentId: detailedAppointment.id,
-            amount: detailedAppointment.price,
-            serviceName: detailedAppointment.service_name,
-            customerName: detailedAppointment.customer_name,
             email: detailedAppointment.customers?.email,
-            phone: detailedAppointment.customers?.phone
+            customerName: detailedAppointment.customer_name,
+            date: detailedAppointment.appointment_date,
+            time: formatAMPM(detailedAppointment.appointment_time || ""),
+            service: detailedAppointment.service_name,
+            price: detailedAppointment.price,
+            staff: detailedAppointment.staff_name || detailedAppointment.staff?.name || "Professional",
+            checkoutUrl: checkoutUrl
           })
         });
-        if (checkoutRes.ok) {
-          const checkoutData = await checkoutRes.json();
-          checkoutUrl = checkoutData.checkout_url;
-        }
-      } catch (err) {
-        console.error("PayMongo generation failed", err);
+
+        if (!response.ok) throw new Error("Email sending failed");
       }
-
-      // 3. Trigger Email API
-      const response = await fetch('/api/appointment-approval', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: detailedAppointment.customers?.email,
-          customerName: detailedAppointment.customer_name,
-          date: detailedAppointment.appointment_date,
-          time: formatAMPM(detailedAppointment.appointment_time || ""),
-          service: detailedAppointment.service_name,
-          price: detailedAppointment.price,
-          staff: detailedAppointment.staff_name || detailedAppointment.staff?.name || "Professional",
-          checkoutUrl: checkoutUrl
-        })
-      });
-
-      if (!response.ok) throw new Error("Email sending failed");
 
       // 4. Mark Notification as Read in DB
       if (activeNotification?.id) {
@@ -336,12 +388,15 @@ export default function GlobalNotificationProvider() {
       setShowApprovalConfirm(false);
       setActiveNotification(null);
       setShowDetails(false);
-      alert(checkoutUrl
-        ? "Success: Appointment approved, PayMongo link generated, and email sent."
-        : "Success: Appointment approved and email sent (PayMongo link failed).");
+      
+      showStatus('success', 'Appointment Approved', isWalkIn
+        ? "Appointment approved successfully."
+        : (checkoutUrl
+          ? "Appointment approved, PayMongo link generated, and email sent successfully."
+          : "Appointment approved and email sent. (Payment link generation failed)."));
     } catch (err) {
       console.error("Approval error:", err);
-      alert("Database updated, but email service failed. Please check logs.");
+      showStatus('error', 'Approval Error', "Database updated, but email service failed. Please check system logs.");
     } finally {
       setIsProcessing(false);
     }
@@ -349,11 +404,50 @@ export default function GlobalNotificationProvider() {
 
   const handleRejectAppointment = async () => {
     if (!detailedAppointment?.id) return;
-    if (!detailedAppointment.customers?.email) {
-      alert("Error: Customer email is missing. Required for rejection email.");
+    
+    // Bypass email check for Walk-ins
+    const isWalkIn = detailedAppointment.source === 'Walk-in';
+
+    if (!isWalkIn && !detailedAppointment.customers?.email) {
+      setPendingAction('reject');
+      setEmailInput("");
+      setShowEmailPrompt(true);
       return;
     }
     setShowRejectConfirm(true);
+  };
+
+  const handleSaveEmail = async () => {
+    if (!detailedAppointment?.customer_id || !emailInput) return;
+    setIsProcessing(true);
+    try {
+      // 1. Update customer record in DB
+      await Customers.update(detailedAppointment.customer_id, { email: emailInput });
+
+      // 2. Update local state so the next modals see the new email
+      setDetailedAppointment(prev => prev ? {
+        ...prev,
+        customers: {
+          ...prev.customers,
+          name: prev.customers?.name || prev.customer_name || "Valued Customer",
+          email: emailInput
+        }
+      } : null);
+
+      // 3. Move to the next step
+      setShowEmailPrompt(false);
+      if (pendingAction === 'approve') {
+        setShowApprovalConfirm(true);
+      } else if (pendingAction === 'reject') {
+        setShowRejectConfirm(true);
+      }
+    } catch (err) {
+      console.error("Failed to save customer email:", err);
+      showStatus('error', 'Save Error', "Failed to save customer email. Please try again.");
+    } finally {
+      setIsProcessing(false);
+      setPendingAction(null);
+    }
   };
 
   const confirmRejection = async () => {
@@ -362,18 +456,21 @@ export default function GlobalNotificationProvider() {
     try {
       await Appointments.update(detailedAppointment.id, { status: 'Cancelled' });
 
-      await fetch('/api/appointment-rejection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: detailedAppointment.customers?.email,
-          customerName: detailedAppointment.customer_name,
-          date: detailedAppointment.appointment_date,
-          time: formatAMPM(detailedAppointment.appointment_time || ""),
-          service: detailedAppointment.service_name,
-          reason: rejectionReason
-        })
-      });
+      // Only send rejection email if not a walk-in
+      if (detailedAppointment.source !== 'Walk-in') {
+        await fetch('/api/appointment-rejection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: detailedAppointment.customers?.email,
+            customerName: detailedAppointment.customer_name,
+            date: detailedAppointment.appointment_date,
+            time: formatAMPM(detailedAppointment.appointment_time || ""),
+            service: detailedAppointment.service_name,
+            reason: rejectionReason
+          })
+        });
+      }
 
       // Mark Notification as Read in DB
       if (activeNotification?.id) {
@@ -386,10 +483,12 @@ export default function GlobalNotificationProvider() {
       setRejectionReason("");
       setActiveNotification(null);
       setShowDetails(false);
-      alert("Appointment rejected and customer notified.");
+      showStatus('success', 'Appointment Rejected', detailedAppointment.source === 'Walk-in' 
+        ? "The appointment has been successfully cancelled." 
+        : "The appointment has been successfully cancelled and the customer notified.");
     } catch (err) {
       console.error("Rejection error:", err);
-      alert("Failed to complete rejection flow.");
+      showStatus('error', 'Rejection Error', "Failed to complete the rejection workflow. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -704,6 +803,85 @@ export default function GlobalNotificationProvider() {
                 </button>
                 <button onClick={() => { setShowRejectConfirm(false); setRejectionReason(""); }} className="w-full py-4 rounded-full text-gray-400 font-medium hover:bg-gray-50 transition-colors">Cancel</button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Email Prompt Modal (for walk-ins missing email) */}
+        {showEmailPrompt && (
+          <div className="fixed inset-0 z-[12000] flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-white rounded-3xl w-full max-w-md p-8 text-center shadow-2xl relative animate-in zoom-in-95 duration-500 border border-pink-100">
+              <div className="w-16 h-16 rounded-2xl bg-pink-50 text-pink-500 flex items-center justify-center mx-auto mb-8 border border-pink-100">
+                <Mail className="w-8 h-8" />
+              </div>
+              <h3 className="text-2xl font-light text-gray-900 mb-4 tracking-tight">Email Required</h3>
+              <p className="text-gray-400 font-normal text-sm leading-relaxed mb-8 px-4">
+                This client is a walk-in. Please provide their email to send the confirmation.
+              </p>
+              
+              <div className="relative mb-8">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Mail className="h-4 w-4 text-pink-300" />
+                </div>
+                <input
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="Enter customer email (Gmail)..."
+                  className="w-full pl-11 pr-4 py-4 rounded-2xl bg-gray-50 border border-pink-100 text-sm focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 transition-all outline-none font-medium"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  disabled={isProcessing || !emailInput || !emailInput.includes('@')}
+                  onClick={handleSaveEmail}
+                  className="w-full py-4 rounded-full bg-pink-500 text-white font-bold shadow-xl shadow-pink-100 hover:bg-pink-600 disabled:opacity-50 flex items-center justify-center gap-3 transition-all"
+                >
+                  {isProcessing ? <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" /> : "ad"}
+                </button>
+                <button 
+                  onClick={() => { setShowEmailPrompt(false); setPendingAction(null); }} 
+                  className="w-full py-4 rounded-full text-gray-400 font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Global Status Modal (Replaces browser alerts) */}
+        {statusModal.isOpen && (
+          <div className="fixed inset-0 z-[15000] flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-white rounded-3xl w-full max-w-sm p-8 text-center shadow-2xl relative animate-in zoom-in-95 duration-500 border border-gray-100">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-8 border ${
+                statusModal.type === 'success' 
+                  ? 'bg-pink-50 text-pink-500 border-pink-100' 
+                  : 'bg-rose-50 text-rose-500 border-rose-100'
+              }`}>
+                {statusModal.type === 'success' ? <Check className="w-8 h-8" /> : <XCircle className="w-8 h-8" />}
+              </div>
+              
+              <h3 className="text-2xl font-light text-gray-900 mb-3 tracking-tight">
+                {statusModal.title}
+              </h3>
+              
+              <p className="text-gray-400 font-normal text-sm leading-relaxed mb-10 px-4">
+                {statusModal.message}
+              </p>
+
+              <button
+                onClick={() => setStatusModal(prev => ({ ...prev, isOpen: false }))}
+                className={`w-full py-4 rounded-full font-bold shadow-xl transition-all active:scale-95 ${
+                  statusModal.type === 'success'
+                    ? 'bg-brand-pink text-white shadow-pink-100 hover:opacity-90'
+                    : 'bg-rose-500 text-white shadow-rose-100 hover:bg-rose-600'
+                }`}
+              >
+                Got it
+              </button>
             </div>
           </div>
         )}
