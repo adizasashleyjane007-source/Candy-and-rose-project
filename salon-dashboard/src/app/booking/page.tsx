@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { DayPicker } from 'react-day-picker';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { createClient } from '@/lib/supabase/client';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { Appointments, type Appointment } from '@/lib/db';
 import { 
     Calendar as CalendarIcon, 
@@ -92,7 +93,7 @@ export default function BookingPage() {
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'appointments' },
-                (payload) => {
+                (payload: RealtimePostgresChangesPayload<any>) => {
                     console.log('Real-time update received:', payload);
                     fetchAppointments();
                 }

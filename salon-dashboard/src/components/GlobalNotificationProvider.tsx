@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import {
   Calendar, X, Clock, User, Scissors, XCircle, Info, Mail,
   Bell, TrendingUp, Check, Phone, MapPin
@@ -87,16 +88,20 @@ export default function GlobalNotificationProvider() {
           schema: 'public',
           table: 'notifications',
         },
-        (payload: any) => {
+        (payload: RealtimePostgresChangesPayload<any>) => {
           console.log("Real-time notification received via INSERT:", payload);
           const newNotif = payload.new;
 
           if (newNotif.type === 'appointment' || newNotif.type === 'customer') {
-            // Handle Walk-in success specifically to show a simple modal instead of the alert
-            if (newNotif.title === 'Walk-in Booking Saved' || newNotif.title === 'Appointment Updated' && newNotif.message.includes('Walk-in')) {
-              showStatus('success', 'Success', 'The appointment successfully saved');
+            // Handle Success/Update notifications by showing a simple status toast instead of the big alert modal
+            if (
+              newNotif.title === 'Walk-in Booking Saved' || 
+              newNotif.title === 'Appointment Updated' || 
+              newNotif.title === 'Status Updated' ||
+              newNotif.title === 'Appointment Deleted'
+            ) {
+              showStatus('success', newNotif.title, newNotif.message || 'Action completed successfully');
               
-              // Still dispatch event for any lists (like notification bell) to refresh
               if (typeof window !== "undefined") {
                 window.dispatchEvent(new Event("notificationsUpdated"));
               }
@@ -648,7 +653,7 @@ export default function GlobalNotificationProvider() {
                   </div>
                   <div>
                     <h3 className="text-2xl font-normal text-gray-900 tracking-tight">
-                      {isAppointment ? 'New Appointment' : 'Client Message'}
+                      {activeNotification.title || (isAppointment ? 'New Appointment' : 'Client Message')}
                     </h3>
                     <p className="text-[10px] font-bold text-brand-pink uppercase tracking-[0.2em] mb-0.5">Notification Alert</p>
                   </div>
@@ -660,9 +665,11 @@ export default function GlobalNotificationProvider() {
                   </h4>
 
                   <p className="text-gray-400 font-normal mb-10 px-8 leading-relaxed text-sm">
-                    {isAppointment
-                      ? "A new booking request requires your attention and confirmation."
-                      : (activeNotification.title?.replace('New Message: ', '').split(' from ')[0] || "You have a new direct inquiry from a client.")}
+                    {activeNotification.message && !activeNotification.message.startsWith('ID:') 
+                      ? activeNotification.message 
+                      : (isAppointment 
+                          ? "A new booking request requires your attention and confirmation."
+                          : (activeNotification.title?.replace('New Message: ', '').split(' from ')[0] || "You have a new direct inquiry from a client."))}
                   </p>
 
                   <button

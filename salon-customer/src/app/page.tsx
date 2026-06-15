@@ -50,11 +50,12 @@ interface Appointment {
   appointment_time: string;
   date?: string; // Fallback for your older columns
   time?: string; // Fallback for your older columns
-  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed';
+  status: 'Scheduled' | 'Pending' | 'Completed' | 'Cancelled' | 'Reserved' | 'Occupied' | 'Confirmed';
   service_name: string;
   price: number;
   customer_id?: string | number;
   service_id?: string | number;
+  service_category?: string;
   staff_name?: string;
   staff_id?: string | number;
   duration?: string;
@@ -127,7 +128,6 @@ export default function LandingPage() {
     minute: "00",
     period: "AM"
   });
-  const [disabledDays, setDisabledDays] = useState<Date[]>([]);
 
   // Reset hour if it becomes invalid after period change
   useEffect(() => {
@@ -195,13 +195,113 @@ export default function LandingPage() {
     }
   };
 
+  const getAvailableTimes = (targetDate: Date = selectedDate) => {
+    if (!operatingHours || !targetDate) return [];
+    const dayName = format(targetDate, 'EEEE');
+    const hours = operatingHours[dayName];
+    if (!hours || !hours.isOpen) return [];
+
+    const slots = [];
+    try {
+      const openTime = parse(hours.open, 'HH:mm', targetDate);
+      const closeTime = parse(hours.close, 'HH:mm', targetDate);
+
+      let curr = openTime;
+      // Using 10-minute intervals to match the UI selection
+      while (isBefore(curr, closeTime)) {
+        slots.push(format(curr, 'HH:mm:00'));
+        curr = new Date(curr.getTime() + 10 * 60000);
+      }
+    } catch (e) {
+      console.error("Error parsing hours", e);
+      return [];
+    }
+
+    const targetDateString = format(targetDate, 'yyyy-MM-dd');
+
+    return slots.filter(slot => {
+      const hasConflict = appointments.some((apt: Appointment) => {
+        if (apt.status === 'Cancelled' || apt.status === 'Completed') return false;
+        const aptDate = apt.appointment_date || apt.date;
+        const aptTime = apt.appointment_time || apt.time;
+        if (aptDate === targetDateString) {
+          const aptTimePrefix = aptTime ? aptTime.substring(0, 5) : "";
+          const slotPrefix = slot.substring(0, 5);
+          return aptTimePrefix === slotPrefix;
+        }
+        return false;
+      });
+
+      if (targetDateString === format(new Date(), 'yyyy-MM-dd')) {
+        const now = new Date();
+        const slotTime = parse(slot.substring(0, 5), 'HH:mm', targetDate);
+        if (isBefore(slotTime, now)) return false;
+      }
+      return !hasConflict;
+    });
+  };
+
+  const isReserved = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return appointments.some(apt => {
+      const aptDate = apt.appointment_date || apt.date;
+      return aptDate === dateStr && (apt.status === 'Reserved' || apt.status === 'Pending');
+    });
+  };
+
+  const isOccupied = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return appointments.some(apt => {
+      const aptDate = apt.appointment_date || apt.date;
+      return aptDate === dateStr && (apt.status === 'Occupied' || apt.status === 'Scheduled');
+    });
+  };
+
+  const isDateFullyBooked = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+
+    // 1. Past dates are always unavailable
+    if (isBefore(date, startOfToday())) return true;
+    
+    // 2. Check operating hours
+    const dayName = format(date, 'EEEE');
+    const hours = operatingHours?.[dayName];
+    if (!hours || !hours.isOpen) return true;
+
+    // 3. Check for "Reserved" or "Occupied" status on this date
+    if (isReserved(date) || isOccupied(date)) return true;
+
+    const dayApts = appointments.filter(apt => {
+      const aptDate = apt.appointment_date || apt.date;
+      // Filter by date and ensure it's not cancelled
+      const isOnDate = aptDate === dateStr && apt.status !== 'Cancelled';
+      // ALSO filter by the selected staff member
+      const isForStaff = !selectedStaff || apt.staff_id === selectedStaff.id;
+      return isOnDate && isForStaff;
+    });
+
+    const DAILY_LIMIT = 5;
+    const GLOBAL_LIMIT = 15;
+    
+    if (dayApts.length >= DAILY_LIMIT) return true; // Selected staff is full
+    
+    const totalDayApts = appointments.filter(apt => {
+      const aptDate = apt.appointment_date || apt.date;
+      return aptDate === dateStr && apt.status !== 'Cancelled';
+    });
+    
+    if (totalDayApts.length >= GLOBAL_LIMIT) return true; // Shop reached maximum capacity
+
+    // 4. If no active appointments, check if there are available time slots
+    // This handles the case where all appointments are 'Completed' or it's today
+    const available = getAvailableTimes(date);
+    return available.length === 0;
+  };
+
   const fetchDisabledDates = useCallback(async () => {
     try {
       const apts = await Appointments.list();
-      const disabled = (apts as Appointment[])
-        .filter(apt => ['Pending', 'Scheduled', 'Reserved', 'Occupied'].includes(apt.status))
-        .map(apt => parseISO(apt.appointment_date || apt.date || ''));
-      setDisabledDays(disabled);
+      setAppointments(apts as Appointment[]);
     } catch (err) {
       console.error("Failed to fetch disabled dates", err);
     }
@@ -226,10 +326,8 @@ export default function LandingPage() {
         setOperatingHours(hours || getDefaultHours());
 
         // Initial disabled dates fetch
-        const disabled = (apts as Appointment[])
-          .filter(apt => ['Pending', 'Scheduled', 'Reserved', 'Occupied'].includes(apt.status))
-          .map(apt => parseISO(apt.appointment_date || apt.date || ''));
-        setDisabledDays(disabled);
+        const allApts = (apts as Appointment[]) || [];
+        setAppointments(allApts);
 
         // Generate time slots based on hours
         const schedule = (hours || getDefaultHours());
@@ -308,92 +406,6 @@ export default function LandingPage() {
     Saturday: { isOpen: true, open: "09:00", close: "20:00" },
     Sunday: { isOpen: false, open: "10:00", close: "17:00" },
   });
-
-  const getAvailableTimes = (targetDate: Date = selectedDate) => {
-    if (!operatingHours || !targetDate) return [];
-    const dayName = format(targetDate, 'EEEE');
-    const hours = operatingHours[dayName];
-    if (!hours || !hours.isOpen) return [];
-
-    const slots = [];
-    try {
-      const openTime = parse(hours.open, 'HH:mm', targetDate);
-      const closeTime = parse(hours.close, 'HH:mm', targetDate);
-
-      let curr = openTime;
-      // Using 10-minute intervals to match the UI selection
-      while (isBefore(curr, closeTime)) {
-        slots.push(format(curr, 'HH:mm:00'));
-        curr = new Date(curr.getTime() + 10 * 60000);
-      }
-    } catch (e) {
-      console.error("Error parsing hours", e);
-      return [];
-    }
-
-    const targetDateString = format(targetDate, 'yyyy-MM-dd');
-
-    return slots.filter(slot => {
-      const hasConflict = appointments.some((apt: Appointment) => {
-        if (apt.status === 'Cancelled' || apt.status === 'Completed') return false;
-        const aptDate = apt.appointment_date || apt.date;
-        const aptTime = apt.appointment_time || apt.time;
-        if (aptDate === targetDateString) {
-          const aptTimePrefix = aptTime ? aptTime.substring(0, 5) : "";
-          const slotPrefix = slot.substring(0, 5);
-          return aptTimePrefix === slotPrefix;
-        }
-        return false;
-      });
-
-      if (targetDateString === format(new Date(), 'yyyy-MM-dd')) {
-        const now = new Date();
-        const slotTime = parse(slot.substring(0, 5), 'HH:mm', targetDate);
-        if (isBefore(slotTime, now)) return false;
-      }
-      return !hasConflict;
-    });
-  };
-
-  const isDateFullyBooked = (date: Date) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-
-    // 1. Past dates are always unavailable
-    if (isBefore(date, startOfToday())) return true;
-    
-    // 2. Check operating hours
-    const dayName = format(date, 'EEEE');
-    const hours = operatingHours?.[dayName];
-    if (!hours || !hours.isOpen) return true;
-
-    // 3. Check for "Reserved" or "Occupied" status on this date
-    // A date is reserved/occupied if it has at least one appointment that is NOT 'Completed' or 'Cancelled'
-    const dayApts = appointments.filter(apt => {
-      const aptDate = apt.appointment_date || apt.date;
-      // Filter by date and ensure it's not cancelled
-      const isOnDate = aptDate === dateStr && apt.status !== 'Cancelled';
-      // ALSO filter by the selected staff member
-      const isForStaff = !selectedStaff || apt.staff_id === selectedStaff.id;
-      return isOnDate && isForStaff;
-    });
-
-    const DAILY_LIMIT = 5;
-    const GLOBAL_LIMIT = 15;
-    
-    if (dayApts.length >= DAILY_LIMIT) return true; // Selected staff is full
-    
-    const totalDayApts = appointments.filter(apt => {
-      const aptDate = apt.appointment_date || apt.date;
-      return aptDate === dateStr && apt.status !== 'Cancelled';
-    });
-    
-    if (totalDayApts.length >= GLOBAL_LIMIT) return true; // Shop reached maximum capacity
-
-    // 4. If no active appointments, check if there are available time slots
-    // This handles the case where all appointments are 'Completed' or it's today
-    const available = getAvailableTimes(date);
-    return available.length === 0;
-  };
 
   const handleServiceSelect = (service: any) => {
     setSelectedService(service);
@@ -1088,9 +1100,11 @@ export default function LandingPage() {
                                 transition: all 0.2s;
                                 font-size: 0.85rem;
                               }
-                              .rdp-premium .rdp-day_selected {
+                              .rdp-premium .rdp-day_selected, 
+                              .rdp-premium .rdp-day_selected:hover {
                                 background-color: #ff4d8d !important;
                                 color: white !important;
+                                opacity: 1 !important;
                                 font-weight: 700;
                                 box-shadow: 0 4px 12px rgba(255, 77, 141, 0.3);
                               }
@@ -1100,18 +1114,24 @@ export default function LandingPage() {
                               }
                               /* Reserved/Occupied dates */
                               .rdp-premium .rdp-day_reserved {
-                                text-decoration: line-through;
-                                color: #9ca3af !important;
-                                opacity: 0.4;
+                                color: #fbbf24 !important; /* Yellow */
+                                background-color: #fef3c7 !important;
+                                opacity: 1;
                                 cursor: not-allowed !important;
                               }
-                              /* Past dates */
-                              .rdp-premium .rdp-day_disabled {
-                                color: #d1d5db !important;
-                                opacity: 0.25;
-                                text-decoration: none;
+                              .rdp-premium .rdp-day_occupied {
+                                color: #ef4444 !important; /* Red */
+                                background-color: #fee2e2 !important;
+                                opacity: 1;
                                 cursor: not-allowed !important;
-                                pointer-events: none !important;
+                              }
+                              .rdp-premium .rdp-day_disabled:not(.rdp-day_reserved):not(.rdp-day_occupied) {
+                                color: #94a3b8 !important;
+                                background-color: #f1f5f9 !important;
+                                opacity: 0.5;
+                              }
+                              .rdp-premium .rdp-day:not([disabled]):not(.rdp-day_selected) {
+                                color: #000000 !important; /* Available is black */
                               }
                               .rdp-premium .rdp-day_today {
                                 color: #ff4d8d;
@@ -1140,6 +1160,7 @@ export default function LandingPage() {
                             `}</style>
                             <DayPicker
                               mode="single"
+                              required
                               selected={selectedDate}
                               onSelect={(date) => {
                                 if (date) {
@@ -1147,13 +1168,14 @@ export default function LandingPage() {
                                   setShowDateDropdown(false);
                                 }
                               }}
-                              disabled={[
-                                { before: startOfToday() },
-                                ...disabledDays
-                              ]}
+                              disabled={isDateFullyBooked}
+                              hidden={{ before: startOfToday() }}
+                              fromDate={startOfToday()}
                               className="rdp-premium border-none"
                               modifiers={{
-                                reserved: disabledDays
+                                reserved: isReserved,
+                                occupied: isOccupied,
+                                full: isDateFullyBooked
                               }}
                             />
                           </div>

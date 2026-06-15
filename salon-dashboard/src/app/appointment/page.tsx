@@ -45,6 +45,7 @@ function AppointmentContent() {
 
     // CRUD states
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [secondaryServices, setSecondaryServices] = useState<string[]>([]);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
 
@@ -58,10 +59,12 @@ function AppointmentContent() {
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
-    
+
     // Details Modal State
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [selectedAptDetails, setSelectedAptDetails] = useState<any | null>(null);
+    const [minDate, setMinDate] = useState("");
+    const [today, setToday] = useState<Date | null>(null);
 
     const DEFAULT_OPERATING_HOURS = {
         Monday: { isOpen: true, open: "08:00", close: "19:00" },
@@ -93,6 +96,13 @@ function AppointmentContent() {
     const [timeInputValue, setTimeInputValue] = useState("");
     const timeDropdownRef = useRef<HTMLDivElement>(null);
 
+    // Quick Add Service Modal States
+    const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+    const [quickAddCustomer, setQuickAddCustomer] = useState("");
+    const [quickAddService, setQuickAddService] = useState("");
+    const [showQuickAddCustomerDropdown, setShowQuickAddCustomerDropdown] = useState(false);
+    const quickAddCustomerDropdownRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         if (filterParam) {
             setDateFilter(filterParam);
@@ -117,6 +127,11 @@ function AppointmentContent() {
                 setServices(svcData);
                 setStaffList(staffData);
                 setOperatingHours(hoursData);
+
+                // Fix hydration: set dates on client only
+                const now = new Date();
+                setToday(now);
+                setMinDate(now.toISOString().split("T")[0]);
             } catch (error) {
                 console.error("Failed to fetch data:", error);
             }
@@ -132,6 +147,9 @@ function AppointmentContent() {
             if (timeDropdownRef.current && !timeDropdownRef.current.contains(event.target as Node)) {
                 setShowTimeDropdown(false);
             }
+            if (quickAddCustomerDropdownRef.current && !quickAddCustomerDropdownRef.current.contains(event.target as Node)) {
+                setShowQuickAddCustomerDropdown(false);
+            }
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -139,6 +157,10 @@ function AppointmentContent() {
 
     const filteredCustomers = customers.filter(c =>
         c.name.toLowerCase().includes(formData.customerName.toLowerCase())
+    );
+
+    const filteredQuickAddCustomers = customers.filter(c =>
+        c.name.toLowerCase().includes(quickAddCustomer.toLowerCase())
     );
 
     // Helpers for time conversion
@@ -224,8 +246,64 @@ function AppointmentContent() {
             const selectedStaff = staffList.find(s => s.name === formData.staffName);
             const selectedCustomer = customers.find(c => c.name === formData.customerName);
 
-            const duration = selectedService?.duration || "N/A";
-            let price = selectedService?.price || 0;
+            const primaryPrice = selectedService?.price || 0;
+            const primaryDuration = selectedService?.duration || "0m";
+
+            let totalPrice = Number(primaryPrice);
+
+            // Get secondary service objects
+            const secondaryServiceObjects = secondaryServices
+                .map(name => services.find(s => s.name === name))
+                .filter(Boolean);
+
+            secondaryServiceObjects.forEach(s => {
+                totalPrice += Number(s!.price || 0);
+            });
+
+            // Calculate consolidated service name
+            const consolidatedServiceName = [formData.serviceName, ...secondaryServices.filter(Boolean)].join(", ");
+
+            // Calculate consolidated staff names
+            const secondaryStaffNames = secondaryServiceObjects.map(s => {
+                if (s && s.required_role) {
+                    const matchingStaff = staffList.find(st => st.role === s.required_role);
+                    return matchingStaff ? matchingStaff.name : "Auto-assigned";
+                }
+                return "Auto-assigned";
+            });
+            const consolidatedStaffName = [formData.staffName, ...secondaryStaffNames].join(", ");
+
+            // Calculate consolidated duration
+            const parseDurationToMinutes = (dStr: string) => {
+                if (!dStr) return 0;
+                let minutes = 0;
+                const hoursMatch = dStr.match(/(\d+)\s*h/i);
+                const minsMatch = dStr.match(/(\d+)\s*m/i);
+                if (hoursMatch) minutes += parseInt(hoursMatch[1]) * 60;
+                if (minsMatch) minutes += parseInt(minsMatch[1]);
+                if (!hoursMatch && !minsMatch) {
+                    const num = parseInt(dStr);
+                    if (!isNaN(num)) minutes += num;
+                }
+                return minutes;
+            };
+
+            let totalMinutes = parseDurationToMinutes(primaryDuration);
+            secondaryServiceObjects.forEach(s => {
+                totalMinutes += parseDurationToMinutes(s!.duration || "0m");
+            });
+
+            const formatMinutesToDuration = (mins: number) => {
+                if (mins <= 0) return "N/A";
+                const h = Math.floor(mins / 60);
+                const m = mins % 60;
+                if (h > 0 && m > 0) return `${h}h ${m}m`;
+                if (h > 0) return `${h}h`;
+                return `${m}m`;
+            };
+
+            const duration = formatMinutesToDuration(totalMinutes);
+            const price = totalPrice;
 
             // 2. Resolve Customer (Create if not exists)
             let customerId = selectedCustomer?.id;
@@ -247,9 +325,9 @@ function AppointmentContent() {
                 await Appointments.update(editingId, {
                     customer_name: formData.customerName,
                     customer_id: customerId as any,
-                    service_name: formData.serviceName,
+                    service_name: consolidatedServiceName,
                     service_id: selectedService?.id as any,
-                    staff_name: formData.staffName,
+                    staff_name: consolidatedStaffName,
                     staff_id: selectedStaff?.id as any,
                     appointment_date: formData.date,
                     appointment_time: formData.time,
@@ -259,19 +337,15 @@ function AppointmentContent() {
                     notes: formData.notes,
                     status: finalStatus
                 });
-                
-                if (isWalkIn) {
-                    addNotification(`Appointment Updated`, `Walk-in booking for ${formData.customerName} has been updated.`, "appointment");
-                } else {
-                    addNotification(`Appointment Updated: ${formData.customerName}`, `ID:${editingId}`, "appointment");
-                }
+
+                // Notification removed as it's an admin action
             } else {
                 const createdApt = await Appointments.create({
                     customer_name: formData.customerName,
                     customer_id: customerId as any,
-                    service_name: formData.serviceName,
+                    service_name: consolidatedServiceName,
                     service_id: selectedService?.id as any,
-                    staff_name: formData.staffName,
+                    staff_name: consolidatedStaffName,
                     staff_id: selectedStaff?.id as any,
                     appointment_date: formData.date,
                     appointment_time: formData.time,
@@ -292,7 +366,7 @@ function AppointmentContent() {
             // Refresh data
             const updatedApts = await Appointments.list();
             setAppointments(updatedApts);
-            
+
             if (!editingId) {
                 const updatedCusts = await Customers.list();
                 setCustomers(updatedCusts);
@@ -301,6 +375,7 @@ function AppointmentContent() {
             // Clean up For Editing
             setIsModalOpen(false);
             setEditingId(null);
+            setSecondaryServices([]);
             setFormData({
                 customerName: "",
                 serviceName: "",
@@ -317,8 +392,144 @@ function AppointmentContent() {
         }
     };
 
+    const handleSaveQuickAdd = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!quickAddCustomer.trim()) {
+            alert("Please input or select a customer name.");
+            return;
+        }
+
+        if (!quickAddService) {
+            alert("Please select a service to add.");
+            return;
+        }
+
+        const selectedService = services.find(s => s.name === quickAddService);
+        if (!selectedService) {
+            alert("Selected service not found.");
+            return;
+        }
+
+        try {
+            // Find an active appointment for this customer
+            const activeApt = appointments.find(apt =>
+                (apt.customers?.name?.toLowerCase() === quickAddCustomer.toLowerCase() ||
+                    apt.customer_name?.toLowerCase() === quickAddCustomer.toLowerCase()) &&
+                apt.status !== "Completed" &&
+                apt.status !== "Cancelled"
+            );
+
+            // Fetch staff details matching the service's role (or auto-assign)
+            let assignedStaff = "Auto-assigned";
+            let assignedStaffId = null;
+            if (selectedService.required_role) {
+                const matchingStaff = staffList.find(st => st.role === selectedService.required_role);
+                if (matchingStaff) {
+                    assignedStaff = matchingStaff.name;
+                    assignedStaffId = matchingStaff.id;
+                }
+            }
+
+            if (activeApt) {
+                // Parse durations to minutes to sum them up
+                const parseDurationToMinutes = (dStr: string) => {
+                    if (!dStr) return 0;
+                    let minutes = 0;
+                    const hoursMatch = dStr.match(/(\d+)\s*h/i);
+                    const minsMatch = dStr.match(/(\d+)\s*m/i);
+                    if (hoursMatch) minutes += parseInt(hoursMatch[1]) * 60;
+                    if (minsMatch) minutes += parseInt(minsMatch[1]);
+                    if (!hoursMatch && !minsMatch) {
+                        const num = parseInt(dStr);
+                        if (!isNaN(num)) minutes += num;
+                    }
+                    return minutes;
+                };
+
+                const formatMinutesToDuration = (mins: number) => {
+                    if (mins <= 0) return "N/A";
+                    const h = Math.floor(mins / 60);
+                    const m = mins % 60;
+                    if (h > 0 && m > 0) return `${h}h ${m}m`;
+                    if (h > 0) return `${h}h`;
+                    return `${m}m`;
+                };
+
+                const currentDurationMin = parseDurationToMinutes(activeApt.duration || "0m");
+                const newServiceDurationMin = parseDurationToMinutes(selectedService.duration || "0m");
+                const totalDuration = formatMinutesToDuration(currentDurationMin + newServiceDurationMin);
+
+                const updatedServiceName = [activeApt.service_name, quickAddService].join(", ");
+                const updatedStaffName = [activeApt.staff_name, assignedStaff].join(", ");
+                const updatedPrice = Number(activeApt.price || 0) + Number(selectedService.price || 0);
+
+                await Appointments.update(activeApt.id!, {
+                    service_name: updatedServiceName,
+                    staff_name: updatedStaffName,
+                    price: updatedPrice,
+                    duration: totalDuration
+                });
+
+                addNotification(
+                    "Service Added to Tab",
+                    `Added ${quickAddService} for ${quickAddCustomer}`,
+                    "appointment"
+                );
+            } else {
+                // No active appointment, register customer if not exists and create new appointment
+                let customerId = customers.find(c => c.name.toLowerCase() === quickAddCustomer.toLowerCase())?.id;
+                if (!customerId) {
+                    const newCust = await Customers.create({
+                        name: quickAddCustomer,
+                        status: "Active",
+                        visits: 1
+                    });
+                    customerId = newCust.id;
+                    addNotification("New Customer Registered", `${quickAddCustomer} was added to the system.`, "customer");
+                }
+
+                await Appointments.create({
+                    customer_name: quickAddCustomer,
+                    customer_id: customerId as any,
+                    service_name: quickAddService,
+                    service_id: selectedService.id as any,
+                    staff_name: assignedStaff,
+                    staff_id: assignedStaffId as any,
+                    appointment_date: new Date().toISOString().split("T")[0],
+                    appointment_time: "10:00 AM", // default morning time slot
+                    price: Number(selectedService.price || 0),
+                    duration: selectedService.duration || "N/A",
+                    status: "Scheduled",
+                    source: "Walk-in"
+                });
+
+                addNotification(
+                    "New Transaction Opened",
+                    `Created booking with ${quickAddService} for ${quickAddCustomer}`,
+                    "appointment"
+                );
+            }
+
+            // Reload data
+            const aptData = await Appointments.list();
+            const custData = await Customers.list();
+            setAppointments(aptData);
+            setCustomers(custData);
+
+            // Close modal & reset states
+            setIsQuickAddOpen(false);
+            setQuickAddCustomer("");
+            setQuickAddService("");
+        } catch (error) {
+            console.error("Failed to save quick add service:", error);
+            alert("Failed to save service. Please try again.");
+        }
+    };
+
     const handleAddClick = () => {
         setEditingId(null);
+        setSecondaryServices([]);
         setFormData({
             customerName: "",
             serviceName: "",
@@ -344,10 +555,18 @@ function AppointmentContent() {
             }
         }
 
+        const serviceNames = (apt.service_name ?? apt.services?.name ?? "").split(", ");
+        const primaryService = serviceNames[0] || "";
+        const secondaryServicesList = serviceNames.slice(1);
+        setSecondaryServices(secondaryServicesList);
+
+        const staffNames = (apt.staff_name ?? apt.staff?.name ?? "").split(", ");
+        const primaryStaff = staffNames[0] || "";
+
         setFormData({
             customerName: apt.customer_name ?? apt.customers?.name ?? "",
-            serviceName: apt.service_name ?? apt.services?.name ?? "",
-            staffName: apt.staff_name ?? apt.staff?.name ?? "",
+            serviceName: primaryService,
+            staffName: primaryStaff,
             date: dateForInput,
             time: apt.appointment_time ?? apt.time ?? "",
             duration: apt.duration ?? "N/A",
@@ -395,14 +614,14 @@ function AppointmentContent() {
             aptDate.setHours(0, 0, 0, 0);
 
             // If the appointment date has passed, only allow "Completed" or "Cancelled"
-            if (aptDate < today && newStatus !== 'Completed' && newStatus !== 'Cancelled') {
+            if (today && aptDate < today && newStatus !== 'Completed' && newStatus !== 'Cancelled') {
                 alert("This appointment date has already passed. You can only mark it as 'Completed' or 'Cancelled'.");
                 return;
             }
 
             await Appointments.update(id, { status: newStatus });
             setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
-            addNotification("Status Updated", `Appointment status changed to ${newStatus}.`, "appointment");
+            // Removed Status Updated notification popup to reduce intrusiveness
         } catch (error) {
             console.error("Status update failed:", error);
             alert("Failed to update status.");
@@ -413,15 +632,17 @@ function AppointmentContent() {
     const filteredAppointments = appointments.filter(apt => {
         const customerName = apt.customer_name || (apt.customers?.name) || "";
         const serviceName = apt.service_name || (apt.services?.name) || "";
-        
+
         const matchesSearch = customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             serviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             apt.status.toLowerCase().includes(searchQuery.toLowerCase());
-        
-        // Hide 'Pending' from 'All' view as per user request (Wait for approval flow)
-        const matchesStatus = statusFilter === "All" 
-            ? apt.status !== "Pending" 
-            : apt.status === statusFilter;
+
+        // If searching, search regardless of status. Otherwise, hide 'Pending' from 'All' view or filter by status.
+        const matchesStatus = searchQuery.trim() !== ""
+            ? true
+            : (statusFilter === "All"
+                ? apt.status !== "Pending"
+                : apt.status === statusFilter);
 
         const matchesSource = sourceFilter === "All"
             ? true
@@ -429,15 +650,19 @@ function AppointmentContent() {
 
         let matchesDate = true;
 
-        if (dateFilter !== "All Time") {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+        if (dateFilter !== "All Time" && today) {
+            const todayStart = new Date(today);
+            todayStart.setHours(0, 0, 0, 0);
 
             const aptDateValue = apt.appointment_date || apt.date;
+            if (!aptDateValue) return false;
+
             const aptDate = new Date(aptDateValue);
+            if (isNaN(aptDate.getTime())) return false;
+
             aptDate.setHours(0, 0, 0, 0);
 
-            const diffTime = aptDate.getTime() - today.getTime();
+            const diffTime = aptDate.getTime() - todayStart.getTime();
             const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
             if (dateFilter === "Today") {
@@ -447,8 +672,8 @@ function AppointmentContent() {
             } else if (dateFilter === "Next Week") {
                 matchesDate = diffDays >= 0 && diffDays <= 7;
             } else if (dateFilter === "Next Month") {
-                const nextMonth = (today.getMonth() + 1) % 12;
-                const yearOfNextMonth = today.getFullYear() + (today.getMonth() === 11 ? 1 : 0);
+                const nextMonth = (todayStart.getMonth() + 1) % 12;
+                const yearOfNextMonth = todayStart.getFullYear() + (todayStart.getMonth() === 11 ? 1 : 0);
                 matchesDate = aptDate.getMonth() === nextMonth && aptDate.getFullYear() === yearOfNextMonth;
             }
         }
@@ -470,8 +695,8 @@ function AppointmentContent() {
     const totalRevenue = appointments
         .filter(a => a.status === 'Completed')
         .reduce((sum, a) => {
-            const price = typeof a.price === 'string' 
-                ? parseInt(a.price.replace(/[^0-9]/g, '')) 
+            const price = typeof a.price === 'string'
+                ? parseInt(a.price.replace(/[^0-9]/g, ''))
                 : (Number(a.price) || 0);
             return sum + (isNaN(price) ? 0 : price);
         }, 0);
@@ -669,10 +894,17 @@ function AppointmentContent() {
 
                     <div className="flex items-center gap-3 w-full md:w-auto">
                         <button
-                            onClick={handleAddClick}
-                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md font-bold transition-all hover:scale-105 active:scale-95"
+                            onClick={() => setIsQuickAddOpen(true)}
+                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-pink-200 hover:bg-pink-50 text-pink-600 rounded-full shadow-sm font-bold transition-all hover:scale-105 active:scale-95 cursor-pointer"
                         >
-                            <Plus className="w-5 h-5" />
+                            <Plus className="w-4 h-4 text-pink-500" />
+                            Add
+                        </button>
+                        <button
+                            onClick={handleAddClick}
+                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md font-bold transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                        >
+                            <Plus className="w-5 h-5 pointer-events-none" />
                             New Booking
                         </button>
                     </div>
@@ -752,10 +984,10 @@ function AppointmentContent() {
                                         <td className="py-2.5 px-4 text-sm rounded-r-xl border border-transparent group-hover:border-pink-200 border-l-0 whitespace-nowrap">
                                             <div className="flex items-center justify-center gap-2">
                                                 <button onClick={() => handleEditClick(apt)} className="p-2 bg-white text-pink-500 rounded-lg shadow-sm border border-pink-100 hover:bg-pink-100 transition-colors" title="Edit">
-                                                    <Edit2 className="w-4 h-4" />
+                                                    <Edit2 className="w-4 h-4 pointer-events-none" />
                                                 </button>
                                                 <button onClick={() => handleDeleteClick(apt.id)} className="p-2 bg-white text-red-500 rounded-lg shadow-sm border border-red-100 hover:bg-red-100 transition-colors" title="Delete">
-                                                    <Trash2 className="w-4 h-4" />
+                                                    <Trash2 className="w-4 h-4 pointer-events-none" />
                                                 </button>
                                             </div>
                                         </td>
@@ -809,102 +1041,427 @@ function AppointmentContent() {
             </div>
 
             {/* Appointment Details Modal */}
-            <AppointmentDetailsModal 
+            <AppointmentDetailsModal
                 isOpen={isDetailsModalOpen}
                 onClose={() => setIsDetailsModalOpen(false)}
                 appointment={selectedAptDetails}
             />
-            
+
             {/* Booking Form Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl p-8 relative animate-in zoom-in-95 duration-200 border border-pink-100 max-h-[90vh] overflow-y-auto">
+            {/* Booking Form Modal */}
+            {isModalOpen && (() => {
+                const primaryServiceObj = services.find(s => s.name === formData.serviceName);
+                const primaryPrice = primaryServiceObj?.price || 0;
+                const primaryDuration = primaryServiceObj?.duration || "0m";
+
+                const secondaryServiceObjs = secondaryServices
+                    .map(name => services.find(s => s.name === name))
+                    .filter(Boolean);
+
+                let currentTotalPrice = Number(primaryPrice);
+                secondaryServiceObjs.forEach(s => {
+                    currentTotalPrice += Number(s!.price || 0);
+                });
+
+                const parseDurationToMinutes = (dStr: string) => {
+                    if (!dStr) return 0;
+                    let minutes = 0;
+                    const hoursMatch = dStr.match(/(\d+)\s*h/i);
+                    const minsMatch = dStr.match(/(\d+)\s*m/i);
+                    if (hoursMatch) minutes += parseInt(hoursMatch[1]) * 60;
+                    if (minsMatch) minutes += parseInt(minsMatch[1]);
+                    if (!hoursMatch && !minsMatch) {
+                        const num = parseInt(dStr);
+                        if (!isNaN(num)) minutes += num;
+                    }
+                    return minutes;
+                };
+
+                let currentTotalMinutes = parseDurationToMinutes(primaryDuration);
+                secondaryServiceObjs.forEach(s => {
+                    currentTotalMinutes += parseDurationToMinutes(s!.duration || "0m");
+                });
+
+                const formatMinutesToDuration = (mins: number) => {
+                    if (mins <= 0) return "N/A";
+                    const h = Math.floor(mins / 60);
+                    const m = mins % 60;
+                    if (h > 0 && m > 0) return `${h}h ${m}m`;
+                    if (h > 0) return `${h}h`;
+                    return `${m}m`;
+                };
+
+                const currentTotalDuration = formatMinutesToDuration(currentTotalMinutes);
+
+                return (
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-in fade-in">
+                        <div className="bg-white shadow-2xl relative border border-pink-100 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200 p-5 md:p-6 no-scrollbar">
+                            <button
+                                onClick={() => setIsModalOpen(false)}
+                                className="absolute right-5 top-5 p-1.5 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full transition-colors z-50"
+                            >
+                                <X className="w-5 h-5 font-bold" />
+                            </button>
+
+                            <div className="mb-4">
+                                <h3 className="text-xl font-bold text-gray-900">{editingId ? "Edit Booking" : "New Booking"}</h3>
+                                <p className="text-xs text-gray-500 mt-0.5 font-medium">
+                                    {editingId ? "Update existing appointment details." : "Schedule a new client appointment."}
+                                </p>
+                            </div>
+
+                            <form onSubmit={handleSaveBooking} className="space-y-4">
+                                <div className="space-y-3.5">
+                                    {/* Customer Searchable Dropdown */}
+                                    <div className="relative" ref={customerDropdownRef}>
+                                        <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-1.5">Customer Name</label>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <User className="h-4 w-4 text-pink-300" />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                required
+                                                autoComplete="off"
+                                                className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium text-sm"
+                                                placeholder="Search or enter customer name..."
+                                                value={formData.customerName}
+                                                onChange={(e) => {
+                                                    const val = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                                                    setFormData({ ...formData, customerName: val });
+                                                    setShowCustomerDropdown(true);
+                                                }}
+                                                onFocus={() => setShowCustomerDropdown(true)}
+                                            />
+                                            {showCustomerDropdown && formData.customerName && filteredCustomers.length > 0 && (
+                                                <div className="absolute z-30 w-full mt-1.5 bg-white rounded-xl shadow-xl border border-pink-100 py-1.5 max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1">
+                                                    {filteredCustomers.map((c) => (
+                                                        <button
+                                                            key={c.id}
+                                                            type="button"
+                                                            className="w-full text-left px-4 py-2 hover:bg-pink-50 transition-colors flex items-center justify-between group"
+                                                            onClick={() => {
+                                                                setFormData({ ...formData, customerName: c.name });
+                                                                setShowCustomerDropdown(false);
+                                                            }}
+                                                        >
+                                                            <span className="font-semibold text-sm text-gray-700 group-hover:text-pink-600">{c.name}</span>
+                                                            {c.phone && <span className="text-xs text-gray-400">{c.phone}</span>}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                        <div>
+                                            <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-1.5">Service</label>
+                                            <select
+                                                className={`w-full px-3 py-2 border border-pink-100 rounded-xl font-medium text-sm appearance-none transition-all ${editingId
+                                                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                                        : "bg-gray-50 text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer"
+                                                    }`}
+                                                value={formData.serviceName}
+                                                onChange={(e) => {
+                                                    const serviceName = e.target.value;
+                                                    const selectedService = services.find(s => s.name === serviceName);
+                                                    let autoStaffName = formData.staffName;
+
+                                                    if (selectedService && selectedService.required_role) {
+                                                        const matchingStaff = staffList.filter(s => s.role === selectedService.required_role);
+                                                        if (matchingStaff.length > 0) {
+                                                            const currentStaff = staffList.find(s => s.name === formData.staffName);
+                                                            if (!currentStaff || currentStaff.role !== selectedService.required_role) {
+                                                                autoStaffName = matchingStaff[0].name;
+                                                            }
+                                                        }
+                                                    }
+
+                                                    setFormData({
+                                                        ...formData,
+                                                        serviceName: serviceName,
+                                                        staffName: autoStaffName
+                                                    });
+                                                }}
+                                                required
+                                                disabled={!!editingId}
+                                            >
+                                                <option value="">Select Service</option>
+                                                {services.map((s) => (
+                                                    <option key={s.id} value={s.name}>{s.name} - ₱{s.price}</option>
+                                                ))}
+                                            </select>
+
+                                            {/* Secondary Services placed directly below the primary service dropdown */}
+                                            {secondaryServices.map((secName, idx) => (
+                                                <div key={idx} className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                    <select
+                                                        className={`w-full px-3 py-2 border border-pink-100 rounded-xl font-medium text-sm appearance-none transition-all ${secName !== ""
+                                                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                                                : "bg-gray-50 text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer"
+                                                            }`}
+                                                        value={secName}
+                                                        onChange={(e) => {
+                                                            const updated = [...secondaryServices];
+                                                            updated[idx] = e.target.value;
+                                                            setSecondaryServices(updated);
+                                                        }}
+                                                        required
+                                                        disabled={secName !== ""}
+                                                    >
+                                                        <option value="">Select Secondary Service</option>
+                                                        {services.map((s) => (
+                                                            <option key={s.id} value={s.name}>{s.name} - ₱{s.price}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            ))}
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setSecondaryServices([...secondaryServices, ""])}
+                                                className="mt-1.5 text-xs font-bold text-pink-500 hover:text-pink-600 flex items-center gap-1 transition-colors hover:underline cursor-pointer"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" />
+                                                Add Another Service
+                                            </button>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-1.5">Assigned Staff</label>
+                                            <select
+                                                className="w-full px-3 py-2 bg-gray-100 border border-pink-100 rounded-xl text-gray-400 transition-all font-medium text-sm appearance-none cursor-not-allowed"
+                                                value={formData.staffName}
+                                                onChange={(e) => setFormData({ ...formData, staffName: e.target.value })}
+                                                disabled
+                                            >
+                                                <option value="">{formData.staffName || "Auto-assigned"}</option>
+                                                {staffList.map((s) => (
+                                                    <option key={s.id} value={s.name}>{s.name} ({s.role})</option>
+                                                ))}
+                                            </select>
+
+                                            {/* Secondary Services Staff placed directly below the primary staff dropdown */}
+                                            {secondaryServices.map((secName, idx) => {
+                                                const selectedSecService = services.find(s => s.name === secName);
+                                                const assignedStaff = selectedSecService && selectedSecService.required_role
+                                                    ? staffList.find(st => st.role === selectedSecService.required_role)
+                                                    : null;
+
+                                                return (
+                                                    <div key={idx} className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                        <select
+                                                            className="w-full px-3 py-2 bg-gray-100 border border-pink-100 rounded-xl text-gray-400 transition-all font-medium text-sm appearance-none cursor-not-allowed"
+                                                            disabled
+                                                        >
+                                                            <option>{assignedStaff ? `${assignedStaff.name} (${assignedStaff.role})` : "Auto-assigned"}</option>
+                                                        </select>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                        <div>
+                                            <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-1.5">Date</label>
+                                            <input
+                                                type="date"
+                                                required
+                                                className="w-full px-3 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium text-sm"
+                                                value={formData.date}
+                                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                                min={minDate}
+                                            />
+                                        </div>
+                                        {/* Time Searchable Dropdown */}
+                                        <div className="relative" ref={timeDropdownRef}>
+                                            <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-1.5">Time Slot</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                autoComplete="off"
+                                                className="w-full px-3 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium text-sm"
+                                                placeholder="e.g. 10:30 AM"
+                                                value={timeInputValue}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setTimeInputValue(val);
+                                                    setShowTimeDropdown(true);
+                                                    const normalized = to24h(val);
+                                                    if (normalized) {
+                                                        setFormData({ ...formData, time: normalized });
+                                                    }
+                                                }}
+                                                onFocus={() => setShowTimeDropdown(true)}
+                                            />
+                                            {showTimeDropdown && (
+                                                <div className="absolute z-30 w-full mt-1.5 bg-white rounded-xl shadow-xl border border-pink-100 py-1.5 max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1">
+                                                    {(() => {
+                                                        const slots = [];
+                                                        for (let h = 8; h <= 19; h++) {
+                                                            for (let m = 0; m <= 30; m += 30) {
+                                                                const hStr = h.toString().padStart(2, '0');
+                                                                const mStr = m.toString().padStart(2, '0');
+                                                                const time24 = `${hStr}:${mStr}`;
+                                                                const time12 = to12h(time24);
+                                                                if (time12.toLowerCase().includes(timeInputValue.toLowerCase())) {
+                                                                    slots.push({ t12: time12, t24: time24 });
+                                                                }
+                                                            }
+                                                        }
+                                                        return slots.map((s) => (
+                                                            <button
+                                                                key={s.t24}
+                                                                type="button"
+                                                                className="w-full text-left px-4 py-2 hover:bg-pink-50 transition-colors font-medium text-sm text-gray-700 hover:text-pink-600"
+                                                                onClick={() => {
+                                                                    setFormData({ ...formData, time: s.t24 });
+                                                                    setTimeInputValue(s.t12);
+                                                                    setShowTimeDropdown(false);
+                                                                }}
+                                                            >
+                                                                {s.t12}
+                                                            </button>
+                                                        ));
+                                                    })()}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                        <div>
+                                            <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-1.5">Booked Via</label>
+                                            <select
+                                                className="w-full px-3 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium text-sm appearance-none cursor-pointer"
+                                                value={formData.source}
+                                                onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                                                required
+                                            >
+                                                <option value="Walk-in">Walk-in</option>
+                                                <option value="Phone">Phone</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-1.5">Special Instructions / Notes</label>
+                                        <textarea
+                                            className="w-full px-3 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium text-sm resize-none h-16"
+                                            value={formData.notes}
+                                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                            placeholder="Add any specific requests or notes here..."
+                                        ></textarea>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3.5 pt-3 mt-3 border-t border-pink-50">
+                                    {/* Consolidated Total Summary Card */}
+                                    <div className="bg-pink-50/50 border border-pink-100 rounded-xl p-3 flex justify-between items-center text-xs font-semibold text-gray-700">
+                                        <div className="flex items-center gap-1.5">
+                                            <Clock className="w-3.5 h-3.5 text-pink-500" />
+                                            <span>Duration: <span className="text-pink-600 font-bold">{currentTotalDuration}</span></span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <span>Total: <span className="text-pink-600 font-black text-sm">₱{currentTotalPrice.toLocaleString()}</span></span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-end gap-2.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsModalOpen(false)}
+                                            className="px-6 py-2.5 text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-full font-bold text-xs transition-all cursor-pointer"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-8 py-2.5 text-white bg-pink-500 hover:bg-pink-600 rounded-full font-bold text-xs shadow-lg shadow-pink-100 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                                        >
+                                            {editingId ? "Update Appointment" : "Save Booking"}
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* Quick Add Service Modal */}
+            {isQuickAddOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white shadow-2xl relative border border-pink-100 rounded-2xl w-full max-w-md animate-in zoom-in-95 duration-200 p-5 md:p-6">
                         <button
-                            onClick={() => setIsModalOpen(false)}
-                            className="absolute right-6 top-6 p-2 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full transition-colors"
+                            onClick={() => {
+                                setIsQuickAddOpen(false);
+                                setQuickAddCustomer("");
+                                setQuickAddService("");
+                            }}
+                            className="absolute right-5 top-5 p-1.5 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full transition-colors z-50 animate-in fade-in"
                         >
                             <X className="w-5 h-5 font-bold" />
                         </button>
 
-                        <div className="mb-8">
-                            <h3 className="text-2xl font-bold text-gray-900">{editingId ? "Edit Booking" : "New Booking"}</h3>
-                            <p className="text-sm text-gray-500 mt-1 font-medium">
-                                {editingId ? "Update existing appointment details." : "Schedule a new client appointment."}
+                        <div className="mb-4">
+                            <h3 className="text-xl font-bold text-gray-900">Add Service to Tab</h3>
+                            <p className="text-xs text-gray-500 mt-0.5 font-medium">
+                                Add a service to a customer's active tab or start a new transaction.
                             </p>
                         </div>
 
-                        <form onSubmit={handleSaveBooking} className="space-y-5">
-                            {/* Customer Searchable Dropdown */}
-                            <div className="relative" ref={customerDropdownRef}>
-                                <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Customer Name</label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                        <User className="h-4 w-4 text-pink-300" />
-                                    </div>
-                                    <input
-                                        type="text"
-                                        required
-                                        autoComplete="off"
-                                        className="w-full pl-11 pr-10 py-3 bg-gray-50 border border-pink-100 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium"
-                                        placeholder="Search or enter customer name..."
-                                        value={formData.customerName}
-                                        onChange={(e) => {
-                                            const val = e.target.value.replace(/[^a-zA-Z\s]/g, "");
-                                            setFormData({ ...formData, customerName: val });
-                                            setShowCustomerDropdown(true);
-                                        }}
-                                        onFocus={() => setShowCustomerDropdown(true)}
-                                    />
-                                    {showCustomerDropdown && formData.customerName && filteredCustomers.length > 0 && (
-                                        <div className="absolute z-30 w-full mt-2 bg-white rounded-2xl shadow-xl border border-pink-100 py-2 max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-2">
-                                            {filteredCustomers.map((c) => (
-                                                <button
-                                                    key={c.id}
-                                                    type="button"
-                                                    className="w-full text-left px-5 py-2.5 hover:bg-pink-50 transition-colors flex items-center justify-between group"
-                                                    onClick={() => {
-                                                        setFormData({ ...formData, customerName: c.name });
-                                                        setShowCustomerDropdown(false);
-                                                    }}
-                                                >
-                                                    <span className="font-semibold text-gray-700 group-hover:text-pink-600">{c.name}</span>
-                                                    {c.phone && <span className="text-xs text-gray-400">{c.phone}</span>}
-                                                </button>
-                                            ))}
+                        <form onSubmit={handleSaveQuickAdd} className="space-y-4">
+                            <div className="space-y-3.5">
+                                {/* Customer Name searchable input */}
+                                <div className="relative" ref={quickAddCustomerDropdownRef}>
+                                    <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-1.5">Customer Name</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <User className="h-4 w-4 text-pink-300" />
                                         </div>
-                                    )}
+                                        <input
+                                            type="text"
+                                            required
+                                            autoComplete="off"
+                                            className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium text-sm"
+                                            placeholder="Type or select customer name..."
+                                            value={quickAddCustomer}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                                                setQuickAddCustomer(val);
+                                                setShowQuickAddCustomerDropdown(true);
+                                            }}
+                                            onFocus={() => setShowQuickAddCustomerDropdown(true)}
+                                        />
+                                        {showQuickAddCustomerDropdown && quickAddCustomer && filteredQuickAddCustomers.length > 0 && (
+                                            <div className="absolute z-[10000] w-full mt-1.5 bg-white rounded-xl shadow-xl border border-pink-100 py-1.5 max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1">
+                                                {filteredQuickAddCustomers.map((c) => (
+                                                    <button
+                                                        key={c.id}
+                                                        type="button"
+                                                        className="w-full text-left px-4 py-2 hover:bg-pink-50 transition-colors flex items-center justify-between group"
+                                                        onClick={() => {
+                                                            setQuickAddCustomer(c.name);
+                                                            setShowQuickAddCustomerDropdown(false);
+                                                        }}
+                                                    >
+                                                        <span className="font-semibold text-sm text-gray-700 group-hover:text-pink-600">{c.name}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                {/* Service select dropdown */}
                                 <div>
-                                    <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Service</label>
+                                    <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-1.5">Service</label>
                                     <select
-                                        className="w-full px-4 py-3 bg-gray-50 border border-pink-100 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium appearance-none cursor-pointer"
-                                        value={formData.serviceName}
-                                        onChange={(e) => {
-                                            const serviceName = e.target.value;
-                                            const selectedService = services.find(s => s.name === serviceName);
-                                            let autoStaffName = formData.staffName;
-
-                                            // Auto-select staff based on required_role
-                                            if (selectedService && selectedService.required_role) {
-                                                const matchingStaff = staffList.filter(s => s.role === selectedService.required_role);
-                                                // If there's only one staff with this role, or current staff doesn't match role, pick first one
-                                                if (matchingStaff.length > 0) {
-                                                    const currentStaff = staffList.find(s => s.name === formData.staffName);
-                                                    if (!currentStaff || currentStaff.role !== selectedService.required_role) {
-                                                        autoStaffName = matchingStaff[0].name;
-                                                    }
-                                                }
-                                            }
-
-                                            setFormData({ 
-                                                ...formData, 
-                                                serviceName: serviceName,
-                                                staffName: autoStaffName 
-                                            });
-                                        }}
+                                        className="w-full px-3 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium text-sm appearance-none cursor-pointer"
+                                        value={quickAddService}
+                                        onChange={(e) => setQuickAddService(e.target.value)}
                                         required
                                     >
                                         <option value="">Select Service</option>
@@ -913,129 +1470,25 @@ function AppointmentContent() {
                                         ))}
                                     </select>
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Assigned Staff</label>
-                                    <select
-                                        className="w-full px-4 py-3 bg-gray-100 border border-pink-100 rounded-2xl text-gray-400 transition-all font-medium appearance-none cursor-not-allowed"
-                                        value={formData.staffName}
-                                        onChange={(e) => setFormData({ ...formData, staffName: e.target.value })}
-                                        disabled
-                                    >
-                                        <option value="">{formData.staffName || "Auto-assigned"}</option>
-                                        {staffList.map((s) => (
-                                            <option key={s.id} value={s.name}>{s.name} ({s.role})</option>
-                                        ))}
-                                    </select>
-                                </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <div>
-                                    <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Date</label>
-                                    <input
-                                        type="date"
-                                        required
-                                        className="w-full px-4 py-3 bg-gray-50 border border-pink-100 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium"
-                                        value={formData.date}
-                                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                        min={new Date().toISOString().split("T")[0]}
-                                    />
-                                </div>
-                                {/* Time Searchable Dropdown */}
-                                <div className="relative" ref={timeDropdownRef}>
-                                    <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Time Slot</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        autoComplete="off"
-                                        className="w-full px-4 py-3 bg-gray-50 border border-pink-100 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium"
-                                        placeholder="e.g. 10:30 AM"
-                                        value={timeInputValue}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setTimeInputValue(val);
-                                            setShowTimeDropdown(true);
-                                            const normalized = to24h(val);
-                                            if (normalized) {
-                                                setFormData({ ...formData, time: normalized });
-                                            }
-                                        }}
-                                        onFocus={() => setShowTimeDropdown(true)}
-                                    />
-                                    {showTimeDropdown && (
-                                        <div className="absolute z-30 w-full mt-2 bg-white rounded-2xl shadow-xl border border-pink-100 py-2 max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-2">
-                                            {(() => {
-                                                const slots = [];
-                                                // Generate 30min slots 8AM-8PM
-                                                for (let h = 8; h <= 19; h++) {
-                                                    for (let m = 0; m <= 30; m += 30) {
-                                                        const hStr = h.toString().padStart(2, '0');
-                                                        const mStr = m.toString().padStart(2, '0');
-                                                        const time24 = `${hStr}:${mStr}`;
-                                                        const time12 = to12h(time24);
-                                                        if (time12.toLowerCase().includes(timeInputValue.toLowerCase())) {
-                                                            slots.push({ t12: time12, t24: time24 });
-                                                        }
-                                                    }
-                                                }
-                                                return slots.map((s) => (
-                                                    <button
-                                                        key={s.t24}
-                                                        type="button"
-                                                        className="w-full text-left px-5 py-2.5 hover:bg-pink-50 transition-colors font-medium text-gray-700 hover:text-pink-600"
-                                                        onClick={() => {
-                                                            setFormData({ ...formData, time: s.t24 });
-                                                            setTimeInputValue(s.t12);
-                                                            setShowTimeDropdown(false);
-                                                        }}
-                                                    >
-                                                        {s.t12}
-                                                    </button>
-                                                ));
-                                            })()}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                <div>
-                                    <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Booked Via</label>
-                                    <select
-                                        className="w-full px-4 py-3 bg-gray-50 border border-pink-100 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium appearance-none cursor-pointer"
-                                        value={formData.source}
-                                        onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                                        required
-                                    >
-                                        <option value="Walk-in">Walk-in</option>
-                                        <option value="Phone">Phone</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">Special Instructions / Notes</label>
-                                <textarea
-                                    className="w-full px-4 py-3 bg-gray-50 border border-pink-100 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium resize-none h-24"
-                                    value={formData.notes}
-                                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                                    placeholder="Add any specific requests or notes here..."
-                                ></textarea>
-                            </div>
-
-                            <div className="flex justify-end gap-3 pt-5 mt-5 border-t border-pink-50">
+                            <div className="pt-4 flex items-center justify-end gap-3 border-t border-gray-50">
                                 <button
                                     type="button"
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="px-8 py-3.5 text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-full font-bold transition-all"
+                                    onClick={() => {
+                                        setIsQuickAddOpen(false);
+                                        setQuickAddCustomer("");
+                                        setQuickAddService("");
+                                    }}
+                                    className="px-6 py-2.5 text-gray-500 hover:text-pink-500 hover:bg-pink-50 rounded-full font-bold text-xs transition-all cursor-pointer"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-10 py-3.5 text-white bg-pink-500 hover:bg-pink-600 rounded-full font-bold shadow-lg shadow-pink-100 transition-all hover:scale-105 active:scale-95"
+                                    className="px-8 py-2.5 text-white bg-pink-500 hover:bg-pink-600 rounded-full font-bold text-xs shadow-lg shadow-pink-100 transition-all hover:scale-105 active:scale-95 cursor-pointer"
                                 >
-                                    {editingId ? "Update Appointment" : "Save Booking"}
+                                    Save
                                 </button>
                             </div>
                         </form>
@@ -1097,7 +1550,7 @@ function AppointmentContent() {
 }
 
 export default function AppointmentPage() {
-   return (
+    return (
         <Suspense fallback={
             <div className="flex-1 flex items-center justify-center bg-pink-50 min-h-screen">
                 <div className="text-pink-500 font-bold animate-pulse text-lg">Loading appointments...</div>
