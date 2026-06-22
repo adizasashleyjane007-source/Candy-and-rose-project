@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useSidebar } from "./SidebarContext";
 import GlobalSearch from "./GlobalSearch";
 import { NotificationsDB, type Notification } from "@/lib/db";
+import NotificationChatModal from "./NotificationChatModal";
 
 export default function Header() {
     const router = useRouter();
@@ -20,6 +21,7 @@ export default function Header() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loadingNotifs, setLoadingNotifs] = useState(false);
     const notifDropdownRef = useRef<HTMLDivElement>(null);
+    const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null);
 
     const [adminProfile, setAdminProfile] = useState({
         name: "Admin User",
@@ -244,7 +246,11 @@ export default function Header() {
                                     notifications.slice(0, 5).map((notif) => (
                                         <div 
                                             key={notif.id}
-                                            className={`p-4 hover:bg-pink-50/30 transition-colors relative flex items-start gap-3 group/notif ${!notif.is_read ? 'bg-pink-50/10' : ''}`}
+                                            onClick={() => {
+                                                setSelectedNotif(notif);
+                                                setNotifDropdownOpen(false);
+                                            }}
+                                            className={`p-4 hover:bg-pink-50/30 transition-colors relative flex items-start gap-3 group/notif cursor-pointer ${!notif.is_read ? 'bg-pink-50/10' : ''}`}
                                         >
                                             {/* Unread dot indicator */}
                                             {!notif.is_read && (
@@ -358,6 +364,17 @@ export default function Header() {
                     )}
                 </div>
             </div>
+            {selectedNotif && (
+                <NotificationChatModal
+                    isOpen={!!selectedNotif}
+                    onClose={() => setSelectedNotif(null)}
+                    notification={selectedNotif}
+                    onNotificationUpdated={() => {
+                        loadNotifications();
+                        updateCount();
+                    }}
+                />
+            )}
         </header>
     );
 }

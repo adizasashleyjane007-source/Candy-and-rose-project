@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { NotificationsDB, type Notification } from "@/lib/db";
+import NotificationChatModal from "@/components/NotificationChatModal";
 
 type NotificationType = 'inventory' | 'customer' | 'appointment' | 'system' | 'billing';
 
@@ -23,6 +24,7 @@ export default function NotificationsPage() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'read'>('all');
     const [loading, setLoading] = useState(true);
+    const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null);
 
     const loadNotifs = useCallback(async () => {
         try {
@@ -162,7 +164,8 @@ export default function NotificationsPage() {
                                     return (
                                         <div
                                             key={notif.id}
-                                            className={`p-6 sm:px-8 flex items-start gap-4 sm:gap-6 transition-colors hover:bg-gray-50/50 group ${notif.is_read ? 'opacity-80' : 'bg-pink-50/30'}`}
+                                            onClick={() => setSelectedNotif(notif)}
+                                            className={`p-6 sm:px-8 flex items-start gap-4 sm:gap-6 transition-colors hover:bg-gray-50/50 group cursor-pointer ${notif.is_read ? 'opacity-80' : 'bg-pink-50/30'}`}
                                         >
                                             <div className="mt-1 relative shrink-0">
                                                 <div className={`w-12 h-12 rounded-full flex items-center justify-center ${notif.is_read ? 'bg-gray-100 text-gray-500' : `${bg} ${text}`}`}>
@@ -207,6 +210,16 @@ export default function NotificationsPage() {
                     </div>
                 </div>
             </div>
+            {selectedNotif && (
+                <NotificationChatModal
+                    isOpen={!!selectedNotif}
+                    onClose={() => setSelectedNotif(null)}
+                    notification={selectedNotif}
+                    onNotificationUpdated={() => {
+                        loadNotifs();
+                    }}
+                />
+            )}
         </div>
     );
 }
