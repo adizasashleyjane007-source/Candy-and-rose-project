@@ -91,7 +91,7 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointment }
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="text-[9px] font-medium text-slate-400 uppercase tracking-[0.2em] mb-1">Service</span>
-                    <span className="text-sm font-bold text-slate-800 leading-none truncate max-w-[140px]">{appointment.service_name || appointment.services?.name || "N/A"}</span>
+                    <span className="text-sm font-bold text-slate-800 leading-relaxed block">{appointment.service_name || appointment.services?.name || "N/A"}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">

@@ -8,23 +8,20 @@ export default function DashboardCalendar() {
     const daysOfWeek = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
-    const [currentDate, setCurrentDate] = useState(new Date());
-    const [selectedDate, setSelectedDate] = useState<string | null>(() => {
-        const today = new Date();
-        return `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
-    });
+    const [currentDate, setCurrentDate] = useState<Date | null>(null);
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
     // Details Modal State
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [selectedAptDetails, setSelectedAptDetails] = useState<any | null>(null);
-    
+
     // Calendar calculation constants
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
+    const year = currentDate?.getFullYear() || new Date().getFullYear();
+    const month = currentDate?.getMonth() || new Date().getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInPrevMonth = new Date(year, month, 0).getDate();
-    
+
     // Helper to format date as YYYY-MM-DD
     const formatDate = (d: Date) => {
         return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
@@ -43,6 +40,9 @@ export default function DashboardCalendar() {
     };
 
     useEffect(() => {
+        const now = new Date();
+        setCurrentDate(now);
+        setSelectedDate(`${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`);
         loadData();
     }, []);
 
@@ -54,7 +54,7 @@ export default function DashboardCalendar() {
         const checkDate = new Date(year, month + monthOffset, day);
         checkDate.setHours(0, 0, 0, 0);
         const checkDateStr = formatDate(checkDate);
-        
+
         const dayApts = appointments.filter(a => {
             if (a.status === 'Cancelled') return false;
             let aptDate = a.appointment_date;
@@ -118,7 +118,7 @@ export default function DashboardCalendar() {
                     <span>
                         <span className="text-gray-900">{verb}</span> by <span className="text-pink-500">{name}</span>
                     </span>
-                    <button 
+                    <button
                         onClick={() => {
                             setSelectedAptDetails(a);
                             setIsDetailsModalOpen(true);
@@ -132,7 +132,7 @@ export default function DashboardCalendar() {
         });
     };
 
-    if (loading) {
+    if (loading || !currentDate) {
         return (
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-pink-200 flex items-center justify-center h-[350px]">
                 <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
@@ -145,7 +145,7 @@ export default function DashboardCalendar() {
             <div className="w-full flex items-center justify-between mb-4">
                 <h3 className="font-bold text-gray-900 text-xl">Calendar</h3>
                 <div className="flex items-center gap-3">
-                    <button 
+                    <button
                         onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
                         className="p-1 hover:bg-pink-50 rounded-full text-gray-400 hover:text-pink-500 transition-colors"
                     >
@@ -154,7 +154,7 @@ export default function DashboardCalendar() {
                     <span className="font-semibold text-pink-600 text-sm tracking-wide uppercase">
                         {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                     </span>
-                    <button 
+                    <button
                         onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
                         className="p-1 hover:bg-pink-50 rounded-full text-gray-400 hover:text-pink-500 transition-colors"
                     >
@@ -222,7 +222,7 @@ export default function DashboardCalendar() {
             </div>
 
             {/* Appointment Details Modal */}
-            <AppointmentDetailsModal 
+            <AppointmentDetailsModal
                 isOpen={isDetailsModalOpen}
                 onClose={() => setIsDetailsModalOpen(false)}
                 appointment={selectedAptDetails}

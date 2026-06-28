@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
+  console.log("DEBUG: OTP Verification Request Received");
   try {
     const { email, otp } = await request.json();
 
