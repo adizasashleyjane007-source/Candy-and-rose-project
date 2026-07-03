@@ -20,7 +20,7 @@ import { useState, useEffect } from "react";
 import { addNotification } from "@/lib/notifications";
 import { Services, StaffDB, type Service } from "@/lib/db";
 import { Loader2 } from "lucide-react";
-
+import Pagination from "@/components/Pagination";
 export default function ServicePage() {
     const [filterOpen, setFilterOpen] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState("All Categories");
@@ -430,38 +430,11 @@ export default function ServicePage() {
                 </div>
 
                 {/* Pagination Outside the Card */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-center mt-6 mb-4 gap-2">
-                        <button
-                            disabled={safeCurrentPage === 1}
-                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            className="p-1 text-gray-400 hover:text-pink-500 disabled:opacity-50 disabled:hover:text-gray-400 transition-colors"
-                        >
-                            <ArrowLeft className="w-5 h-5" />
-                        </button>
-                        <div className="flex items-center gap-1 mx-2">
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                                <button
-                                    key={page}
-                                    onClick={() => setCurrentPage(page)}
-                                    className={`w-8 h-8 flex items-center justify-center rounded-full text-sm transition-colors ${safeCurrentPage === page
-                                            ? "font-semibold text-gray-900 bg-pink-100"
-                                            : "font-medium text-gray-500 hover:bg-white border border-transparent hover:border-pink-200"
-                                        }`}
-                                >
-                                    {page}
-                                </button>
-                            ))}
-                        </div>
-                        <button
-                            disabled={safeCurrentPage === totalPages}
-                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                            className="p-1 text-gray-400 hover:text-pink-500 disabled:opacity-50 disabled:hover:text-gray-400 transition-colors"
-                        >
-                            <ArrowRight className="w-5 h-5" />
-                        </button>
-                    </div>
-                )}
+                <Pagination 
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                />
 
             </div>
 

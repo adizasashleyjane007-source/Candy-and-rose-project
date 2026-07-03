@@ -2,7 +2,7 @@
   import { createServerClient } from "@supabase/ssr";
   import { NextResponse, type NextRequest } from "next/server";
 
-  export async function middleware(request: NextRequest) {
+  export async function proxy(request: NextRequest) {
     // 1. Initial response and Login exception (to prevent loops)
     let response = NextResponse.next({
       request: {

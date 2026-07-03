@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { useState, useEffect, useRef, Suspense } from "react";
+import Pagination from "@/components/Pagination";
 import { addNotification } from "@/lib/notifications";
 import { Inventory, Services, type InventoryItem } from "@/lib/db";
 
@@ -304,37 +305,11 @@ export default function InventoryPage() {
                 </div>
 
                 {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-center mt-6 mb-4 gap-2">
-                        <button 
-                            disabled={currentPage === 1}
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            className="p-1 text-gray-400 hover:text-pink-500 disabled:opacity-50 transition-colors"
-                        >
-                            <ArrowLeft className="w-5 h-5" />
-                        </button>
-                        <div className="flex items-center gap-1 mx-2">
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                                <button 
-                                    key={page}
-                                    onClick={() => setCurrentPage(page)}
-                                    className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold transition-all ${
-                                        currentPage === page ? "bg-pink-500 text-white shadow-md" : "text-gray-500 hover:bg-pink-50"
-                                    }`}
-                                >
-                                    {page}
-                                </button>
-                            ))}
-                        </div>
-                        <button 
-                            disabled={currentPage === totalPages}
-                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                            className="p-1 text-gray-400 hover:text-pink-500 disabled:opacity-50 transition-colors"
-                        >
-                            <ArrowRight className="w-5 h-5" />
-                        </button>
-                    </div>
-                )}
+                <Pagination 
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                />
             </div>
 
             {/* Form Modal */}

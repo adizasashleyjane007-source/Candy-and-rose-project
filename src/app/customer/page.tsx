@@ -14,6 +14,8 @@ import {
     Loader2
 } from "lucide-react";
 
+import Pagination from "@/components/Pagination";
+
 import { useState, useEffect, useCallback } from "react";
 import { addNotification } from "@/lib/notifications";
 import { Customers, type Customer } from "@/lib/db";
@@ -367,37 +369,11 @@ export default function CustomerPage() {
                 </div>
 
                 {/* Pagination */}
-                {totalPages > 1 && (
-                <div className="flex flex-wrap items-center justify-center mt-6 mb-4 gap-2 px-2">
-                    <button 
-                        disabled={safeCurrentPage === 1} 
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} 
-                        className="p-2 text-gray-400 hover:text-pink-500 disabled:opacity-50 transition-colors bg-white rounded-xl border border-pink-100 shadow-sm"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                    </button>
-                    
-                    <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar max-w-[180px] sm:max-w-none px-1">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                            <button
-                                key={page}
-                                onClick={() => setCurrentPage(page)}
-                                className={`min-w-[32px] sm:w-9 sm:h-9 h-8 flex items-center justify-center rounded-xl text-xs sm:text-sm transition-all ${safeCurrentPage === page ? "font-bold text-white bg-pink-500 shadow-md shadow-pink-200" : "font-semibold text-gray-500 bg-white border border-pink-100 hover:border-pink-300"}`}
-                            >
-                                {page}
-                            </button>
-                        ))}
-                    </div>
-
-                    <button 
-                        disabled={safeCurrentPage === totalPages} 
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} 
-                        className="p-2 text-gray-400 hover:text-pink-500 disabled:opacity-50 transition-colors bg-white rounded-xl border border-pink-100 shadow-sm"
-                    >
-                        <ArrowRight className="w-5 h-5" />
-                    </button>
-                </div>
-                )}
+                <Pagination 
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                />
             </div>
 
             {/* Add / Edit Modal */}
