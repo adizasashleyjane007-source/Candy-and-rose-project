@@ -196,6 +196,14 @@ export const Customers = {
   },
 
   async remove(id: string) {
+    const { data: item } = await supabase()
+      .from("customers")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (item) {
+      await ArchiveDB.archiveItem("customer", item);
+    }
     const { error } = await supabase()
       .from("customers")
       .delete()
@@ -238,6 +246,14 @@ export const StaffDB = {
   },
 
   async remove(id: string) {
+    const { data: item } = await supabase()
+      .from("staff")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (item) {
+      await ArchiveDB.archiveItem("staff", item);
+    }
     const { error } = await supabase()
       .from("staff")
       .delete()
@@ -280,6 +296,14 @@ export const Services = {
   },
 
   async remove(id: string) {
+    const { data: item } = await supabase()
+      .from("services")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (item) {
+      await ArchiveDB.archiveItem("service", item);
+    }
     const { error } = await supabase()
       .from("services")
       .delete()
@@ -344,6 +368,14 @@ export const Appointments = {
 
 
   async remove(id: string) {
+    const { data: item } = await supabase()
+      .from("appointments")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (item) {
+      await ArchiveDB.archiveItem("appointment", item);
+    }
     const { error } = await supabase()
       .from("appointments")
       .delete()
@@ -386,6 +418,14 @@ export const Inventory = {
   },
 
   async remove(id: string) {
+    const { data: item } = await supabase()
+      .from("inventory")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (item) {
+      await ArchiveDB.archiveItem("inventory", item);
+    }
     const { error } = await supabase()
       .from("inventory")
       .delete()
@@ -431,6 +471,14 @@ export const Billing = {
   },
 
   async remove(id: string) {
+    const { data: item } = await supabase()
+      .from("billing")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (item) {
+      await ArchiveDB.archiveItem("billing", item);
+    }
     const { error } = await supabase()
       .from("billing")
       .delete()
@@ -478,6 +526,14 @@ export const NotificationsDB = {
   },
 
   async remove(id: string) {
+    const { data: item } = await supabase()
+      .from("notifications")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (item) {
+      await ArchiveDB.archiveItem("notification", item);
+    }
     const { error } = await supabase()
       .from("notifications")
       .delete()
@@ -688,3 +744,74 @@ export const SettingsDB = {
     if (error) throw error;
   }
 };
+
+// ─── Archive DB ──────────────────────────────────────────────────────────────
+
+export interface ArchivedRecord {
+  id: string;
+  type: string;
+  name: string;
+  deleted_at: string;
+  details: any;
+}
+
+export const ArchiveDB = {
+  async getArchive() {
+    try {
+      const records = await SettingsDB.get("archived_records");
+      return (records || []) as ArchivedRecord[];
+    } catch (e) {
+      console.error("Failed to get archive", e);
+      return [];
+    }
+  },
+
+  async saveArchive(archive: ArchivedRecord[]) {
+    return await SettingsDB.set("archived_records", archive, "Archived Records");
+  },
+
+  async archiveItem(type: string, details: any) {
+    try {
+      const archive = await this.getArchive();
+      const name = details.name || details.customer_name || details.service_name || details.staff_name || details.title || `Item ID: ${details.id}`;
+      const newItem: ArchivedRecord = {
+        id: details.id || Math.random().toString(),
+        type,
+        name,
+        deleted_at: new Date().toISOString(),
+        details
+      };
+      await this.saveArchive([newItem, ...archive]);
+    } catch (e) {
+      console.error("Failed to archive item", e);
+    }
+  },
+
+  async restoreItem(item: ArchivedRecord) {
+    const { type, details } = item;
+    const cleanDetails = { ...details };
+    
+    // Remove relation properties that may cause database errors on insert
+    delete cleanDetails.customers;
+    delete cleanDetails.staff;
+    delete cleanDetails.services;
+    delete cleanDetails.appointments;
+
+    let tableName = "";
+    if (type === "customer") tableName = "customers";
+    else if (type === "staff") tableName = "staff";
+    else if (type === "service") tableName = "services";
+    else if (type === "appointment") tableName = "appointments";
+    else if (type === "inventory") tableName = "inventory";
+    else if (type === "billing") tableName = "billing";
+    else if (type === "notification") tableName = "notifications";
+
+    if (!tableName) throw new Error("Unknown item type: " + type);
+
+    const { error } = await supabase()
+      .from(tableName)
+      .insert(cleanDetails);
+    if (error) throw error;
+  }
+};
+

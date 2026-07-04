@@ -3,7 +3,7 @@
 import Header from "@/components/Header";
 import { useState, useEffect } from "react";
 import { addNotification } from "@/lib/notifications";
-import { SettingsDB } from "@/lib/db";
+import { SettingsDB, ArchiveDB, ArchivedRecord } from "@/lib/db";
 import {
     Store,
     Clock,
@@ -23,8 +23,12 @@ import {
     Wallet,
     Banknote,
     X,
-    ChevronDown
+    ChevronDown,
+    Archive,
+    RotateCcw,
+    FileText
 } from "lucide-react";
+import Pagination from "@/components/Pagination";
 
 // --- Types ---
 interface SalonInfo {
@@ -146,10 +150,16 @@ export default function SettingsPage() {
     const [operatingHours, setOperatingHours] = useState<OperatingHours>(defaultOperatingHours);
     const [notifications, setNotifications] = useState<NotificationSettings>(defaultNotifications);
     const [toast, setToast] = useState<string | null>(null);
-    const [activeSection, setActiveSection] = useState<"salon" | "hours" | "notifications" | "payments">("salon");
+    const [activeSection, setActiveSection] = useState<"salon" | "hours" | "notifications" | "payments" | "archive">("salon");
     const [salonErrors, setSalonErrors] = useState<Partial<Record<keyof SalonInfo, string>>>({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+
+    // Archive State
+    const [archiveItems, setArchiveItems] = useState<ArchivedRecord[]>([]);
+    const [selectedArchiveItem, setSelectedArchiveItem] = useState<ArchivedRecord | null>(null);
+    const [isArchiveLoading, setIsArchiveLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
 
     // Payment Methods State
     const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
@@ -162,6 +172,26 @@ export default function SettingsPage() {
         type: "Cash",
         status: "Active"
     });
+
+    const loadArchive = async () => {
+        try {
+            setIsArchiveLoading(true);
+            const items = await ArchiveDB.getArchive();
+            setArchiveItems(items);
+        } catch (e) {
+            console.error("Failed to load archive:", e);
+            showToast("Failed to load archive items.");
+        } finally {
+            setIsArchiveLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeSection === "archive") {
+            loadArchive();
+            setCurrentPage(1);
+        }
+    }, [activeSection]);
 
     // Load from Supabase
     useEffect(() => {
@@ -280,6 +310,54 @@ export default function SettingsPage() {
         }
     };
 
+    const handleRestoreItem = async (item: ArchivedRecord) => {
+        try {
+            setSaving(true);
+            await ArchiveDB.restoreItem(item);
+            const current = await ArchiveDB.getArchive();
+            const updated = current.filter(x => x.id !== item.id);
+            await ArchiveDB.saveArchive(updated);
+            setArchiveItems(updated);
+            showToast(`Successfully restored ${item.type} "${item.name}"!`);
+            addNotification("Item Restored", `The deleted ${item.type} "${item.name}" has been restored.`, "system");
+        } catch (e: any) {
+            console.error("Restore failed:", e);
+            showToast(`Restore failed: ${e.message || e}`);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDeletePermanent = async (itemId: string) => {
+        try {
+            setSaving(true);
+            const current = await ArchiveDB.getArchive();
+            const updated = current.filter(x => x.id !== itemId);
+            await ArchiveDB.saveArchive(updated);
+            setArchiveItems(updated);
+            showToast("Item permanently deleted from archive.");
+        } catch (e) {
+            console.error(e);
+            showToast("Failed to delete item permanently.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleEmptyArchive = async () => {
+        try {
+            setSaving(true);
+            await ArchiveDB.saveArchive([]);
+            setArchiveItems([]);
+            showToast("Archive emptied successfully.");
+        } catch (e) {
+            console.error(e);
+            showToast("Failed to empty archive.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const updateDay = (day: keyof OperatingHours, field: keyof DaySchedule, value: string | boolean) => {
         setOperatingHours((prev) => ({
             ...prev,
@@ -293,7 +371,13 @@ export default function SettingsPage() {
         { key: "hours" as const, label: "Operating Hours", icon: Clock },
         { key: "notifications" as const, label: "Notifications", icon: Bell },
         { key: "payments" as const, label: "Payment Methods", icon: CreditCard },
+        { key: "archive" as const, label: "Archive", icon: Archive },
     ];
+
+    const itemsPerPage = 5;
+    const totalPages = Math.ceil(archiveItems.length / itemsPerPage) || 1;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedArchiveItems = archiveItems.slice(startIndex, startIndex + itemsPerPage);
 
     if (loading) {
         return (
@@ -568,7 +652,201 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 )}
+
+                {activeSection === "archive" && (
+                    <div className="space-y-6">
+                        <div className="bg-white rounded-3xl p-8 shadow-sm border border-pink-100 relative min-h-[400px]">
+                            {isArchiveLoading && (
+                                <div className="absolute inset-0 bg-white/50 z-10 rounded-3xl flex items-center justify-center">
+                                    <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+                                </div>
+                            )}
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-pink-100 flex items-center justify-center">
+                                        <Archive className="w-5 h-5 text-pink-500" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-gray-900">Deleted Records</h3>
+                                        <p className="text-sm text-gray-500">View and restore records deleted data</p>
+                                    </div>
+                                </div>
+                                {archiveItems.length > 0 && (
+                                    <button
+                                        onClick={handleEmptyArchive}
+                                        className="px-5 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border border-red-100 shadow-sm cursor-pointer"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        Empty Archive
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-separate" style={{ borderSpacing: "0 8px" }}>
+                                    <thead>
+                                        <tr>
+                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Name</th>
+                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Type</th>
+                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Date Deleted</th>
+                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Time Deleted</th>
+                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {paginatedArchiveItems.map((item) => (
+                                            <tr key={item.id} className="bg-gray-50/50 hover:bg-pink-50/30 transition-all group">
+                                                <td className="py-4 px-4 rounded-l-2xl border-y border-l border-transparent group-hover:border-pink-100">
+                                                    <div className="flex items-center gap-3">
+                                                        <button
+                                                            onClick={() => setSelectedArchiveItem(item)}
+                                                            className="font-bold text-gray-900 hover:text-pink-600 hover:underline transition-colors text-left cursor-pointer"
+                                                            title="Click to view details"
+                                                        >
+                                                            {item.name}
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                                <td className="py-4 px-4 border-y border-transparent group-hover:border-pink-100">
+                                                    {(() => {
+                                                        const colors: Record<string, string> = {
+                                                            customer: "bg-emerald-50 text-emerald-600 border-emerald-100",
+                                                            staff: "bg-amber-50 text-amber-600 border-amber-100",
+                                                            service: "bg-purple-50 text-purple-600 border-purple-100",
+                                                            appointment: "bg-blue-50 text-blue-600 border-blue-100",
+                                                            inventory: "bg-pink-50 text-pink-600 border-pink-100",
+                                                            billing: "bg-yellow-50 text-yellow-600 border-yellow-100",
+                                                            notification: "bg-gray-50 text-gray-600 border-gray-200"
+                                                        };
+                                                        const colorClass = colors[item.type] || "bg-gray-50 text-gray-600 border-gray-100";
+                                                        return (
+                                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${colorClass}`}>
+                                                                {item.type}
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </td>
+                                                <td className="py-4 px-4 border-y border-transparent group-hover:border-pink-100 text-sm font-semibold text-gray-500">
+                                                    {new Date(item.deleted_at).toLocaleDateString()}
+                                                </td>
+                                                <td className="py-4 px-4 border-y border-transparent group-hover:border-pink-100 text-sm font-semibold text-gray-500">
+                                                     {new Date(item.deleted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </td>
+                                                <td className="py-4 px-4 rounded-r-2xl border-y border-r border-transparent group-hover:border-pink-100 text-center">
+                                                    <div className="flex items-center justify-center gap-2.5">
+                                                        <button
+                                                            onClick={() => setSelectedArchiveItem(item)}
+                                                            className="p-2 text-gray-500 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                                                            title="View raw details"
+                                                        >
+                                                            <FileText className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleRestoreItem(item)}
+                                                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors cursor-pointer"
+                                                            title="Restore to system"
+                                                        >
+                                                            <RotateCcw className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (confirm(`Are you sure you want to permanently delete this ${item.type} from the archive?`)) {
+                                                                    handleDeletePermanent(item.id);
+                                                                }
+                                                            }}
+                                                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                                                            title="Delete permanently"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {archiveItems.length === 0 && !isArchiveLoading && (
+                                            <tr>
+                                                <td colSpan={5} className="py-20 text-center">
+                                                    <div className="flex flex-col items-center justify-center opacity-40">
+                                                        <Archive className="w-12 h-12 mb-3 text-gray-300" />
+                                                        <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">No archived items found</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <Pagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={setCurrentPage}
+                        />
+                    </div>
+                )}
             </div>
+
+            {/* Archive Detail Viewer Modal */}
+            {selectedArchiveItem && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[32px] w-full max-w-lg shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 border border-pink-100 max-h-[85vh] flex flex-col">
+                        <div className="p-6 md:p-8 flex-1 overflow-y-auto">
+                            <button
+                                onClick={() => setSelectedArchiveItem(null)}
+                                className="absolute right-6 top-6 p-1.5 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full transition-colors z-50 cursor-pointer animate-in fade-in"
+                            >
+                                <X className="w-5 h-5 font-bold" />
+                            </button>
+
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Deleted Record Details</h3>
+                            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-6">
+                                Type: {selectedArchiveItem.type} | ID: {selectedArchiveItem.id}
+                            </p>
+
+                            <div className="space-y-4 bg-gray-50 p-5 rounded-2xl border border-gray-100 max-h-[50vh] overflow-y-auto text-left">
+                                {Object.entries(selectedArchiveItem.details || {}).map(([key, val]) => {
+                                    if (typeof val === "object" && val !== null) {
+                                        return (
+                                            <div key={key} className="border-b border-gray-200/50 pb-2.5 last:border-0 last:pb-0">
+                                                <span className="block text-xs font-bold text-gray-400 uppercase tracking-widest">{key}</span>
+                                                <pre className="text-xs font-semibold text-gray-700 bg-white border border-gray-150 rounded-lg p-2 mt-1 overflow-x-auto whitespace-pre-wrap">
+                                                    {JSON.stringify(val, null, 2)}
+                                                </pre>
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div key={key} className="flex justify-between items-start gap-4 border-b border-gray-200/50 pb-2.5 last:border-0 last:pb-0">
+                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{key.replace(/_/g, " ")}</span>
+                                            <span className="text-sm font-semibold text-gray-800 text-right word-break break-all">{val !== null && val !== undefined ? val.toString() : "N/A"}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="px-6 py-4 md:px-8 md:py-6 bg-gray-50 border-t border-gray-100 flex gap-3.5 justify-end">
+                            <button
+                                onClick={() => setSelectedArchiveItem(null)}
+                                className="px-5 py-2.5 rounded-xl bg-white border border-pink-100 text-gray-600 font-bold hover:bg-gray-50 transition-colors text-xs cursor-pointer"
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleRestoreItem(selectedArchiveItem);
+                                    setSelectedArchiveItem(null);
+                                }}
+                                className="px-5 py-2.5 rounded-xl bg-pink-500 text-white font-bold hover:bg-pink-600 shadow-md shadow-pink-100 transition-all text-xs flex items-center gap-1.5 cursor-pointer"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                Restore Record
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Payment Method Form Modal */}
             {isPaymentModalOpen && (
