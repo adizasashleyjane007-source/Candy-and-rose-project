@@ -111,9 +111,11 @@ export interface Attendance {
 
 export interface NailDesign {
   id?: string;
+  created_at?: string;
   name: string;
   image_url: string;
   category?: string;
+  description?: string;
   is_trending?: boolean;
 }
 
