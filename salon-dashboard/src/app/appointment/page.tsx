@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { useState, useEffect, useRef, Suspense } from "react";
+import Pagination from "@/components/Pagination";
 import { useSearchParams } from "next/navigation";
 import { addNotification } from "@/lib/notifications";
 import { Appointments, Customers, Services, StaffDB, SettingsDB, type Appointment } from "@/lib/db";
@@ -934,7 +935,13 @@ function AppointmentContent() {
                                     <tr key={apt.id} className="bg-gray-50/50 hover:bg-pink-50/50 transition-all shadow-sm group">
                                         <td className="py-2.5 px-4 text-sm font-semibold text-gray-900 rounded-l-xl border border-transparent group-hover:border-pink-200 border-r-0 whitespace-nowrap">
                                             <div className="flex items-center gap-2">
-                                                <span>{apt.customer_name || (apt.customers?.name) || "N/A"}</span>
+                                                <button
+                                                    onClick={() => handleEditClick(apt)}
+                                                    className="font-semibold text-gray-900 hover:text-pink-600 hover:underline underline-offset-2 transition-colors text-left cursor-pointer focus:outline-none"
+                                                    title="Click to edit booking"
+                                                >
+                                                    {apt.customer_name || (apt.customers?.name) || "N/A"}
+                                                </button>
                                                 {(() => {
                                                     const customerData = apt.customers || customers.find(c => c.name === (apt.customer_name || apt.customers?.name));
                                                     if (!customerData) return null;
@@ -1006,38 +1013,11 @@ function AppointmentContent() {
                 </div>
 
                 {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-center mt-6 mb-4 gap-2">
-                        <button
-                            disabled={safeCurrentPage === 1}
-                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            className="p-1 text-gray-400 hover:text-pink-500 disabled:opacity-50 disabled:hover:text-gray-400 transition-colors"
-                        >
-                            <ArrowLeft className="w-5 h-5" />
-                        </button>
-                        <div className="flex items-center gap-1 mx-2">
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                                <button
-                                    key={page}
-                                    onClick={() => setCurrentPage(page)}
-                                    className={`w-8 h-8 flex items-center justify-center rounded-full text-sm transition-colors ${safeCurrentPage === page
-                                        ? "font-semibold text-gray-900 bg-pink-100"
-                                        : "font-medium text-gray-500 hover:bg-white border border-transparent hover:border-pink-200"
-                                        }`}
-                                >
-                                    {page}
-                                </button>
-                            ))}
-                        </div>
-                        <button
-                            disabled={safeCurrentPage === totalPages}
-                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                            className="p-1 text-gray-400 hover:text-pink-500 disabled:opacity-50 disabled:hover:text-gray-400 transition-colors"
-                        >
-                            <ArrowRight className="w-5 h-5" />
-                        </button>
-                    </div>
-                )}
+                <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                />
             </div>
 
             {/* Appointment Details Modal */}
@@ -1159,8 +1139,8 @@ function AppointmentContent() {
                                             <label className="block text-xs font-bold text-pink-500 uppercase tracking-wider mb-1.5">Service</label>
                                             <select
                                                 className={`w-full px-3 py-2 border border-pink-100 rounded-xl font-medium text-sm appearance-none transition-all ${editingId
-                                                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                                        : "bg-gray-50 text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer"
+                                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                                    : "bg-gray-50 text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer"
                                                     }`}
                                                 value={formData.serviceName}
                                                 onChange={(e) => {
@@ -1198,8 +1178,8 @@ function AppointmentContent() {
                                                 <div key={idx} className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                                     <select
                                                         className={`w-full px-3 py-2 border border-pink-100 rounded-xl font-medium text-sm appearance-none transition-all ${secName !== ""
-                                                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                                                : "bg-gray-50 text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer"
+                                                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                                            : "bg-gray-50 text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer"
                                                             }`}
                                                         value={secName}
                                                         onChange={(e) => {
@@ -1268,10 +1248,15 @@ function AppointmentContent() {
                                             <input
                                                 type="date"
                                                 required
-                                                className="w-full px-3 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium text-sm"
+                                                className={`w-full px-3 py-2 border border-pink-100 rounded-xl font-medium text-sm transition-all ${
+                                                    editingId
+                                                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                                        : "bg-gray-50 text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                                                }`}
                                                 value={formData.date}
                                                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                                                 min={minDate}
+                                                disabled={!!editingId}
                                             />
                                         </div>
                                         {/* Time Searchable Dropdown */}
@@ -1281,10 +1266,15 @@ function AppointmentContent() {
                                                 type="text"
                                                 required
                                                 autoComplete="off"
-                                                className="w-full px-3 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium text-sm"
+                                                className={`w-full px-3 py-2 border border-pink-100 rounded-xl font-medium text-sm transition-all ${
+                                                    editingId
+                                                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                                        : "bg-gray-50 text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                                                }`}
                                                 placeholder="e.g. 10:30 AM"
                                                 value={timeInputValue}
                                                 onChange={(e) => {
+                                                    if (editingId) return;
                                                     const val = e.target.value;
                                                     setTimeInputValue(val);
                                                     setShowTimeDropdown(true);
@@ -1293,21 +1283,24 @@ function AppointmentContent() {
                                                         setFormData({ ...formData, time: normalized });
                                                     }
                                                 }}
-                                                onFocus={() => setShowTimeDropdown(true)}
+                                                onFocus={() => {
+                                                    if (!editingId) setShowTimeDropdown(true);
+                                                }}
+                                                disabled={!!editingId}
                                             />
-                                            {showTimeDropdown && (
+                                            {showTimeDropdown && !editingId && (
                                                 <div className="absolute z-30 w-full mt-1.5 bg-white rounded-xl shadow-xl border border-pink-100 py-1.5 max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1">
                                                     {(() => {
                                                         const slots = [];
                                                         for (let h = 8; h <= 19; h++) {
                                                             for (let m = 0; m <= 30; m += 30) {
-                                                                const hStr = h.toString().padStart(2, '0');
-                                                                const mStr = m.toString().padStart(2, '0');
-                                                                const time24 = `${hStr}:${mStr}`;
-                                                                const time12 = to12h(time24);
-                                                                if (time12.toLowerCase().includes(timeInputValue.toLowerCase())) {
-                                                                    slots.push({ t12: time12, t24: time24 });
-                                                                }
+                                                                 const hStr = h.toString().padStart(2, '0');
+                                                                 const mStr = m.toString().padStart(2, '0');
+                                                                 const time24 = `${hStr}:${mStr}`;
+                                                                 const time12 = to12h(time24);
+                                                                 if (time12.toLowerCase().includes(timeInputValue.toLowerCase())) {
+                                                                     slots.push({ t12: time12, t24: time24 });
+                                                                 }
                                                             }
                                                         }
                                                         return slots.map((s) => (

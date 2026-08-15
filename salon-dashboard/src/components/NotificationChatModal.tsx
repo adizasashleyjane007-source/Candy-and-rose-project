@@ -33,13 +33,52 @@ export default function NotificationChatModal({
   const [replyText, setReplyText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
+  const [showCallPopup, setShowCallPopup] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll chat to bottom
+  // Auto-scroll the chat container to the bottom whenever a new message arrives or is sent
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages, activeTab]);
+
+  // Show the call popup with the customer's number
+  const handleInitiateCall = (customerPhone: string) => {
+    setShowCallPopup(true);
+  };
+
+  // Real-Time Messaging: Initialize Supabase subscription to listen for new database inserts in the messages table
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const supabase = createClient();
+    
+    // Subscribe to new inserts in the 'messages' table
+    const channel = supabase
+      .channel('realtime-messages-channel')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload: any) => {
+          const newDbMessage = payload.new as any;
+          
+          // Update the UI state immediately without requiring a page refresh
+          setChatMessages((prevMessages) => [...prevMessages, {
+            id: newDbMessage.id || `realtime-${Date.now()}`,
+            sender: newDbMessage.sender === 'admin' ? 'admin' : 'client',
+            senderName: newDbMessage.sender === 'admin' ? 'Admin' : (customer?.name || 'Client'),
+            text: newDbMessage.text || newDbMessage.message || newDbMessage.content || '',
+            time: new Date(newDbMessage.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      // Cleanup the real-time subscription when modal closes or component unmounts
+      supabase.removeChannel(channel);
+    };
+  }, [isOpen, customer]);
 
   useEffect(() => {
     if (!isOpen || !notification) return;
@@ -147,8 +186,41 @@ export default function NotificationChatModal({
           };
         }
         
+        // FALLBACK: If still no fetchedCust, try to find them by name in the customers table
+        // This handles walk-in guests who booked with a name that matches a customer profile
+        if (!fetchedCust) {
+          const nameToSearch = fetchedApt?.customer_name || parsedCustomerName;
+          if (nameToSearch && nameToSearch !== "Walk-in Guest") {
+            const { data: custByName } = await supabase
+              .from("customers")
+              .select("*")
+              .ilike("name", `%${nameToSearch}%`)
+              .limit(1);
+            if (custByName && custByName.length > 0) {
+              fetchedCust = custByName[0];
+            }
+          }
+        }
+
         setAppointment(fetchedApt);
-        setCustomer(fetchedCust || (fetchedApt ? { name: fetchedApt.customer_name } : { name: parsedCustomerName || "Walk-in Guest" }));
+        
+        // FIX: Ensure fallback structured objects include standard phone numbers if available inside nested layout items
+        if (fetchedCust) {
+          setCustomer(fetchedCust);
+        } else if (fetchedApt) {
+          setCustomer({
+            name: fetchedApt.customer_name || "Client",
+            phone: fetchedApt.customer_phone || fetchedApt.phone || fetchedApt.customers?.phone || null,
+            email: fetchedApt.customer_email || fetchedApt.email || fetchedApt.customers?.email || null
+          });
+        } else {
+          setCustomer({
+            name: parsedCustomerName || "Walk-in Guest",
+            phone: null,
+            email: null
+          });
+        }
+        
         setService(fetchedSvc || (fetchedApt ? { name: fetchedApt.service_name, price: fetchedApt.price } : null));
         
         // 3. Build chat history
@@ -194,7 +266,8 @@ export default function NotificationChatModal({
       } catch (err) {
         console.error("Error setting up notification chat modal:", err);
       } finally {
-        setLoading(false);
+        // Delay loading switch down slightly to guarantee state reconciliation finishes
+        setTimeout(() => setLoading(false), 50);
       }
     };
     
@@ -300,6 +373,60 @@ export default function NotificationChatModal({
         </div>
       ) : (
         <>
+          {/* ── Call Popup Overlay ───────────────────────────────── */}
+          {showCallPopup && customer?.phone && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 rounded-2xl backdrop-blur-sm">
+              <div className="bg-white rounded-2xl shadow-2xl p-5 mx-4 w-full max-w-[300px] flex flex-col items-center gap-3 border border-pink-100">
+                {/* Animated ringing icon */}
+                <div className="w-14 h-14 rounded-full bg-emerald-50 border-4 border-emerald-200 flex items-center justify-center animate-pulse">
+                  <Phone className="w-6 h-6 text-emerald-500" />
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Call Customer</p>
+                  <p className="font-black text-gray-900 text-sm">{customer?.name}</p>
+                  {/* Phone number displayed large and selectable */}
+                  <p className="text-emerald-600 font-bold text-xl mt-1 tracking-widest select-all cursor-text">{customer.phone}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Tap number above to select &amp; copy</p>
+                </div>
+
+                {/* Primary: standard tel link (works on mobile, works on PC if an app is registered) */}
+                <a
+                  href={`tel:${customer.phone.replace(/[^0-9+]/g, '')}`}
+                  className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs text-center transition-all active:scale-95 shadow flex items-center justify-center gap-2"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  Call on Phone (Dialer)
+                </a>
+
+                {/* Step 2: Copy number to clipboard */}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(customer.phone).then(() => {
+                      // Brief feedback
+                      const btn = document.getElementById('copy-phone-btn');
+                      if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { if(btn) btn.textContent = 'Copy Number'; }, 2000); }
+                    });
+                  }}
+                  id="copy-phone-btn"
+                  className="w-full py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs transition-all border border-blue-100"
+                >
+                  Copy Number
+                </button>
+
+                <p className="text-[9px] text-gray-400 text-center leading-relaxed -mt-1">
+                  On a PC? Click <strong>Copy Number</strong> and paste it into your calling app (like Skype or Phone Link).
+                </p>
+
+                <button
+                  onClick={() => setShowCallPopup(false)}
+                  className="w-full py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-500 font-bold text-xs transition-all"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* header Section */}
           <div className="bg-gradient-to-r from-pink-50/50 via-white to-pink-50/20 px-4 pt-3 pb-2 border-b border-gray-100 shrink-0">
             <div className="flex items-center justify-between mb-2">
@@ -311,13 +438,27 @@ export default function NotificationChatModal({
                   <h3 className="font-bold text-sm text-gray-900 leading-tight truncate max-w-[180px] sm:max-w-[210px]">{customer?.name || "Client"}</h3>
                 </div>
               </div>
-              
-              <button 
-                onClick={onClose} 
-                className="p-1 hover:bg-pink-100/50 rounded-full text-gray-400 hover:text-gray-900 transition-all"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                {/* Phone icon button — always visible; disabled/grayed if no phone is on record */}
+                <button
+                  onClick={() => customer?.phone && handleInitiateCall(customer.phone)}
+                  title={customer?.phone ? `Call ${customer.name}: ${customer.phone}` : "No phone number on record"}
+                  disabled={!customer?.phone}
+                  className={`p-1.5 rounded-full flex items-center justify-center transition-all border shadow-sm ${
+                    customer?.phone
+                      ? "bg-white text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 border-transparent hover:border-emerald-100 cursor-pointer"
+                      : "bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed"
+                  }`}
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                </button>
+                <button 
+                  onClick={onClose} 
+                  className="p-1.5 hover:bg-pink-100/50 rounded-full text-gray-400 hover:text-gray-900 transition-all ml-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {/* Navigation Tabs */}

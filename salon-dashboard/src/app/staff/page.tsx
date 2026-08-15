@@ -17,7 +17,7 @@ import { useState, useEffect } from "react";
 import { addNotification } from "@/lib/notifications";
 import { StaffDB, AttendanceDB, type Staff, type Attendance } from "@/lib/db";
 import { Loader2 } from "lucide-react";
-
+import Pagination from "@/components/Pagination";
 export default function StaffPage() {
     const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -596,38 +596,11 @@ export default function StaffPage() {
                 </div>
 
                 {/* Pagination (Moved Outside Table Card) */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-center mt-6 mb-4 gap-2">
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            disabled={currentPage === 1}
-                            className="p-1 text-gray-400 hover:text-pink-500 transition-colors disabled:opacity-50"
-                        >
-                            <ArrowLeft className="w-5 h-5" />
-                        </button>
-                        <div className="flex items-center gap-1 mx-2">
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                                <button
-                                    key={pageNum}
-                                    onClick={() => setCurrentPage(pageNum)}
-                                    className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold transition-colors ${currentPage === pageNum
-                                            ? 'bg-pink-500 text-white shadow-sm'
-                                            : 'text-gray-500 hover:bg-white border border-transparent hover:border-pink-200'
-                                        }`}
-                                >
-                                    {pageNum}
-                                </button>
-                            ))}
-                        </div>
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                            disabled={currentPage === totalPages}
-                            className="p-1 text-gray-400 hover:text-pink-500 transition-colors disabled:opacity-50"
-                        >
-                            <ArrowRight className="w-5 h-5" />
-                        </button>
-                    </div>
-                )}
+                <Pagination 
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                />
             </div>
 
             {/* Delete Confirmation Modal */}

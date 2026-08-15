@@ -1,9 +1,8 @@
-"use client";
-
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, LabelList } from "recharts";
-import { MoreHorizontal, TrendingUp, Scissors, PhilippinePeso, Calendar, X, Clock, Wallet, Loader2 } from "lucide-react";
+import { MoreHorizontal, TrendingUp, Scissors, PhilippinePeso, Calendar, X, Clock, Wallet, Loader2, Star, Sparkles, ChevronRight, Eye } from "lucide-react";
+import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Appointments, Customers, type Appointment } from "@/lib/db";
+import { Appointments, Customers, NailDesigns, SettingsDB, type Appointment, type NailDesign } from "@/lib/db";
 
 const monthsList = [
     "January", "February", "March", "April", "May", "June",
@@ -536,3 +535,241 @@ export function TopCustomersList({ selectedMonth: globalSelectedMonth }: { selec
         </div>
     );
 }
+
+// ─── Featured Nail Analytics: TOP 10 Designs Bar Chart ────────────────────────
+// ─── Featured Nail Analytics: TOP Designs Bar Chart ───────────────────────────
+export function FeaturedNailsChart({ selectedMonth: globalSelectedMonth }: { selectedMonth?: string }) {
+    const [currentMonthIdx, setCurrentMonthIdx] = useState(new Date().getMonth());
+    const [topNailsData, setTopNailsData] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    useEffect(() => {
+        const now = new Date();
+        if (globalSelectedMonth === "Last Month") {
+            const m = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            setCurrentMonthIdx(m.getMonth());
+        } else if (globalSelectedMonth === "This Month") {
+            setCurrentMonthIdx(now.getMonth());
+        }
+    }, [globalSelectedMonth]);
+
+    useEffect(() => {
+        const loadNailsAnalytics = async () => {
+            try {
+                setLoading(true);
+                const [designs, appointments, idRegistry] = await Promise.all([
+                    NailDesigns.list(),
+                    Appointments.list(),
+                    SettingsDB.get("nail_identifier_registry").catch(() => ({})),
+                ]);
+
+                const idMap: Record<string, string> = idRegistry?.mapping || {};
+                const currentYear = new Date().getFullYear();
+
+                // Filter completed appointments for the selected month
+                const monthApps = appointments.filter(apt => {
+                    if (!apt.appointment_date) return false;
+                    const d = new Date(apt.appointment_date);
+                    return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
+                });
+
+                // Calculate request/booking count for each nail design for the selected month
+                const ranked = designs.map((design, index) => {
+                    const nailNumber = design.id && idMap[design.id] ? idMap[design.id] : String(index + 1).padStart(3, "0");
+                    const nailId = `#${nailNumber}`;
+
+                    // Count occurrences in appointments for this specific selected month
+                    let directMatches = 0;
+                    monthApps.forEach(apt => {
+                        const notes = (apt.notes || "").toLowerCase();
+                        const svc = (apt.services?.name || apt.service_name || "").toLowerCase();
+                        const designName = (design.name || "").toLowerCase();
+                        if (notes.includes(designName) || notes.includes(nailId.toLowerCase()) || svc.includes(designName)) {
+                            directMatches += 1;
+                        }
+                    });
+
+                    // If the month has bookings, assign monthly requests based on direct completed appointments
+                    const totalRequests = directMatches;
+
+                    return {
+                        id: design.id,
+                        name: design.name,
+                        shortName: `${nailId} ${design.name.length > 10 ? design.name.slice(0, 9) + '…' : design.name}`,
+                        fullName: design.name,
+                        nailId,
+                        category: design.category || "Standard",
+                        requests: totalRequests,
+                        image_url: design.image_url,
+                        is_trending: design.is_trending,
+                        created_at: design.created_at,
+                    };
+                });
+
+                // Sort by requests count descending and take TOP 10
+                ranked.sort((a, b) => b.requests - a.requests);
+                const top10 = ranked.slice(0, 10);
+                setTopNailsData(top10);
+
+                // Save Top 10 IDs to SettingsDB so Nail Recommendation page syncs with this Top 10
+                const top10Ids = top10.map(item => item.id).filter(Boolean);
+                if (top10Ids.length > 0) {
+                    await SettingsDB.set(
+                        "featured_top_nail_ids",
+                        top10Ids,
+                        "Top 10 Featured Nails from Analytics"
+                    );
+                }
+            } catch (error) {
+                console.error("Failed to load top nail designs analytics:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadNailsAnalytics();
+    }, [currentMonthIdx]);
+
+    return (
+        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full lg:col-span-2 min-h-[400px]">
+            {/* Header */}
+            <div className="flex justify-between items-start mb-6">
+                <div>
+                    <h3 className="text-xl font-bold text-gray-900 tracking-tight">
+                        TOP 10 Feature Nails - <span className="text-pink-500">{monthsList[currentMonthIdx]}</span>
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                        Most requested and trending nail designs automatically featured in client recommendations
+                    </p>
+                </div>
+
+                {/* Three-dots month dropdown */}
+                <div className="relative">
+                    <button
+                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        className="text-gray-400 hover:text-pink-500 transition-colors p-1"
+                        title="Select Month"
+                    >
+                        <MoreHorizontal className="w-5 h-5" />
+                    </button>
+                    {isMenuOpen && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)}></div>
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-pink-50 py-2 z-20 animate-in fade-in zoom-in-95 duration-150">
+                                <div className="px-4 py-2 border-b border-gray-50 mb-1">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">Select Month</p>
+                                </div>
+                                <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                                    {monthsList.map((month, idx) => (
+                                        <button
+                                            key={month}
+                                            onClick={() => { setCurrentMonthIdx(idx); setIsMenuOpen(false); }}
+                                            className={`w-full text-left px-4 py-2 text-sm transition-colors ${currentMonthIdx === idx ? 'bg-pink-50 text-pink-600 font-bold' : 'text-gray-600 hover:bg-gray-50'}`}
+                                        >
+                                            {month}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            {/* Bar Chart */}
+            <div className="flex-1 w-full min-h-[300px] flex items-center justify-center">
+                {loading ? (
+                    <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+                ) : topNailsData.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400 text-sm">
+                        No nail designs available to analyze for {monthsList[currentMonthIdx]}. Add designs in Nail Recommendation.
+                    </div>
+                ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                            data={topNailsData}
+                            margin={{ top: 20, right: 15, left: -20, bottom: 25 }}
+                        >
+                            <defs>
+                                <linearGradient id="featuredNailGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#ec4899" stopOpacity={1} />
+                                    <stop offset="100%" stopColor="#f43f5e" stopOpacity={0.8} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis
+                                dataKey="shortName"
+                                stroke="#94a3b8"
+                                fontSize={11}
+                                fontWeight={600}
+                                tickLine={false}
+                                axisLine={false}
+                                interval={0}
+                                angle={-25}
+                                textAnchor="end"
+                                height={45}
+                            />
+                            <YAxis
+                                stroke="#94a3b8"
+                                fontSize={12}
+                                tickLine={false}
+                                axisLine={false}
+                                allowDecimals={false}
+                                domain={[0, 'auto']}
+                            />
+                            <Tooltip
+                                cursor={{ fill: "#fdf2f8" }}
+                                content={({ active, payload }) => {
+                                    if (active && payload && payload.length) {
+                                        const data = payload[0].payload;
+                                        return (
+                                            <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-xl border border-pink-100 flex items-center gap-3 min-w-[200px]">
+                                                <div className="w-12 h-12 rounded-xl bg-pink-50 overflow-hidden flex-shrink-0 border border-pink-100 flex items-center justify-center">
+                                                    {data.image_url ? (
+                                                        <img src={data.image_url} alt={data.fullName} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <span className="text-xl">💅</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                                        <span className="px-2 py-0.5 bg-pink-500 text-white rounded-full text-[10px] font-bold">
+                                                            {data.nailId}
+                                                        </span>
+                                                        <span className="text-[11px] text-gray-400 font-medium truncate">
+                                                            {data.category}
+                                                        </span>
+                                                    </div>
+                                                    <h5 className="font-bold text-gray-900 text-xs truncate capitalize">{data.fullName}</h5>
+                                                    <p className="text-pink-600 font-bold text-xs mt-0.5">
+                                                        {data.requests} requests ({monthsList[currentMonthIdx]})
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                }}
+                            />
+                            <Bar
+                                dataKey="requests"
+                                fill="url(#featuredNailGradient)"
+                                radius={[8, 8, 0, 0]}
+                                barSize={28}
+                            >
+                                {topNailsData.map((entry, index) => (
+                                    <Cell
+                                        key={`cell-${index}`}
+                                        fill={index === 0 ? "#db2777" : "url(#featuredNailGradient)"}
+                                    />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                )}
+            </div>
+        </div>
+    );
+}
+

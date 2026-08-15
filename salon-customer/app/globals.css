@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 6%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 6%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 6%;
+    --primary: 330 81% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 6%;
+    --muted: 330 30% 97%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 330 81% 95%;
+    --accent-foreground: 330 81% 30%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 330 81% 60%;
+    --radius: 0.75rem;
+  }
+  .dark {
+    --background: 0 0% 6%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 330 81% 65%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 64%;
+    --accent: 330 40% 20%;
+    --accent-foreground: 330 81% 90%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 330 81% 65%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+@keyframes fade-in-up { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scale-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+@keyframes feedback-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+.animate-fade-in-up { animation: fade-in-up 0.7s ease-out both; }
+.animate-fade-in { animation: fade-in 0.5s ease-out both; }
+.animate-scale-in { animation: scale-in 0.3s ease-out both; }
+.animate-float { animation: float 6s ease-in-out infinite; }
+.feedback-track { animation: feedback-marquee 18s linear infinite; }
+.feedback-marquee:hover .feedback-track { animation-play-state: paused; }
+
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+
+.hero-gradient {
+  background: linear-gradient(135deg, hsl(0 0% 6%) 0%, hsl(330 30% 15%) 50%, hsl(0 0% 6%) 100%);
+}
+
+.pink-glow { box-shadow: 0 0 40px -10px hsl(330 81% 60% / 0.5); }
+
+.font-serif { font-family: var(--font-playfair), Georgia, serif; }
+.font-sans { font-family: var(--font-dm-sans), system-ui, sans-serif; }
