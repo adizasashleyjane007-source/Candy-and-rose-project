@@ -570,8 +570,6 @@ export const AttendanceDB = {
   }
 };
 
-// ─── Nails ────────────────────────────────────────────────────────────────────
-
 export const NailDesigns = {
   async list() {
     const { data, error } = await supabase()
@@ -590,6 +588,22 @@ export const NailDesigns = {
       .single();
     if (error) throw error;
     return data as NailDesign;
+  },
+
+  async remove(id: string) {
+    const { data: item } = await supabase()
+      .from("nail_designs")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (item) {
+      await ArchiveDB.archiveItem("nail_design", item);
+    }
+    const { error } = await supabase()
+      .from("nail_designs")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
   },
 };
 
@@ -798,6 +812,7 @@ export const ArchiveDB = {
     delete cleanDetails.staff;
     delete cleanDetails.services;
     delete cleanDetails.appointments;
+    delete cleanDetails.nail_id;
 
     let tableName = "";
     if (type === "customer") tableName = "customers";
@@ -807,6 +822,7 @@ export const ArchiveDB = {
     else if (type === "inventory") tableName = "inventory";
     else if (type === "billing") tableName = "billing";
     else if (type === "notification") tableName = "notifications";
+    else if (type === "nail_design" || type === "nail" || type === "nail design") tableName = "nail_designs";
 
     if (!tableName) throw new Error("Unknown item type: " + type);
 

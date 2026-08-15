@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Header from "@/components/Header";
-import { RevenueAnalyticsChart, BookingsTrendChart, ServiceUsageAnalyticsChart, TopStaffChart, TopCustomersList } from "@/components/AnalyticsCharts";
+import { RevenueAnalyticsChart, BookingsTrendChart, ServiceUsageAnalyticsChart, TopStaffChart, TopCustomersList, FeaturedNailsChart } from "@/components/AnalyticsCharts";
 import { Calendar as CalendarIcon, Filter } from "lucide-react";
 
 export default function AnalyticsPage() {
@@ -54,9 +54,13 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                    <div className="xl:col-span-3 min-h-full">
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+                    <div className="xl:col-span-2 min-h-full">
                         <BookingsTrendChart selectedMonth={selectedMonth} />
+                    </div>
+                    {/* ── Featured Nail - Top 10 Bar Chart ────────────────────────── */}
+                    <div className="xl:col-span-1 min-h-full">
+                        <FeaturedNailsChart selectedMonth={selectedMonth} />
                     </div>
                 </div>
             </div>
