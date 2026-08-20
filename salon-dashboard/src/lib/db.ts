@@ -171,13 +171,13 @@ export const Customers = {
       .select("*, appointments(price, status)")
       .order("created_at", { ascending: false });
     if (error) throw error;
-    
+
     // Calculate total_spent and visits dynamically for accuracy
     const enrichedData = ((data as any[]) || []).map(cust => {
       const completedApts = (cust.appointments || []).filter((a: any) => a.status === 'Completed');
       const totalSpent = completedApts.reduce((sum: number, a: any) => sum + (Number(a.price) || 0), 0);
       const visitCount = (cust.appointments || []).length;
-      
+
       return {
         ...cust,
         total_spent: totalSpent,
@@ -655,26 +655,26 @@ export const StudioConfigurations = {
 };
 
 export const Storage = {
-    async upload(bucket: string, file: File, name: string) {
-        const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
-        const sanitizedName = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'image';
-        const fileName = `${sanitizedName}-${Date.now()}.${fileExt}`;
-        const filePath = `${fileName}`;
+  async upload(bucket: string, file: File, name: string) {
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
+    const sanitizedName = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'image';
+    const fileName = `${sanitizedName}-${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
 
-        const { error: uploadError } = await supabase()
-            .storage
-            .from(bucket)
-            .upload(filePath, file, { upsert: true });
+    const { error: uploadError } = await supabase()
+      .storage
+      .from(bucket)
+      .upload(filePath, file, { upsert: true });
 
-        if (uploadError) throw uploadError;
+    if (uploadError) throw uploadError;
 
-        const { data } = supabase()
-            .storage
-            .from(bucket)
-            .getPublicUrl(filePath);
+    const { data } = supabase()
+      .storage
+      .from(bucket)
+      .getPublicUrl(filePath);
 
-        return data.publicUrl;
-    }
+    return data.publicUrl;
+  }
 };
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
@@ -687,7 +687,7 @@ export const SettingsDB = {
       .eq("key", key)
       .maybeSingle();
     if (error) throw error;
-    
+
     if (key === 'salon_info' && data && (data.name || data.email)) {
       return {
         name: data.name,
@@ -699,14 +699,14 @@ export const SettingsDB = {
         ...(data.value || {})
       };
     }
-    
+
     return data?.value;
   },
 
   async set(key: string, value: any, setting_label?: string) {
     const payload: any = { key, value };
     if (setting_label) payload.setting_label = setting_label;
-    
+
     if (key === 'salon_info' && value && typeof value === 'object') {
       const { name, phone, address, email, tagline, logo_url, ...remainingValue } = value;
       payload.name = name;
@@ -715,28 +715,28 @@ export const SettingsDB = {
       payload.email = email;
       payload.tagline = tagline;
       payload.logo_url = logo_url;
-      payload.value = remainingValue; 
+      payload.value = remainingValue;
     }
-    
+
     const { data, error } = await supabase()
       .from("salon_settings")
       .upsert(payload, { onConflict: "key" })
       .select()
       .single();
     if (error) throw error;
-    
+
     if (key === 'salon_info') {
-        return {
-            name: data.name,
-            phone: data.phone,
-            address: data.address,
-            email: data.email,
-            tagline: data.tagline,
-            logo_url: data.logo_url,
-            ...(data.value || {})
-        };
+      return {
+        name: data.name,
+        phone: data.phone,
+        address: data.address,
+        email: data.email,
+        tagline: data.tagline,
+        logo_url: data.logo_url,
+        ...(data.value || {})
+      };
     }
-    
+
     return data?.value;
   },
 
@@ -833,7 +833,7 @@ export const ArchiveDB = {
   async restoreItem(item: ArchivedRecord) {
     const { type, details } = item;
     const cleanDetails = { ...details };
-    
+
     // Remove relation properties that may cause database errors on insert
     delete cleanDetails.customers;
     delete cleanDetails.staff;

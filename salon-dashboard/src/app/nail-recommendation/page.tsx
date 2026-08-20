@@ -12,13 +12,13 @@ import { addNotification } from "@/lib/notifications";
 const DEFAULT_CATEGORIES = ["Abstract", "Floral", "Minimalist", "Glam", "Natural", "Seasonal"];
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string; badge: string }> = {
-  Abstract:   { bg: "bg-pink-50",    text: "text-pink-600",    badge: "bg-pink-500" },
-  Floral:     { bg: "bg-emerald-50", text: "text-emerald-600", badge: "bg-emerald-500" },
-  Minimalist: { bg: "bg-purple-50",  text: "text-purple-600",  badge: "bg-purple-500" },
-  Glam:       { bg: "bg-amber-50",   text: "text-amber-600",   badge: "bg-amber-500" },
-  Natural:    { bg: "bg-orange-50",  text: "text-orange-600",  badge: "bg-orange-400" },
-  Seasonal:   { bg: "bg-sky-50",     text: "text-sky-600",     badge: "bg-sky-500" },
-  Featured:   { bg: "bg-pink-50",    text: "text-pink-600",    badge: "bg-pink-500" },
+  Abstract: { bg: "bg-pink-50", text: "text-pink-600", badge: "bg-pink-500" },
+  Floral: { bg: "bg-emerald-50", text: "text-emerald-600", badge: "bg-emerald-500" },
+  Minimalist: { bg: "bg-purple-50", text: "text-purple-600", badge: "bg-purple-500" },
+  Glam: { bg: "bg-amber-50", text: "text-amber-600", badge: "bg-amber-500" },
+  Natural: { bg: "bg-orange-50", text: "text-orange-600", badge: "bg-orange-400" },
+  Seasonal: { bg: "bg-sky-50", text: "text-sky-600", badge: "bg-sky-500" },
+  Featured: { bg: "bg-pink-50", text: "text-pink-600", badge: "bg-pink-500" },
 };
 
 function getCategoryStyle(category?: string) {
@@ -948,11 +948,10 @@ export default function NailRecommendationPage() {
           <div className="relative w-full sm:w-auto" ref={categoryDropdownRef}>
             <button
               onClick={() => setCategoryDropdownOpen(v => !v)}
-              className={`w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 px-5 py-2.5 rounded-full border text-sm font-semibold shadow-sm transition-all ${
-                activeCategory !== "All"
+              className={`w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 px-5 py-2.5 rounded-full border text-sm font-semibold shadow-sm transition-all ${activeCategory !== "All"
                   ? "bg-pink-500 text-white border-pink-500"
                   : "bg-white text-gray-700 border-pink-100 hover:border-pink-300 hover:text-pink-600"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4" />
@@ -965,11 +964,10 @@ export default function NailRecommendationPage() {
               <div className="absolute left-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-pink-100 py-2 z-50 overflow-hidden max-h-64 overflow-y-auto">
                 <button
                   onClick={() => { setActiveCategory("All"); setCategoryDropdownOpen(false); }}
-                  className={`w-full text-left px-4 py-2.5 text-xs font-semibold flex items-center justify-between transition-colors ${
-                    activeCategory === "All"
+                  className={`w-full text-left px-4 py-2.5 text-xs font-semibold flex items-center justify-between transition-colors ${activeCategory === "All"
                       ? "bg-pink-50 text-pink-600 font-bold"
                       : "text-gray-600 hover:bg-pink-50 hover:text-pink-600"
-                  }`}
+                    }`}
                 >
                   <span>All Categories</span>
                   {activeCategory === "All" && <Check className="w-3.5 h-3.5 text-pink-500" />}
@@ -979,11 +977,10 @@ export default function NailRecommendationPage() {
                   <button
                     key={cat}
                     onClick={() => { setActiveCategory(cat); setCategoryDropdownOpen(false); }}
-                    className={`w-full text-left px-4 py-2 text-sm font-medium flex items-center justify-between transition-colors ${
-                      activeCategory === cat
+                    className={`w-full text-left px-4 py-2 text-sm font-medium flex items-center justify-between transition-colors ${activeCategory === cat
                         ? "bg-pink-50 text-pink-600 font-semibold"
                         : "text-gray-600 hover:bg-pink-50 hover:text-pink-600"
-                    }`}
+                      }`}
                   >
                     <span className="truncate">{cat}</span>
                     {activeCategory === cat && <Check className="w-3.5 h-3.5 text-pink-500" />}
@@ -1259,11 +1256,10 @@ export default function NailRecommendationPage() {
                           key={cat}
                           type="button"
                           onClick={() => setNewCategory(isSelected ? "" : cat)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                            isSelected
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${isSelected
                               ? "bg-pink-500 text-white shadow-sm shadow-pink-500/20"
                               : "bg-white text-gray-600 border border-gray-200 hover:border-pink-200 hover:text-pink-600"
-                          }`}
+                            }`}
                         >
                           {isSelected && <Check className="w-3 h-3" />}
                           <span>{cat}</span>
@@ -1398,6 +1394,7 @@ export default function NailRecommendationPage() {
           </div>
         </div>
       )}
+
       {/* ── Delete Success Modal ──────────────────────────────────────────── */}
       {showDeleteSuccessModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
@@ -1421,6 +1418,6 @@ export default function NailRecommendationPage() {
           </div>
         </div>
       )}
-    </div>
+    </div >
   );
 }

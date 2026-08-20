@@ -59,11 +59,11 @@ export default function AnalyticsPage() {
                         <BookingsTrendChart selectedMonth={selectedMonth} />
                     </div>
                     {/* ── Featured Nail - Pie Chart ────────────────────────── */}
-                    <div className="xl:col-span-1 min-h-full">
-                        <FeaturedNailsChart selectedMonth={selectedMonth} />
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div className="xl:col-span-1 min-h-full">
+        <FeaturedNailsChart selectedMonth={selectedMonth} />
+    </div>
+                </div >
+            </div >
+        </div >
     );
 }
