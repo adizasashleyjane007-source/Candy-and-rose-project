@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, ChevronDown, User, Settings, LogOut, Menu, Check, Trash2 } from "lucide-react";
+import { Bell, ChevronDown, User, Settings, LogOut, Menu, Check, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -16,6 +16,8 @@ export default function Header() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
 
     const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -145,6 +147,51 @@ export default function Header() {
             setAdminProfile(newProfile);
         } catch {}
     }, []);
+
+    const handleLogout = async () => {
+        setLoggingOut(true);
+        try {
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                // Send logout email notification with Philippine Standard Time (PST) formatting
+                const options: Intl.DateTimeFormatOptions = {
+                    timeZone: "Asia/Manila",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: true
+                };
+                const formattedTime = new Intl.DateTimeFormat("en-US", options).format(new Date());
+
+                await fetch('/api/send-logout-notification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: user.email,
+                        name: adminProfile.name,
+                        logoutTime: `${formattedTime} (Philippine Standard Time)`
+                    })
+                });
+            }
+            await supabase.auth.signOut();
+            router.push('/login');
+            router.refresh();
+        } catch (error) {
+            console.error("Logout failed:", error);
+            // Fallback signout to prevent stuck sessions
+            const supabase = createClient();
+            await supabase.auth.signOut();
+            router.push('/login');
+            router.refresh();
+        } finally {
+            setLoggingOut(false);
+            setShowLogoutConfirm(false);
+        }
+    };
 
     useEffect(() => {
         updateCount();
@@ -350,12 +397,9 @@ export default function Header() {
                             <div className="h-px bg-gray-100 my-1 mx-3"></div>
                             <button
                                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors font-bold text-left"
-                                onClick={async () => {
+                                onClick={() => {
                                     setIsDropdownOpen(false);
-                                    const supabase = createClient();
-                                    await supabase.auth.signOut();
-                                    router.push('/login');
-                                    router.refresh();
+                                    setShowLogoutConfirm(true);
                                 }}
                             >
                                 <LogOut className="w-4 h-4" /> Logout
@@ -374,6 +418,42 @@ export default function Header() {
                         updateCount();
                     }}
                 />
+            )}
+            {showLogoutConfirm && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-pink-100 flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+                        <div className="w-14 h-14 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-4">
+                            <LogOut className="w-6 h-6 animate-pulse" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900">Are you sure you want to log out?</h3>
+                        <p className="text-xs text-gray-500 mt-2">
+                            You will receive a security notification email with your logout date and time details.
+                        </p>
+                        <div className="flex gap-3 w-full mt-6">
+                            <button
+                                disabled={loggingOut}
+                                onClick={() => setShowLogoutConfirm(false)}
+                                className="flex-1 py-2.5 px-4 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors text-sm disabled:opacity-50 transition-all duration-200 active:scale-95"
+                            >
+                                No
+                            </button>
+                            <button
+                                disabled={loggingOut}
+                                onClick={handleLogout}
+                                className="flex-1 py-2.5 px-4 bg-rose-500 text-white font-semibold rounded-xl hover:bg-rose-600 transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all duration-200 active:scale-95 shadow-md shadow-rose-100"
+                            >
+                                {loggingOut ? (
+                                    <>
+                                        <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                                        Logging out...
+                                    </>
+                                ) : (
+                                    "Yes"
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </header>
     );

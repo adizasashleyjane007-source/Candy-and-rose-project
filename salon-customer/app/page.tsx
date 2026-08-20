@@ -1,20 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, ArrowUpRight, Quote, Star } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, Quote, Star } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { SectionHeading, ServiceCard } from '@/components/salon-ui';
 import { supabase, type Service } from '@/lib/supabase';
+import { getHeroImages } from '@/lib/hero-images';
 import { useEffect, useState } from 'react';
 
-const heroWords = ['reimagined.', 'personalized.', 'luminous.', 'unforgettable.'];
-
-const heroImages = [
-  { src: 'https://images.pexels.com/photos/7823407/pexels-photo-7823407.jpeg?auto=compress&cs=tinysrgb&w=1200', alt: 'Candy and Rose Salon interior' },
-  { src: 'https://images.pexels.com/photos/5368632/pexels-photo-5368632.jpeg?auto=compress&cs=tinysrgb&w=1200', alt: 'Stylist creating a polished salon look' },
-  { src: 'https://images.pexels.com/photos/28863315/pexels-photo-28863315.jpeg?auto=compress&cs=tinysrgb&w=1200', alt: 'Hair styling at Candy and Rose Salon' },
-  { src: 'https://images.pexels.com/photos/3992873/pexels-photo-3992873.jpeg?auto=compress&cs=tinysrgb&w=1200', alt: 'Client enjoying a salon appointment' },
-];
+const heroWords = ['personalized.', 'reimagined.', 'luminous.', 'unforgettable.'];
 
 const fallbackServices: Service[] = [
   { id: '1', name: 'Signature Facial', description: 'Deep-cleanse, exfoliate, and hydrate for a radiant glow.', category: 'Facials', duration_min: 60, price: 65, image_url: 'https://images.pexels.com/photos/3997981/pexels-photo-3997981.jpeg', created_at: '' },
@@ -22,22 +16,31 @@ const fallbackServices: Service[] = [
   { id: '3', name: 'Manicure & Gel Polish', description: 'Shape, buff, and long-lasting gel polish for flawless nails.', category: 'Nails', duration_min: 45, price: 35, image_url: 'https://images.pexels.com/photos/3997391/pexels-photo-3997391.jpeg', created_at: '' },
 ];
 
+function Sparkle({ className = '' }: { className?: string }) {
+  return (
+    <svg className={`pointer-events-none ${className}`} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z" />
+    </svg>
+  );
+}
+
 export default function Home() {
   const [services, setServices] = useState<Service[]>(fallbackServices);
-  const [heroIndex, setHeroIndex] = useState(0);
   const [heroWordIndex, setHeroWordIndex] = useState(0);
+  const heroImages = getHeroImages();
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setHeroIndex((current) => (current + 1) % heroImages.length);
-    }, 5000);
+      setCurrentImageIndex((prev) => (prev + 1) % heroImages.length);
+    }, 4500);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [heroImages.length]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
       setHeroWordIndex((current) => (current + 1) % heroWords.length);
-    }, 7000);
+    }, 6000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -51,80 +54,159 @@ export default function Home() {
     <SalonLayout>
       <main>
         {/* Hero experience */}
-        <section className="hero-gradient relative min-h-[720px] overflow-hidden text-white">
-          <div className="absolute -right-20 top-16 h-[580px] w-[580px] rounded-full border border-primary/20" />
-          <div className="absolute -right-2 top-32 h-[430px] w-[430px] rounded-full border border-primary/15" />
-          <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 py-20 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-28">
+        <section className="hero-gradient relative min-h-[640px] overflow-hidden text-white">
+          {/* Subtle celestial sweeping arcs */}
+          <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-35" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="pinkArcGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#f43f8e" stopOpacity="0" />
+                <stop offset="45%" stopColor="#f43f8e" stopOpacity="0.7" />
+                <stop offset="100%" stopColor="#fb7185" stopOpacity="0.1" />
+              </linearGradient>
+            </defs>
+            <path d="M -100,180 Q 450,20 950,260 T 1700,200" fill="none" stroke="url(#pinkArcGlow)" strokeWidth="1.5" />
+            <path d="M 50,560 Q 600,120 1100,380 T 1800,120" fill="none" stroke="url(#pinkArcGlow)" strokeWidth="1" opacity="0.6" />
+          </svg>
+
+          <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 pt-8 pb-16 lg:grid-cols-[1fr_1.1fr] lg:px-10 lg:pt-10 lg:pb-20">
+            {/* Left Content */}
             <div className="relative z-10 animate-fade-in-up">
-              <div className="mb-7 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.25em] text-primary">
-                <span className="h-px w-10 bg-primary" /> The art of feeling radiant
+              <div className="mb-6 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.25em] text-[#f43f8e]">
+                <span className="h-[2px] w-8 bg-[#f43f8e]" /> THE ART OF FEELING RADIANT
               </div>
-              <h1 className="max-w-xl font-serif text-6xl leading-[1.03] sm:text-7xl lg:text-8xl">
-                Beauty,<br /><em className="inline-block min-w-[5ch] font-light text-primary transition-opacity duration-500">{heroWords[heroWordIndex]}</em>
+              <h1 className="max-w-xl font-serif text-6xl leading-[1.03] sm:text-7xl lg:text-[5.25rem] text-white">
+                Beauty,<br />
+                <em className="font-light italic text-[#ec4899] drop-shadow-[0_0_25px_rgba(236,72,153,0.45)] transition-opacity duration-500">
+                  {heroWords[heroWordIndex]}
+                </em>
               </h1>
-              <p className="mt-8 max-w-md text-base leading-8 text-white/60">
-                A modern salon experience designed around you. Thoughtful treatments, exceptional artists, and a little more glow in every visit.
+              <p className="mt-8 max-w-md text-sm sm:text-base leading-relaxed text-white/70">
+                A modern salon experience designed around you.<br className="hidden sm:inline" />
+                Thoughtful treatments, exceptional artists, and a little more glow in every visit.
               </p>
-              <div className="mt-10 flex flex-wrap items-center gap-4">
-                <button onClick={() => window.dispatchEvent(new CustomEvent('open-book'))}
-                  className="rounded-full bg-primary px-7 py-4 text-xs font-bold uppercase tracking-[0.18em] text-white transition-all hover:bg-pink-500 hover:shadow-xl hover:shadow-primary/30">
-                  Book your moment <ArrowUpRight className="ml-2 inline" size={15} />
+              <div className="mt-10 flex flex-wrap items-center gap-4 sm:gap-5">
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-book'))}
+                  className="group flex items-center gap-2 rounded-full bg-[#ec3888] px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg shadow-pink-500/30 transition-all hover:bg-pink-500 hover:shadow-pink-500/50 hover:scale-[1.02]"
+                >
+                  Book your moment
+                  <ArrowUpRight className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" size={16} />
                 </button>
-                <Link href="/services"
-                  className="rounded-full border border-white/20 px-7 py-4 text-xs font-bold uppercase tracking-[0.18em] text-white transition-colors hover:border-primary hover:text-primary">
+                <Link
+                  href="/services"
+                  className="rounded-full border border-white/25 bg-white/[0.04] px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] text-white backdrop-blur transition-all hover:border-[#ec3888] hover:text-[#ec3888] hover:bg-white/[0.08]"
+                >
                   Explore services
                 </Link>
               </div>
-              <div className="mt-14 flex items-center gap-5">
-                <div className="flex -space-x-3">
-                  {['https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg', 'https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg', 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg'].map((src) => (
-                    <img key={src} src={src} className="h-9 w-9 rounded-full border-2 border-neutral-800 object-cover" alt="Candy and Rose Salon client" />
+              <div className="mt-12 flex items-center gap-4">
+                <div className="flex -space-x-2.5">
+                  {[
+                    'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg',
+                    'https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg',
+                    'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg',
+                  ].map((src) => (
+                    <img
+                      key={src}
+                      src={src}
+                      className="h-10 w-10 rounded-full border-2 border-neutral-900 object-cover"
+                      alt="Candy and Rose Salon client"
+                    />
                   ))}
                 </div>
                 <div>
-                  <div className="flex items-center gap-1 text-primary">
-                    {[1, 2, 3, 4, 5].map((s) => <Star key={s} size={13} fill="currentColor" />)}
+                  <div className="flex items-center gap-1 text-[#f43f8e]">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star key={s} size={14} fill="currentColor" />
+                    ))}
                   </div>
-                  <p className="mt-1 text-xs text-white/45">Loved by 2,000+ clients</p>
+                  <p className="mt-1 text-xs font-medium text-white/50">Loved by 2,000+ clients</p>
                 </div>
               </div>
             </div>
 
-            <div className="relative animate-fade-in-up delay-200">
-              <div className="relative ml-auto max-w-lg overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 p-2 shadow-2xl shadow-black/40">
-                <div className="relative aspect-[4/5] overflow-hidden rounded-[1.5rem] bg-neutral-900">
-                  {heroImages.map((image, index) => (
-                    <img key={image.src} src={image.src} alt={image.alt}
-                      className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${index === heroIndex ? 'opacity-100' : 'opacity-0'}`} />
-                  ))}
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/10" />
-                  <div className="absolute bottom-7 left-7 right-7 flex items-end justify-between">
-                    <div>
-                      <p className="font-serif text-2xl">Your glow era</p>
-                      <p className="mt-1 text-xs text-white/60">Candy and Rose Salon</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => setHeroIndex((heroIndex - 1 + heroImages.length) % heroImages.length)} aria-label="Previous salon image"
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-black/20 text-white backdrop-blur transition-colors hover:bg-primary">
-                        <ArrowLeft size={16} />
-                      </button>
-                      <button onClick={() => setHeroIndex((heroIndex + 1) % heroImages.length)} aria-label="Next salon image"
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-black/20 text-white backdrop-blur transition-colors hover:bg-primary">
-                        <ArrowRight size={16} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="absolute left-1/2 top-5 flex -translate-x-1/2 gap-1.5">
-                    {heroImages.map((_, index) => (
-                      <button key={index} onClick={() => setHeroIndex(index)} aria-label={`Go to salon image ${index + 1}`}
-                        className={`h-1.5 rounded-full transition-all ${index === heroIndex ? 'w-6 bg-primary' : 'w-1.5 bg-white/50 hover:bg-white/80'}`} />
+            {/* Right Visual: Glowing Neon Circular Hero Frame */}
+            <div className="relative flex items-center justify-center lg:justify-end animate-fade-in-up delay-200">
+              <div className="relative flex items-center justify-center">
+                {/* Background ambient radial glow */}
+                <div className="absolute h-[480px] w-[480px] rounded-full bg-pink-600/20 blur-[90px] pointer-events-none" />
+
+                {/* Sparkling Stars around frame */}
+                <Sparkle className="absolute -left-10 top-12 h-6 w-6 text-pink-300 animate-pulse" />
+                <Sparkle className="absolute -left-2 bottom-20 h-5 w-5 text-rose-300 animate-pulse delay-200" />
+                <Sparkle className="absolute -right-6 top-16 h-5 w-5 text-pink-200 animate-pulse delay-300" />
+                <Sparkle className="absolute right-14 -bottom-4 h-4 w-4 text-pink-400 animate-pulse delay-100" />
+                <Sparkle className="absolute -top-6 left-1/3 h-5 w-5 text-pink-300 animate-pulse delay-300" />
+
+                {/* Decorative orbit arcs */}
+                <div className="absolute h-[480px] w-[480px] sm:h-[550px] sm:w-[550px] rounded-full border border-pink-500/20 pointer-events-none" />
+                <div className="absolute h-[540px] w-[540px] sm:h-[630px] sm:w-[630px] rounded-full border border-pink-500/10 pointer-events-none" />
+
+                {/* Glowing Neon Ring Portrait with Dynamic Rotating Gallery */}
+                <div className="relative h-[340px] w-[340px] sm:h-[430px] sm:w-[430px] lg:h-[480px] lg:w-[480px] rounded-full p-[4px] bg-gradient-to-tr from-[#ec4899] via-[#f43f8e] to-[#fb7185] neon-ring-glow">
+                  <div className="relative h-full w-full overflow-hidden rounded-full border-2 border-white/40 bg-neutral-950">
+                    {heroImages.map((img, idx) => (
+                      <img
+                        key={img.id}
+                        src={img.src}
+                        alt={img.alt}
+                        style={{ objectPosition: img.objectPosition || 'center' }}
+                        className={`absolute inset-0 h-full w-full object-cover transition-all duration-700 ease-in-out ${
+                          idx === currentImageIndex
+                            ? 'opacity-100 scale-100 z-10'
+                            : 'opacity-0 scale-105 pointer-events-none z-0'
+                        }`}
+                      />
                     ))}
+
+                    {/* Gradient Overlay for Readable Text & Theme Blend */}
+                    <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-[#0a0309]/85 via-transparent to-[#0a0309]/30" />
+
+                    {/* Top Progress Dots */}
+                    <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20">
+                      {heroImages.map((img, idx) => (
+                        <button
+                          key={img.id}
+                          onClick={() => setCurrentImageIndex(idx)}
+                          aria-label={`Go to ${img.title}`}
+                          className={`h-1.5 rounded-full transition-all duration-300 ${
+                            idx === currentImageIndex
+                              ? 'w-7 bg-[#ec4899] shadow-md shadow-pink-500/80'
+                              : 'w-2 bg-white/40 hover:bg-white/70'
+                          }`}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Bottom Caption & Carousel Navigation */}
+                    <div className="absolute bottom-6 left-5 right-5 flex items-end justify-between z-20">
+                      <div className="text-left pl-2">
+                        <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.2em] text-pink-400 drop-shadow">
+                          {heroImages[currentImageIndex].category}
+                        </span>
+                        <p className="font-serif text-lg sm:text-xl font-medium text-white drop-shadow-md leading-tight">
+                          {heroImages[currentImageIndex].title}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 pr-2">
+                        <button
+                          onClick={() => setCurrentImageIndex((prev) => (prev - 1 + heroImages.length) % heroImages.length)}
+                          aria-label="Previous gallery image"
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/30 bg-black/50 text-white backdrop-blur transition-all hover:bg-[#ec4899] hover:border-[#ec4899] hover:scale-105"
+                        >
+                          <ChevronLeft size={15} />
+                        </button>
+                        <button
+                          onClick={() => setCurrentImageIndex((prev) => (prev + 1) % heroImages.length)}
+                          aria-label="Next gallery image"
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/30 bg-black/50 text-white backdrop-blur transition-all hover:bg-[#ec4899] hover:border-[#ec4899] hover:scale-105"
+                        >
+                          <ChevronRight size={15} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="absolute -bottom-6 -left-7 rounded-2xl bg-white px-5 py-4 text-foreground shadow-xl sm:-right-8">
-                <p className="font-serif text-xl">0{heroIndex + 1} / 0{heroImages.length}</p>
-                <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-neutral-500">Salon moments</p>
               </div>
             </div>
           </div>

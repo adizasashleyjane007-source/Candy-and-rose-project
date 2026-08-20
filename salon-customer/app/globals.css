@@ -76,10 +76,18 @@
 .delay-300 { animation-delay: 0.3s; }
 
 .hero-gradient {
-  background: linear-gradient(135deg, hsl(0 0% 6%) 0%, hsl(330 30% 15%) 50%, hsl(0 0% 6%) 100%);
+  background: radial-gradient(circle at 75% 45%, #2a0b22 0%, #150614 45%, #0a0309 100%);
 }
 
 .pink-glow { box-shadow: 0 0 40px -10px hsl(330 81% 60% / 0.5); }
+
+.neon-ring-glow {
+  box-shadow: 
+    0 0 25px rgba(244, 63, 142, 0.85),
+    0 0 50px rgba(236, 72, 153, 0.6),
+    0 0 90px rgba(236, 72, 153, 0.35),
+    inset 0 0 20px rgba(244, 63, 142, 0.5);
+}
 
 .font-serif { font-family: var(--font-playfair), Georgia, serif; }
 .font-sans { font-family: var(--font-dm-sans), system-ui, sans-serif; }

@@ -12,6 +12,9 @@ export default function AboutPage() {
         <section className="bg-foreground px-6 py-24 text-white lg:px-10 lg:py-32">
           <div className="mx-auto grid max-w-7xl items-end gap-12 lg:grid-cols-2">
             <div>
+              <div className="mb-4 text-xs font-bold uppercase tracking-[0.25em] text-[#f43f8e]">
+                ABOUT US
+              </div>
               <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">Our story</p>
               <h1 className="font-serif text-6xl leading-none sm:text-8xl">
                 Made for<br /><em className="font-light text-primary">your light.</em>

@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/auth-context';
 
 const sampleReviews = [
   { name: 'Sofia M.', rating: 5, comment: 'The most beautiful salon experience I have ever had. Every detail feels intentional.' },
-  { name: 'Amelia R.', rating: 5, comment: 'Candy and Rose has become my monthly reset. The team remembers the little things and gets it exactly right.' }
+  { name: 'Amelia R.', rating: 5, comment: 'Candy and Rose has become my monthly reset. The team remembers the little things and gets it exactly right.' },
   { name: 'Nina K.', rating: 5, comment: 'From the warm welcome to the final mirror moment, this is care at its most thoughtful.' },
 ];
 

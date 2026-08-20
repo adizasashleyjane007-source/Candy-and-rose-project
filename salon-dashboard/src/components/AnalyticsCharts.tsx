@@ -536,8 +536,7 @@ export function TopCustomersList({ selectedMonth: globalSelectedMonth }: { selec
     );
 }
 
-// ─── Featured Nail Analytics: TOP 10 Designs Bar Chart ────────────────────────
-// ─── Featured Nail Analytics: TOP Designs Bar Chart ───────────────────────────
+// ─── Featured Nail Analytics: TOP Designs Pie Chart ───────────────────────────
 export function FeaturedNailsChart({ selectedMonth: globalSelectedMonth }: { selectedMonth?: string }) {
     const [currentMonthIdx, setCurrentMonthIdx] = useState(new Date().getMonth());
     const [topNailsData, setTopNailsData] = useState<any[]>([]);
@@ -590,30 +589,33 @@ export function FeaturedNailsChart({ selectedMonth: globalSelectedMonth }: { sel
                         }
                     });
 
-                    // If the month has bookings, assign monthly requests based on direct completed appointments
-                    const totalRequests = directMatches;
-
                     return {
                         id: design.id,
                         name: design.name,
-                        shortName: `${nailId} ${design.name.length > 10 ? design.name.slice(0, 9) + '…' : design.name}`,
+                        shortName: `${nailId} ${design.name}`,
                         fullName: design.name,
                         nailId,
                         category: design.category || "Standard",
-                        requests: totalRequests,
+                        requests: directMatches,
                         image_url: design.image_url,
                         is_trending: design.is_trending,
                         created_at: design.created_at,
                     };
                 });
 
-                // Sort by requests count descending and take TOP 10
-                ranked.sort((a, b) => b.requests - a.requests);
-                const top10 = ranked.slice(0, 10);
-                setTopNailsData(top10);
+                // Sort by requests count descending and trending designs
+                ranked.sort((a, b) => {
+                    if (b.requests !== a.requests) return b.requests - a.requests;
+                    if (b.is_trending && !a.is_trending) return 1;
+                    if (!b.is_trending && a.is_trending) return -1;
+                    return 0;
+                });
+
+                const topList = ranked.slice(0, 5);
+                setTopNailsData(topList);
 
                 // Save Top 10 IDs to SettingsDB so Nail Recommendation page syncs with this Top 10
-                const top10Ids = top10.map(item => item.id).filter(Boolean);
+                const top10Ids = ranked.slice(0, 10).map(item => item.id).filter(Boolean);
                 if (top10Ids.length > 0) {
                     await SettingsDB.set(
                         "featured_top_nail_ids",
@@ -631,16 +633,32 @@ export function FeaturedNailsChart({ selectedMonth: globalSelectedMonth }: { sel
         loadNailsAnalytics();
     }, [currentMonthIdx]);
 
+    const totalRequests = topNailsData.reduce((acc, item) => acc + (item.requests || 0), 0);
+
+    const pieChartData = topNailsData.map((item, index) => {
+        const percent = (totalRequests > 0 && item.requests > 0)
+            ? Math.round((item.requests / totalRequests) * 100)
+            : 0;
+        return {
+            ...item,
+            value: totalRequests > 0 ? (item.requests || 0) : 1,
+            percent,
+            color: totalRequests > 0 
+                ? (item.requests > 0 ? (PIE_COLORS[index % PIE_COLORS.length] || "#ec4899") : "#e2e8f0")
+                : "#f1f5f9",
+        };
+    });
+
     return (
-        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full lg:col-span-2 min-h-[400px]">
+        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full min-h-[400px]">
             {/* Header */}
-            <div className="flex justify-between items-start mb-6">
+            <div className="flex justify-between items-start mb-4">
                 <div>
                     <h3 className="text-xl font-bold text-gray-900 tracking-tight">
-                        TOP 10 Feature Nails - <span className="text-pink-500">{monthsList[currentMonthIdx]}</span>
+                        Feature Nails - <span className="text-pink-500">{monthsList[currentMonthIdx]}</span>
                     </h3>
                     <p className="text-sm text-gray-500 mt-1">
-                        Most requested and trending nail designs automatically featured in client recommendations
+                        Popularity & percentage share of top nail designs
                     </p>
                 </div>
 
@@ -677,96 +695,101 @@ export function FeaturedNailsChart({ selectedMonth: globalSelectedMonth }: { sel
                 </div>
             </div>
 
-            {/* Bar Chart */}
-            <div className="flex-1 w-full min-h-[300px] flex items-center justify-center">
+            {/* Pie Chart & Percentage Breakdown */}
+            <div className="flex-1 w-full flex flex-col justify-between">
                 {loading ? (
-                    <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+                    <div className="flex-1 flex items-center justify-center min-h-[220px]">
+                        <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+                    </div>
                 ) : topNailsData.length === 0 ? (
                     <div className="text-center py-12 text-gray-400 text-sm">
-                        No nail designs available to analyze for {monthsList[currentMonthIdx]}. Add designs in Nail Recommendation.
+                        No nail designs available for {monthsList[currentMonthIdx]}. Add designs in Nail Recommendation.
                     </div>
                 ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                            data={topNailsData}
-                            margin={{ top: 20, right: 15, left: -20, bottom: 25 }}
-                        >
-                            <defs>
-                                <linearGradient id="featuredNailGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#ec4899" stopOpacity={1} />
-                                    <stop offset="100%" stopColor="#f43f5e" stopOpacity={0.8} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis
-                                dataKey="shortName"
-                                stroke="#94a3b8"
-                                fontSize={11}
-                                fontWeight={600}
-                                tickLine={false}
-                                axisLine={false}
-                                interval={0}
-                                angle={-25}
-                                textAnchor="end"
-                                height={45}
-                            />
-                            <YAxis
-                                stroke="#94a3b8"
-                                fontSize={12}
-                                tickLine={false}
-                                axisLine={false}
-                                allowDecimals={false}
-                                domain={[0, 'auto']}
-                            />
-                            <Tooltip
-                                cursor={{ fill: "#fdf2f8" }}
-                                content={({ active, payload }) => {
-                                    if (active && payload && payload.length) {
-                                        const data = payload[0].payload;
-                                        return (
-                                            <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-xl border border-pink-100 flex items-center gap-3 min-w-[200px]">
-                                                <div className="w-12 h-12 rounded-xl bg-pink-50 overflow-hidden flex-shrink-0 border border-pink-100 flex items-center justify-center">
-                                                    {data.image_url ? (
-                                                        <img src={data.image_url} alt={data.fullName} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <span className="text-xl">💅</span>
-                                                    )}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-1.5 mb-0.5">
-                                                        <span className="px-2 py-0.5 bg-pink-500 text-white rounded-full text-[10px] font-bold">
-                                                            {data.nailId}
-                                                        </span>
-                                                        <span className="text-[11px] text-gray-400 font-medium truncate">
-                                                            {data.category}
-                                                        </span>
+                    <>
+                        {/* Donut Chart */}
+                        <div className="w-full h-[180px] relative">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={pieChartData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={52}
+                                        outerRadius={74}
+                                        paddingAngle={4}
+                                        dataKey="value"
+                                        stroke="none"
+                                    >
+                                        {pieChartData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        content={({ active, payload }) => {
+                                            if (active && payload && payload.length) {
+                                                const data = payload[0].payload;
+                                                return (
+                                                    <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-pink-100 flex items-center gap-2.5 min-w-[180px]">
+                                                        <div className="w-10 h-10 rounded-xl bg-pink-50 overflow-hidden flex-shrink-0 border border-pink-100 flex items-center justify-center">
+                                                            {data.image_url ? (
+                                                                <img src={data.image_url} alt={data.fullName} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <span className="text-lg">💅</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-1.5 mb-0.5">
+                                                                <span className="px-1.5 py-0.2 bg-pink-500 text-white rounded-full text-[10px] font-bold">
+                                                                    {data.nailId}
+                                                                </span>
+                                                                <span className="text-[10px] text-gray-400 font-medium truncate">
+                                                                    {data.category}
+                                                                </span>
+                                                            </div>
+                                                            <h5 className="font-bold text-gray-900 text-xs truncate capitalize">{data.fullName}</h5>
+                                                            <p className="text-pink-600 font-bold text-xs mt-0.5">
+                                                                {data.requests} requests ({data.percent}%)
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                    <h5 className="font-bold text-gray-900 text-xs truncate capitalize">{data.fullName}</h5>
-                                                    <p className="text-pink-600 font-bold text-xs mt-0.5">
-                                                        {data.requests} requests ({monthsList[currentMonthIdx]})
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                }}
-                            />
-                            <Bar
-                                dataKey="requests"
-                                fill="url(#featuredNailGradient)"
-                                radius={[8, 8, 0, 0]}
-                                barSize={28}
-                            >
-                                {topNailsData.map((entry, index) => (
-                                    <Cell
-                                        key={`cell-${index}`}
-                                        fill={index === 0 ? "#db2777" : "url(#featuredNailGradient)"}
+                                                );
+                                            }
+                                            return null;
+                                        }}
                                     />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Percentages Legend List */}
+                        <div className="space-y-2 mt-2 pt-2 border-t border-gray-50 max-h-[160px] overflow-y-auto custom-scrollbar pr-1">
+                            {pieChartData.map((item, idx) => (
+                                <div key={item.id || idx} className="flex items-center justify-between p-2 rounded-xl hover:bg-pink-50/40 transition-colors">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                                        <div className="w-7 h-7 rounded-lg bg-pink-50 overflow-hidden flex-shrink-0 border border-pink-100 flex items-center justify-center">
+                                            {item.image_url ? (
+                                                <img src={item.image_url} alt={item.fullName} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <span className="text-xs">💅</span>
+                                            )}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-bold text-gray-900 truncate capitalize">{item.fullName}</p>
+                                            <p className="text-[10px] text-gray-400">{item.nailId} · {item.category}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right flex items-center gap-2 flex-shrink-0">
+                                        <span className="text-[11px] text-gray-500 font-medium">{item.requests} req</span>
+                                        <span className="px-2 py-0.5 bg-pink-50 text-pink-600 border border-pink-100 rounded-full text-xs font-bold shadow-2xs">
+                                            {item.percent}%
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
                 )}
             </div>
         </div>

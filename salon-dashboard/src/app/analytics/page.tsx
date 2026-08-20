@@ -55,14 +55,11 @@ export default function AnalyticsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-                    <div className="xl:col-span-3 min-h-full">
+                    <div className="xl:col-span-2 min-h-full">
                         <BookingsTrendChart selectedMonth={selectedMonth} />
                     </div>
-                </div>
-
-                {/* ── Featured Nail - Top 10 Bar Chart ────────────────────────── */}
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                    <div className="xl:col-span-3 min-h-full">
+                    {/* ── Featured Nail - Top 10 Bar Chart ────────────────────────── */}
+                    <div className="xl:col-span-1 min-h-full">
                         <FeaturedNailsChart selectedMonth={selectedMonth} />
                     </div>
                 </div>

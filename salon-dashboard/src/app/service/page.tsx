@@ -16,10 +16,10 @@ import {
     Activity,
     Wind
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { addNotification } from "@/lib/notifications";
-import { Services, StaffDB, type Service } from "@/lib/db";
-import { Loader2 } from "lucide-react";
+import { Services, StaffDB, Storage, type Service } from "@/lib/db";
+import { Loader2, ImageIcon } from "lucide-react";
 import Pagination from "@/components/Pagination";
 export default function ServicePage() {
     const [filterOpen, setFilterOpen] = useState(false);
@@ -44,6 +44,29 @@ export default function ServicePage() {
         duration_unit: "mins",
         required_role: ""
     });
+
+    const [serviceImage, setServiceImage] = useState<File | null>(null);
+    const [serviceImagePreview, setServiceImagePreview] = useState<string | null>(null);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const imageInputRef = useRef<HTMLInputElement>(null);
+
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!['image/png', 'image/jpeg'].includes(file.type)) {
+            alert('Only PNG and JPEG images are accepted.');
+            e.target.value = '';
+            return;
+        }
+        setServiceImage(file);
+        setServiceImagePreview(URL.createObjectURL(file));
+    };
+
+    const clearImage = () => {
+        setServiceImage(null);
+        setServiceImagePreview(null);
+        if (imageInputRef.current) imageInputRef.current.value = '';
+    };
 
     const [services, setServices] = useState<Service[]>([]);
     const [staffList, setStaffList] = useState<any[]>([]);
@@ -83,13 +106,25 @@ export default function ServicePage() {
                 return;
             }
 
+            // Upload image if a new file was selected
+            let imageUrl: string | undefined = undefined;
+            if (serviceImage) {
+                setUploadingImage(true);
+                try {
+                    imageUrl = await Storage.upload('service-images', serviceImage, formData.name || 'service');
+                } finally {
+                    setUploadingImage(false);
+                }
+            }
+
             if (editingId !== null) {
                 await Services.update(editingId, {
                     name: formData.name,
                     category: formData.category,
                     price: priceNum,
                     duration: finalDuration,
-                    required_role: formData.required_role
+                    required_role: formData.required_role,
+                    ...(imageUrl !== undefined && { image_url: imageUrl })
                 });
                 addNotification("Service Updated", `The ${formData.name} service has been updated.`, "system");
             } else {
@@ -99,7 +134,8 @@ export default function ServicePage() {
                     price: priceNum,
                     duration: finalDuration,
                     status: "Active",
-                    required_role: formData.required_role
+                    required_role: formData.required_role,
+                    ...(imageUrl !== undefined && { image_url: imageUrl })
                 });
                 addNotification("New Service Created", `The ${formData.name} service has been added.`, "system");
             }
@@ -107,6 +143,7 @@ export default function ServicePage() {
             setIsFormModalOpen(false);
             setEditingId(null);
             setFormData({ name: "", category: "", price: "", duration: "", duration_val: "", duration_unit: "mins", required_role: "" });
+            clearImage();
         } catch (error) {
             console.error("Save failed:", error);
             alert("Failed to save service.");
@@ -139,6 +176,13 @@ export default function ServicePage() {
             duration_unit: unit,
             required_role: svc.required_role || ""
         });
+        // Pre-fill existing image from DB
+        if (svc.image_url) {
+            setServiceImagePreview(svc.image_url);
+            setServiceImage(null); // no new file selected yet
+        } else {
+            clearImage();
+        }
         setIsFormModalOpen(true);
     };
 
@@ -164,6 +208,7 @@ export default function ServicePage() {
     const openAddModal = () => {
         setEditingId(null);
         setFormData({ name: "", category: "", price: "", duration: "", duration_val: "", duration_unit: "mins", required_role: "" });
+        clearImage();
         setIsFormModalOpen(true);
     };
 
@@ -391,7 +436,22 @@ export default function ServicePage() {
                             <tbody>
                                 {paginatedServices.map((svc) => (
                                     <tr key={svc.id} className="bg-gray-50/50 hover:bg-pink-50/50 transition-all shadow-sm group">
-                                        <td className="py-2.5 px-4 text-sm font-semibold text-gray-900 rounded-l-xl border border-transparent group-hover:border-pink-200 border-r-0">{svc.name}</td>
+                                        <td className="py-2.5 px-4 text-sm font-semibold text-gray-900 rounded-l-xl border border-transparent group-hover:border-pink-200 border-r-0">
+                                            <div className="flex items-center gap-3">
+                                                {svc.image_url ? (
+                                                    <img
+                                                        src={svc.image_url}
+                                                        alt={svc.name}
+                                                        className="w-9 h-9 rounded-xl object-cover border border-pink-100 flex-shrink-0 shadow-sm"
+                                                    />
+                                                ) : (
+                                                    <div className="w-9 h-9 rounded-xl bg-pink-100/70 border border-pink-200/50 flex items-center justify-center flex-shrink-0 text-pink-500 shadow-sm">
+                                                        <ImageIcon className="w-4 h-4" />
+                                                    </div>
+                                                )}
+                                                <span className="truncate">{svc.name}</span>
+                                            </div>
+                                        </td>
                                         <td className="py-2.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0">{svc.category}</td>
                                         <td className="py-2.5 px-4 text-sm font-semibold text-gray-900 border border-transparent group-hover:border-pink-200 border-x-0">₱{(Number(svc.price) || 0).toLocaleString()}</td>
                                         <td className="py-2.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0">{svc.duration}</td>
@@ -440,126 +500,192 @@ export default function ServicePage() {
 
             {/* Form Modal (Add/Edit) */}
             {isFormModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-in fade-in z-[60]">
-                    <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-6 relative animate-in zoom-in-95 duration-200 border border-pink-100">
-                        <button
-                            onClick={() => setIsFormModalOpen(false)}
-                            className="absolute right-4 top-4 p-2 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full transition-colors"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-pink-100 max-h-[90vh] overflow-y-auto">
+                        <div className="p-6">
 
-                        <div className="mb-6">
-                            <h3 className="text-xl font-bold text-gray-900">{editingId ? "Edit Service" : "Add New Service"}</h3>
-                            <p className="text-sm text-gray-500 mt-1">
-                                {editingId ? "Update the details for this service." : "Fill in the details for the new service offering."}
-                            </p>
-                        </div>
-
-                        <form onSubmit={handleFormSave} className="space-y-3">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Service Name</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={formData.name}
-                                    onChange={(e) => {
-                                        const value = e.target.value.replace(/[0-9]/g, '');
-                                        setFormData({ ...formData, name: value });
-                                    }}
-                                    className="w-full px-4 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all"
-                                    placeholder="e.g. Balayage Highlights"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
+                            {/* Header */}
+                            <div className="flex items-start justify-between mb-6">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Category</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={formData.category}
-                                        onChange={(e) => {
-                                            const value = e.target.value.replace(/[0-9]/g, '');
-                                            const role = getRoleForCategory(value);
-                                            setFormData({ ...formData, category: value, required_role: role });
-                                        }}
-                                        className="w-full px-4 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all"
-                                        placeholder="e.g. Nail Art"
-                                    />
+                                    <h3 className="text-xl font-bold text-gray-900">{editingId ? "Edit Service" : "Add New Service"}</h3>
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        {editingId ? "Update the details for this service." : "Fill in the details for the new service offering."}
+                                    </p>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Required Role</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={formData.required_role}
-                                        onChange={(e) => setFormData({ ...formData, required_role: e.target.value })}
-                                        className="w-full px-4 py-2 bg-pink-50/30 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all"
-                                        placeholder="e.g. Nail Technician"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Price</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={formData.price}
-                                        onChange={(e) => {
-                                            const value = e.target.value.replace(/[^0-9.]/g, '');
-                                            setFormData({ ...formData, price: value });
-                                        }}
-                                        className="w-full px-4 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all"
-                                        placeholder="₱0.00"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Duration</label>
-                                    <div className="flex items-center bg-gray-50 border border-pink-100 rounded-xl focus-within:ring-2 focus-within:ring-pink-500 focus-within:bg-white transition-all overflow-hidden">
-                                        <input
-                                            type="number"
-                                            required
-                                            value={formData.duration_val}
-                                            onChange={(e) => setFormData({ ...formData, duration_val: e.target.value })}
-                                            className="w-full px-4 py-2 bg-transparent border-none focus:outline-none text-gray-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                            placeholder="e.g. 30"
-                                            min="0"
-                                            step="any"
-                                        />
-                                        <div className="w-px h-6 bg-pink-100 self-center"></div>
-                                        <select
-                                            value={formData.duration_unit}
-                                            onChange={(e) => setFormData({ ...formData, duration_unit: e.target.value })}
-                                            className="px-3 py-2 bg-transparent border-none focus:outline-none text-gray-900 cursor-pointer text-sm font-medium pr-8"
-                                            style={{ appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%23fb7185\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '16px' }}
-                                        >
-                                            <option value="mins">mins</option>
-                                            <option value="hr">hr</option>
-                                            <option value="hrs">hrs</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-pink-50">
                                 <button
                                     type="button"
-                                    onClick={() => setIsFormModalOpen(false)}
-                                    className="px-5 py-2.5 text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-full font-medium transition-colors"
+                                    onClick={() => { setIsFormModalOpen(false); clearImage(); }}
+                                    className="p-2 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full transition-colors flex-shrink-0 ml-2"
                                 >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-5 py-2.5 text-white bg-pink-500 hover:bg-pink-600 rounded-full font-medium shadow-md shadow-pink-200 transition-colors"
-                                >
-                                    {editingId ? "Update" : "Save Service"}
+                                    <X className="w-5 h-5" />
                                 </button>
                             </div>
-                        </form>
+
+                            <form onSubmit={handleFormSave} className="space-y-4">
+
+                                {/* ── Image Upload ── */}
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                                        Service Image
+                                    </label>
+                                    <input
+                                        ref={imageInputRef}
+                                        id="service-image-input"
+                                        type="file"
+                                        accept="image/png,image/jpeg"
+                                        className="hidden"
+                                        onChange={handleImageChange}
+                                    />
+                                    {serviceImagePreview ? (
+                                        <div className="relative w-full rounded-xl overflow-hidden border border-pink-200" style={{ height: '160px' }}>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={serviceImagePreview}
+                                                alt="Service preview"
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                            />
+                                            <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-2 p-2 bg-black/40">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => imageInputRef.current?.click()}
+                                                    className="px-3 py-1 bg-white text-gray-700 text-xs font-semibold rounded-full hover:bg-pink-50 transition-colors"
+                                                >
+                                                    Change
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={clearImage}
+                                                    className="px-3 py-1 bg-white text-red-500 text-xs font-semibold rounded-full hover:bg-red-50 transition-colors"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => imageInputRef.current?.click()}
+                                            style={{ height: '120px' }}
+                                            className="w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-pink-300 rounded-xl bg-pink-50 hover:bg-pink-100 hover:border-pink-400 transition-all text-pink-400 hover:text-pink-500 cursor-pointer"
+                                        >
+                                            <ImageIcon className="w-8 h-8" />
+                                            <span className="text-sm font-semibold">Click to upload image</span>
+                                            <span className="text-xs text-gray-400">PNG or JPEG only</span>
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* ── Service Name ── */}
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Service Name</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.name}
+                                        onChange={(e) => {
+                                            const value = e.target.value.replace(/[0-9]/g, '');
+                                            setFormData({ ...formData, name: value });
+                                        }}
+                                        className="w-full px-4 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all"
+                                        placeholder="e.g. Balayage Highlights"
+                                    />
+                                </div>
+
+                                {/* ── Category & Role ── */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Category</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={formData.category}
+                                            onChange={(e) => {
+                                                const value = e.target.value.replace(/[0-9]/g, '');
+                                                const role = getRoleForCategory(value);
+                                                setFormData({ ...formData, category: value, required_role: role });
+                                            }}
+                                            className="w-full px-4 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all"
+                                            placeholder="e.g. Nail Art"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Required Role</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={formData.required_role}
+                                            onChange={(e) => setFormData({ ...formData, required_role: e.target.value })}
+                                            className="w-full px-4 py-2 bg-pink-50/30 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all"
+                                            placeholder="e.g. Nail Technician"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* ── Price & Duration ── */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Price</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={formData.price}
+                                            onChange={(e) => {
+                                                const value = e.target.value.replace(/[^0-9.]/g, '');
+                                                setFormData({ ...formData, price: value });
+                                            }}
+                                            className="w-full px-4 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all"
+                                            placeholder="₱0.00"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Duration</label>
+                                        <div className="flex items-center bg-gray-50 border border-pink-100 rounded-xl focus-within:ring-2 focus-within:ring-pink-500 focus-within:bg-white transition-all overflow-hidden">
+                                            <input
+                                                type="number"
+                                                required
+                                                value={formData.duration_val}
+                                                onChange={(e) => setFormData({ ...formData, duration_val: e.target.value })}
+                                                className="w-full px-4 py-2 bg-transparent border-none focus:outline-none text-gray-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                placeholder="e.g. 30"
+                                                min="0"
+                                                step="any"
+                                            />
+                                            <div className="w-px h-6 bg-pink-100 self-center"></div>
+                                            <select
+                                                value={formData.duration_unit}
+                                                onChange={(e) => setFormData({ ...formData, duration_unit: e.target.value })}
+                                                className="px-3 py-2 bg-transparent border-none focus:outline-none text-gray-900 cursor-pointer text-sm font-medium pr-8"
+                                                style={{ appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%23fb7185\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '16px' }}
+                                            >
+                                                <option value="mins">mins</option>
+                                                <option value="hr">hr</option>
+                                                <option value="hrs">hrs</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ── Actions ── */}
+                                <div className="flex justify-end gap-3 pt-4 border-t border-pink-50">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setIsFormModalOpen(false); clearImage(); }}
+                                        className="px-5 py-2.5 text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-full font-medium transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={uploadingImage}
+                                        className="flex items-center gap-2 px-5 py-2.5 text-white bg-pink-500 hover:bg-pink-600 disabled:opacity-70 disabled:cursor-not-allowed rounded-full font-medium shadow-md shadow-pink-200 transition-colors"
+                                    >
+                                        {uploadingImage && <Loader2 className="w-4 h-4 animate-spin" />}
+                                        {uploadingImage ? "Uploading..." : editingId ? "Update" : "Save Service"}
+                                    </button>
+                                </div>
+
+                            </form>
+                        </div>
                     </div>
                 </div>
             )}

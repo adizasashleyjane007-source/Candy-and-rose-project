@@ -43,6 +43,7 @@ export interface Service {
   description?: string;
   status?: string;
   required_role?: string;
+  image_url?: string;
 }
 
 export interface Appointment {
@@ -117,6 +118,17 @@ export interface NailDesign {
   category?: string;
   description?: string;
   is_trending?: boolean;
+}
+
+export interface Message {
+  id?: string;
+  name?: string;
+  email?: string;
+  sender_name?: string;
+  sender_email?: string;
+  subject: string;
+  message: string;
+  created_at?: string;
 }
 
 export interface StudioConfiguration {
@@ -544,6 +556,20 @@ export const NotificationsDB = {
   },
 };
 
+// ─── Messages ─────────────────────────────────────────────────────────────────
+
+export const MessagesDB = {
+  async add(payload: Message) {
+    const { data, error } = await supabase()
+      .from("messages")
+      .insert(payload)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as Message;
+  }
+};
+
 export const AttendanceDB = {
   async list(date?: string) {
     let query = supabase().from("attendance").select("*");
@@ -630,14 +656,15 @@ export const StudioConfigurations = {
 
 export const Storage = {
     async upload(bucket: string, file: File, name: string) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${name}-${Math.random()}.${fileExt}`;
+        const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
+        const sanitizedName = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'image';
+        const fileName = `${sanitizedName}-${Date.now()}.${fileExt}`;
         const filePath = `${fileName}`;
 
         const { error: uploadError } = await supabase()
             .storage
             .from(bucket)
-            .upload(filePath, file);
+            .upload(filePath, file, { upsert: true });
 
         if (uploadError) throw uploadError;
 

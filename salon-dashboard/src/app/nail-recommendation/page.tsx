@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import {
-  Plus, Loader2, X, Star, Eye, Trash2, Grid3X3, Layers, CalendarDays, Search, ChevronDown, Filter, Sparkles, Tag, Check,
+  Plus, Loader2, X, Star, Eye, Trash2, Grid3X3, Layers, CalendarDays, Search, ChevronDown, Filter, Tag, Check,
   ChevronRight, AlertTriangle
 } from "lucide-react";
 import Header from "@/components/Header";
@@ -182,7 +181,7 @@ function PreviewModal({
             ) : <div />}
             <button
               onClick={onClose}
-              className="px-6 py-2.5 bg-gray-900 hover:bg-pink-600 text-white rounded-full font-semibold text-xs transition-all shadow-sm active:scale-95 ml-auto"
+              className="px-6 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-full font-bold text-xs transition-all shadow-md shadow-pink-500/25 active:scale-95 ml-auto"
             >
               Done
             </button>
@@ -313,7 +312,7 @@ function ViewAllFeaturedModal({
           </span>
           <button
             onClick={onClose}
-            className="px-6 py-2 bg-gray-900 hover:bg-pink-600 text-white rounded-full text-xs font-semibold transition-all shadow-sm active:scale-95"
+            className="px-6 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-full text-xs font-bold transition-all shadow-md shadow-pink-500/25 active:scale-95"
           >
             Close
           </button>
@@ -468,7 +467,7 @@ function DesignCard({
   design: NailDesign;
   nailId: string;
   onPreview: () => void;
-  onDeleteRequest: () => void;
+  onDeleteRequest?: () => void;
   featured?: boolean;
   cardWidth?: string;
 }) {
@@ -510,16 +509,18 @@ function DesignCard({
         </div>
 
         {/* Delete button top-right (Opens Confirmation Modal) */}
-        <button
-          onClick={e => {
-            e.stopPropagation();
-            onDeleteRequest();
-          }}
-          className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-white/90 text-gray-400 hover:text-red-500 hover:bg-white transition-all shadow"
-          title="Delete design"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        {onDeleteRequest && (
+          <button
+            onClick={e => {
+              e.stopPropagation();
+              onDeleteRequest();
+            }}
+            className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-white/90 text-gray-400 hover:text-red-500 hover:bg-white transition-all shadow"
+            title="Delete design"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Info */}
@@ -607,7 +608,6 @@ function FeaturedCarouselCard({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function NailRecommendationPage() {
-  const router = useRouter();
   const [allDesigns, setAllDesigns] = useState<NailDesign[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All");
@@ -647,6 +647,12 @@ export default function NailRecommendationPage() {
   // Add Category inline input state inside Add Design Modal
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
+
+  // Success modal after adding a design
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Delete success modal
+  const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -728,19 +734,25 @@ export default function NailRecommendationPage() {
     return Array.from(new Set([...userCategories, ...fromDesigns])).filter(Boolean);
   }, [allDesigns, userCategories]);
 
-  // Featured Nails: Connected directly to Analytics Top 10 Designs
+  // Featured Nails: Always include is_trending designs first, then fill with Analytics Top IDs
   const featured = useMemo(() => {
+    const trendingDesigns = allDesigns.filter(d => d.is_trending);
+
     if (featuredTopIds.length > 0) {
       const designMap = new Map(allDesigns.map(d => [d.id, d]));
+      // Analytics top designs that are NOT already in trending
+      const trendingIds = new Set(trendingDesigns.map(d => d.id));
       const fromTop = featuredTopIds
         .map(id => designMap.get(id))
-        .filter((d): d is NailDesign => Boolean(d));
-      if (fromTop.length > 0) return fromTop.slice(0, 10);
+        .filter((d): d is NailDesign => Boolean(d && d.id && !trendingIds.has(d.id)));
+
+      // Merge: trending first, then analytics top, cap at 10
+      const merged = [...trendingDesigns, ...fromTop].slice(0, 10);
+      if (merged.length > 0) return merged;
     }
 
-    // Fallback: designs marked trending or first 10 designs
-    const trending = allDesigns.filter(d => d.is_trending);
-    if (trending.length > 0) return trending.slice(0, 10);
+    // Fallback: trending designs, or first 10
+    if (trendingDesigns.length > 0) return trendingDesigns.slice(0, 10);
     return allDesigns.slice(0, 10);
   }, [allDesigns, featuredTopIds]);
 
@@ -793,29 +805,34 @@ export default function NailRecommendationPage() {
     setIsAddingCategory(false);
   };
 
-  // ── Delete & Archive automatically to Settings Archive page ─────────────────
+  // ── Delete & reload (no auto-redirect) ──────────────────────────────────────
   const handleConfirmDelete = async () => {
     if (!designToDelete?.id) return;
     try {
       setIsDeleting(true);
       const assignedNailId = getPersistentNailId(designToDelete, nailIdMap);
-      
-      // Remove design and archive with its permanent ID
+
       await NailDesigns.remove(designToDelete.id);
-      
-      addNotification("Design Archived", `"${designToDelete.name}" (${assignedNailId}) has been archived.`, "system");
+
+      addNotification("Design Deleted", `"${designToDelete.name}" (${assignedNailId}) has been deleted.`, "system");
       setDesignToDelete(null);
-      
-      // Automatically navigate to Archive page in Settings
-      router.push("/settings?section=archive");
+      await loadData();
+      setShowDeleteSuccessModal(true);
     } catch (err) {
       console.error("Failed to delete design:", err);
+    } finally {
       setIsDeleting(false);
     }
   };
 
   const handleUpload = async () => {
     if (!selectedFile || !newName.trim()) return;
+    // Strict PNG/JPEG validation
+    const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
+    if (!allowedTypes.includes(selectedFile.type)) {
+      alert("Only PNG and JPEG images are accepted. Please choose a valid file.");
+      return;
+    }
     try {
       setUploading(true);
       const publicUrl = await Storage.upload("nails", selectedFile, newName.trim().replace(/\s+/g, "-").toLowerCase());
@@ -829,6 +846,7 @@ export default function NailRecommendationPage() {
       addNotification("Design Added", `"${newName}" has been added to nail recommendations.`, "system");
       closeUploadModal();
       await loadData();
+      setShowSuccessModal(true);
     } catch (error) {
       console.error("Upload failed:", error);
       alert("Failed to upload image. Please ensure the 'nails' bucket exists in Supabase Storage.");
@@ -1041,9 +1059,6 @@ export default function NailRecommendationPage() {
 
               {filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-4 py-20 bg-white rounded-3xl border-2 border-dashed border-pink-100 text-center px-4">
-                  <div className="w-16 h-16 rounded-3xl bg-pink-50 flex items-center justify-center">
-                    <Sparkles className="w-8 h-8 text-pink-400" />
-                  </div>
                   <div>
                     <p className="text-base font-bold text-gray-700">No designs found</p>
                     <p className="text-xs text-gray-400 mt-1 max-w-sm">
@@ -1284,18 +1299,23 @@ export default function NailRecommendationPage() {
 
               {/* Image Upload */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Design Image *</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Add Image *</label>
                 <div className="relative group">
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/png, image/jpeg"
                     onChange={e => {
                       const file = e.target.files?.[0];
-                      if (file) {
-                        setSelectedFile(file);
-                        setFilePreviewUrl(URL.createObjectURL(file));
-                        if (!newName) setNewName(file.name.split(".")[0]);
+                      if (!file) return;
+                      const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
+                      if (!allowedTypes.includes(file.type)) {
+                        alert("Only PNG and JPEG images are accepted.");
+                        e.target.value = "";
+                        return;
                       }
+                      setSelectedFile(file);
+                      setFilePreviewUrl(URL.createObjectURL(file));
+                      if (!newName) setNewName(file.name.split(".")[0]);
                     }}
                     className="absolute inset-0 opacity-0 cursor-pointer z-10"
                   />
@@ -1308,7 +1328,7 @@ export default function NailRecommendationPage() {
                           <Plus className="w-5 h-5" />
                         </div>
                         <p className="text-xs font-semibold text-gray-500">Click to browse or drop nail photo</p>
-                        <p className="text-xs text-gray-400 font-normal">PNG, JPG, WEBP up to 5MB</p>
+                        <p className="text-xs text-gray-400 font-normal">PNG, JPEG only · Max 5MB</p>
                       </div>
                     )}
                   </div>
@@ -1351,6 +1371,53 @@ export default function NailRecommendationPage() {
                 {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Design"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Success Modal ─────────────────────────────────────────────────── */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-pink-100 p-8 flex flex-col items-center gap-5 animate-in zoom-in-95 duration-200">
+            {/* Icon */}
+            <div className="w-16 h-16 rounded-full bg-pink-50 flex items-center justify-center shadow-sm">
+              <Check className="w-8 h-8 text-pink-500" />
+            </div>
+            {/* Message */}
+            <div className="text-center">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">Nail Added Successfully!</h3>
+              <p className="text-xs text-gray-400 font-medium">Your new nail design has been saved and is now visible in the recommendations.</p>
+            </div>
+            {/* Okay Button */}
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-full font-bold text-sm transition-all shadow-md shadow-pink-500/25 active:scale-95"
+            >
+              Okay
+            </button>
+          </div>
+        </div>
+      )}
+      {/* ── Delete Success Modal ──────────────────────────────────────────── */}
+      {showDeleteSuccessModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-pink-100 p-8 flex flex-col items-center gap-5 animate-in zoom-in-95 duration-200">
+            {/* Icon */}
+            <div className="w-16 h-16 rounded-full bg-pink-50 flex items-center justify-center shadow-sm">
+              <Check className="w-8 h-8 text-pink-500" />
+            </div>
+            {/* Message */}
+            <div className="text-center">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">Design Successfully Deleted</h3>
+              <p className="text-xs text-gray-400 font-medium">The nail design has been removed from your recommendations.</p>
+            </div>
+            {/* Okay Button */}
+            <button
+              onClick={() => setShowDeleteSuccessModal(false)}
+              className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-full font-bold text-sm transition-all shadow-md shadow-pink-500/25 active:scale-95"
+            >
+              Okay
+            </button>
           </div>
         </div>
       )}
