@@ -162,6 +162,19 @@ export interface PaymentMethod {
   icon?: string;
 }
 
+export interface Promotion {
+  id?: string;
+  created_at?: string;
+  name: string;
+  description?: string;
+  discount_type?: string;
+  discount_value: number;
+  start_date?: string;
+  end_date?: string;
+  status?: string;
+  code?: string;
+}
+
 // ─── Customers ────────────────────────────────────────────────────────────────
 
 export const Customers = {
@@ -850,12 +863,63 @@ export const ArchiveDB = {
     else if (type === "billing") tableName = "billing";
     else if (type === "notification") tableName = "notifications";
     else if (type === "nail_design" || type === "nail" || type === "nail design") tableName = "nail_designs";
+    else if (type === "promotion") tableName = "promotions";
 
     if (!tableName) throw new Error("Unknown item type: " + type);
 
     const { error } = await supabase()
       .from(tableName)
       .insert(cleanDetails);
+    if (error) throw error;
+  }
+};
+
+// ─── Promotions ──────────────────────────────────────────────────────────────
+
+export const PromotionsDB = {
+  async list() {
+    const { data, error } = await supabase()
+      .from("promotions")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data as Promotion[];
+  },
+
+  async create(payload: Omit<Promotion, "id" | "created_at">) {
+    const { data, error } = await supabase()
+      .from("promotions")
+      .insert(payload)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as Promotion;
+  },
+
+  async update(id: string, payload: Partial<Promotion>) {
+    const { data, error } = await supabase()
+      .from("promotions")
+      .update(payload)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as Promotion;
+  },
+
+  async remove(id: string) {
+    const { data: item } = await supabase()
+      .from("promotions")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (item) {
+      await ArchiveDB.archiveItem("promotion", item);
+    }
+    const { error } = await supabase()
+      .from("promotions")
+      .delete()
+      .eq("id", id);
     if (error) throw error;
   }
 };

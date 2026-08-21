@@ -7,7 +7,7 @@ import {
   Calendar, X, Clock, User, Scissors, XCircle, Info, Mail,
   Bell, TrendingUp, Check, Phone, MapPin
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Appointments, Customers, NotificationsDB, type Appointment } from "@/lib/db";
 
 // Types for Reminder Summary
@@ -36,9 +36,13 @@ function formatAMPM(timeStr: string) {
   return `${hours}:${minutes} ${ampm}`;
 }
 
+const AUTH_ROUTES = ["/login", "/signup", "/auth", "/forgot-password", "/reset-password", "/update-password"];
+
 export default function GlobalNotificationProvider() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const isAuthPage = AUTH_ROUTES.some((route) => pathname?.startsWith(route));
 
   // --- Notification State (Alerts/Messages) ---
   const [activeNotification, setActiveNotification] = useState<any>(null);
@@ -75,6 +79,8 @@ export default function GlobalNotificationProvider() {
 
   // --- Realtime Subscription Setup ---
   useEffect(() => {
+    if (isAuthPage) return;
+
     const supabase = createClient();
 
     console.log("Initializing Global Notification Subscription...");
@@ -152,10 +158,11 @@ export default function GlobalNotificationProvider() {
       console.log("Cleaning up Global Notification Subscription...");
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [isAuthPage]);
 
   // --- Background Reminder Check ---
   const checkReminders = useCallback(async () => {
+    if (isAuthPage) return;
     try {
       const appointments = await Appointments.list();
       const now = new Date();
@@ -233,16 +240,18 @@ export default function GlobalNotificationProvider() {
     } catch {
       // Silently fail in background
     }
-  }, [showedSummaryDate]);
+  }, [showedSummaryDate, isAuthPage]);
 
   useEffect(() => {
+    if (isAuthPage) return;
     checkReminders();
     const interval = setInterval(checkReminders, 60000);
     return () => clearInterval(interval);
-  }, [checkReminders]);
+  }, [checkReminders, isAuthPage]);
 
   // --- Post-Login Redirect Handler (viewApt query param) ---
   useEffect(() => {
+    if (isAuthPage) return;
     const aptId = searchParams.get("viewApt");
     if (aptId) {
       const loadApt = async () => {
@@ -263,7 +272,7 @@ export default function GlobalNotificationProvider() {
       };
       loadApt();
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, isAuthPage]);
 
 
   // --- Action Handlers (Appointments) ---
@@ -506,6 +515,8 @@ export default function GlobalNotificationProvider() {
   };
 
   // --- Rendering Logic ---
+
+  if (isAuthPage) return null;
 
   // 1. Daily Summary (Priority Over reminders)
   if (dailySummary) {

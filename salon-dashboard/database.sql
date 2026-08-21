@@ -197,3 +197,19 @@ ALTER TABLE public.payment_methods ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.studio_configurations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_otps ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS public.promotions (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    description text,
+    discount_type text DEFAULT 'percentage',
+    discount_value numeric NOT NULL,
+    start_date date,
+    end_date date,
+    status text DEFAULT 'Active',
+    code text UNIQUE,
+    created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.promotions ENABLE ROW LEVEL SECURITY;
+
