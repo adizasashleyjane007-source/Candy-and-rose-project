@@ -6,7 +6,7 @@ import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import {
   CalendarDays, Check, ChevronRight, Clock3, Heart, History,
   LogIn, LogOut, Mail, MapPin, Menu, Phone, Plus, Sparkles,
-  Star, X,
+  Star, X, Facebook, Twitter, Instagram, Youtube, ChevronDown
 } from 'lucide-react';
 import { supabase, type Appointment, type Service } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
@@ -19,89 +19,148 @@ const navItems = [
   { label: 'Feedback', href: '/feedback' },
 ];
 
+const headerNavItems: { label: string; href: string; hasDropdown?: boolean }[] = [
+  { label: 'Home', href: '/' },
+  { label: 'Services', href: '/services' },
+  { label: 'About', href: '/about' },
+  { label: 'Contact', href: '/contact' },
+];
+
 export function Logo({ light = false }: { light?: boolean }) {
   return (
-    <Link href="/" aria-label="Candy and Rose Salon home" className={`flex items-center ${light ? 'text-white' : 'text-foreground'}`}>
-      <img src="/images/wiwthout_bg_-logo.png" alt="Candy and Rose Salon" className="h-16 w-36 object-contain" />
+    <Link href="/" aria-label="Candy and Rose Salon home" className="flex items-center shrink-0 group">
+      <span className={`font-script text-3xl sm:text-5xl transition-all duration-300 ${
+        light 
+          ? 'text-white group-hover:text-pink-300' 
+          : 'text-zinc-900 group-hover:text-pink-600'
+      }`}>
+        Candy & Rose
+      </span>
     </Link>
   );
 }
 
 export function Header({ onBook }: { onBook: () => void }) {
   const pathname = usePathname();
-  const { user, profile } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const isHome = pathname === '/';
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 60);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const isTransparent = isHome && !scrolled;
 
   return (
-    <header className="relative z-40 border-b border-pink-500/15 bg-gradient-to-r from-[#0c030a]/90 via-[#23091e]/80 to-[#0c030a]/90 backdrop-blur-xl">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-10">
-        <Logo />
-        <nav className="hidden items-center gap-8 md:flex">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`font-sans text-xs md:text-[13px] font-bold uppercase tracking-[0.2em] transition-all duration-300 hover:text-[#ec4899] hover:drop-shadow-[0_0_12px_rgba(236,72,153,0.6)] ${
-                pathname === item.href
-                  ? 'text-[#ec4899] drop-shadow-[0_0_10px_rgba(236,72,153,0.45)]'
-                  : 'text-white/80'
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBook}
-            className="hidden rounded-full bg-[#ec3888] px-7 py-3 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg shadow-pink-500/30 transition-all hover:bg-pink-500 hover:shadow-pink-500/50 hover:scale-[1.02] active:scale-[0.98] sm:block"
-          >
-            Book now
-          </button>
-          {user && (
-            <div className="relative">
-              <button
-                onClick={() => setProfileOpen(!profileOpen)}
-                aria-label="Open profile"
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-pink-500/30 bg-white/10 text-white transition-colors hover:border-primary hover:text-primary"
+    <header className={`z-50 transition-all duration-300 fixed top-0 left-0 right-0 ${
+      isTransparent
+        ? 'bg-transparent border-b border-transparent shadow-none'
+        : 'bg-white/90 backdrop-blur-md border-b border-neutral-100 shadow-sm'
+    }`}>
+      <div className="mx-auto flex h-20 max-w-[90rem] w-full items-center justify-between px-4 sm:px-6 lg:px-8">
+        <Logo light={isTransparent} />
+        
+        {/* Main Desktop Navigation */}
+        <nav className="hidden items-center gap-8 lg:flex">
+          {headerNavItems.map((item) => {
+            const isActive = pathname === item.href;
+            
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                className={`flex items-center gap-1 font-sans text-sm font-semibold uppercase tracking-[0.18em] transition-all duration-200 ${
+                  isTransparent 
+                    ? isActive 
+                      ? 'text-pink-400 font-bold' 
+                      : 'text-white/95 hover:text-pink-300'
+                    : isActive 
+                      ? 'text-pink-600 font-bold' 
+                      : 'text-zinc-700 hover:text-pink-600'
+                }`}
               >
-                <span className="text-sm font-semibold">
-                  {(profile?.full_name || user.email || 'U').slice(0, 1).toUpperCase()}
-                </span>
-              </button>
-              {profileOpen && <ProfileMenu onClose={() => setProfileOpen(false)} />}
-            </div>
-          )}
-          <button className="p-2 text-white/80 hover:text-primary md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">
-            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+                {item.label}
+                {item.hasDropdown && <ChevronDown size={13} className="opacity-60" />}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Right Section: Socials and Mobile Toggle */}
+        <div className="flex items-center gap-5">
+          {/* Social Icons (Desktop) */}
+          <div className={`hidden items-center gap-4 md:flex ${
+            isTransparent ? 'text-white/80' : 'text-zinc-400'
+          }`}>
+            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className={`transition-colors ${isTransparent ? 'hover:text-pink-300' : 'hover:text-pink-600'}`}>
+              <Facebook size={15} />
+            </a>
+            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className={`transition-colors ${isTransparent ? 'hover:text-pink-300' : 'hover:text-pink-600'}`}>
+              <Twitter size={15} />
+            </a>
+            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className={`transition-colors ${isTransparent ? 'hover:text-pink-300' : 'hover:text-pink-600'}`}>
+              <Instagram size={15} />
+            </a>
+            <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className={`transition-colors ${isTransparent ? 'hover:text-pink-300' : 'hover:text-pink-600'}`}>
+              <Youtube size={15} />
+            </a>
+          </div>
+
+          <button
+            className={`p-2 lg:hidden transition-colors ${
+              isTransparent ? 'text-white/80 hover:text-pink-300' : 'text-zinc-500 hover:text-pink-600'
+            }`}
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Menu"
+          >
+            {menuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
       </div>
+
+      {/* Mobile Drawer */}
       {menuOpen && (
-        <div className="border-t border-pink-500/15 bg-[#140512]/95 backdrop-blur-xl p-6 md:hidden">
+        <div className={`border-t p-6 shadow-xl lg:hidden animate-in slide-in-from-top-4 duration-200 ${
+          isTransparent 
+            ? 'border-white/10 bg-neutral-950/95 text-white' 
+            : 'border-neutral-100 bg-white text-zinc-800'
+        }`}>
           <nav className="flex flex-col gap-5">
-            {navItems.map((item) => (
+            {headerNavItems.map((item) => (
               <Link
-                key={item.href}
+                key={item.label}
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
-                className={`font-sans text-xs font-bold uppercase tracking-[0.2em] transition-colors hover:text-[#ec4899] ${
-                  pathname === item.href ? 'text-[#ec4899]' : 'text-white/80'
+                className={`font-sans text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors ${
+                  isTransparent 
+                    ? pathname === item.href ? 'text-pink-400 font-bold' : 'text-white/80 hover:text-pink-300'
+                    : pathname === item.href ? 'text-pink-600 font-bold' : 'text-zinc-800 hover:text-pink-600'
                 }`}
               >
                 {item.label}
               </Link>
             ))}
-            <button
-              onClick={() => {
-                onBook();
-                setMenuOpen(false);
-              }}
-              className="rounded-full bg-[#ec3888] px-6 py-3 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg shadow-pink-500/30"
-            >
-              Book now
-            </button>
+            
+            {/* Socials inside Mobile Menu */}
+            <div className={`flex items-center gap-4 pt-4 border-t ${
+              isTransparent ? 'border-white/10 text-white/50' : 'border-neutral-100 text-zinc-400'
+            }`}>
+              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className={isTransparent ? 'hover:text-pink-300' : 'hover:text-pink-600'}>
+                <Facebook size={18} />
+              </a>
+              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className={isTransparent ? 'hover:text-pink-300' : 'hover:text-pink-600'}>
+                <Twitter size={18} />
+              </a>
+              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className={isTransparent ? 'hover:text-pink-300' : 'hover:text-pink-600'}>
+                <Instagram size={18} />
+              </a>
+              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className={isTransparent ? 'hover:text-pink-300' : 'hover:text-pink-600'}>
+                <Youtube size={18} />
+              </a>
+            </div>
           </nav>
         </div>
       )}
@@ -144,6 +203,7 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
     const handleUpdate = () => loadAppointments();
     window.addEventListener('appointmentsUpdated', handleUpdate);
     return () => window.removeEventListener('appointmentsUpdated', handleUpdate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, profile]);
 
   if (!user) {
@@ -228,7 +288,7 @@ export function Footer() {
           </p>
         </div>
         <div>
-          <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-primary">Explore</p>
+          <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-primary">Navigation Links</p>
           <div className="space-y-3 text-sm text-white/60">
             {navItems.slice(1, 4).map((item) => (
               <Link key={item.href} href={item.href} className="block hover:text-white">{item.label}</Link>
@@ -261,7 +321,7 @@ export function Footer() {
 }
 
 export function PageShell({ children, onBook }: { children: ReactNode; onBook: () => void }) {
-  return <><Header onBook={onBook} />{children}<Footer /></>;
+  return <><Header onBook={onBook} /><div className="pt-20">{children}</div><Footer /></>;
 }
 
 function Modal({ children, onClose }: { children: ReactNode; onClose: () => void }) {

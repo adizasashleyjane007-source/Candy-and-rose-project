@@ -698,18 +698,24 @@ export default function GlobalNotificationProvider() {
         {/* Appointment Sub-Modals (Details, Approval, Rejection) */}
         {showDetails && detailedAppointment && (
           <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-gray-900/70 backdrop-blur-md animate-in fade-in duration-300">
-            <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-500">
-              <div className="h-1.5 w-full bg-gradient-to-r from-rose-400 via-pink-500 to-rose-600" />
+            <div className="bg-white rounded-[1.4rem] w-full max-w-lg overflow-hidden relative z-10 animate-in zoom-in-95 duration-500 shadow-2xl">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#FF3399]/40 to-transparent" />
 
-              <div className="p-8">
-                <div className="flex justify-between items-start mb-8">
-                  <div>
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Booking Confirmation</span>
-                    <h2 className="text-3xl font-light text-gray-900 tracking-tight">{detailedAppointment.customer_name}</h2>
+              <button aria-label="Close modal" onClick={() => setShowDetails(false)} className="absolute top-6 right-8 text-gray-300 hover:text-gray-900 transition-colors z-20">
+                <X className="w-6 h-6 stroke-[1.5]" />
+              </button>
+
+              <div className="p-10 pb-8">
+                <div className="flex items-center gap-5 mb-8">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center border border-rose-100 bg-rose-50 shadow-inner">
+                    <Calendar className="w-8 h-8 text-rose-500" />
                   </div>
-                  <button onClick={() => setShowDetails(false)} className="p-2 hover:bg-gray-50 rounded-full transition-colors">
-                    <X className="w-7 h-7 text-gray-300" />
-                  </button>
+                  <div>
+                    <h3 className="text-2xl font-normal text-gray-900 tracking-tight">
+                      {detailedAppointment.customer_name}
+                    </h3>
+                    <p className="text-[10px] font-bold text-brand-pink uppercase tracking-[0.2em] mb-0.5">Booking Confirmation</p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-6 mb-8 bg-gray-50 p-8 rounded-3xl border border-gray-100">
@@ -720,7 +726,7 @@ export default function GlobalNotificationProvider() {
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">Date</p>
-                        <p className="text-base font-black text-gray-800">{detailedAppointment.appointment_date}</p>
+                        <p className="text-sm font-normal text-gray-800">{detailedAppointment.appointment_date}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -729,7 +735,7 @@ export default function GlobalNotificationProvider() {
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">Time</p>
-                        <p className="text-base font-black text-gray-800">{formatAMPM(detailedAppointment.appointment_time || "")}</p>
+                        <p className="text-sm font-normal text-gray-800">{formatAMPM(detailedAppointment.appointment_time || "")}</p>
                       </div>
                     </div>
                   </div>
@@ -740,14 +746,14 @@ export default function GlobalNotificationProvider() {
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">Service</p>
-                        <p className="text-base font-black text-gray-800 truncate max-w-[140px]">{detailedAppointment.service_name}</p>
+                        <p className="text-sm font-normal text-gray-800 break-words leading-tight">{detailedAppointment.service_name}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center border border-gray-100 font-black text-brand-pink">₱</div>
+                      <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center border border-gray-100 font-bold text-brand-pink">₱</div>
                       <div>
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">Price</p>
-                        <p className="text-base font-black text-gray-800">₱{Number(detailedAppointment.price || 0).toLocaleString()}</p>
+                        <p className="text-sm font-normal text-gray-800">₱{Number(detailedAppointment.price || 0).toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
@@ -761,8 +767,8 @@ export default function GlobalNotificationProvider() {
                 </div>
 
                 <div className="flex gap-4">
-                  <button onClick={handleApproveAppointment} className="flex-1 py-4 rounded-full bg-brand-pink text-white font-medium tracking-wide shadow-xl shadow-pink-100 hover:opacity-90 active:scale-95 transition-all">Approve</button>
-                  <button onClick={handleRejectAppointment} className="flex-1 py-4 rounded-full bg-red-500 text-white font-medium tracking-wide shadow-xl shadow-red-100 hover:bg-red-600 active:scale-95 transition-all">Reject</button>
+                  <button onClick={handleApproveAppointment} className="flex-1 py-2.5 rounded-full bg-brand-pink text-white font-medium text-sm tracking-wide shadow-md hover:opacity-90 active:scale-95 transition-all">Approve</button>
+                  <button onClick={handleRejectAppointment} className="flex-1 py-2.5 rounded-full bg-red-500 text-white font-medium text-sm tracking-wide shadow-md hover:bg-red-600 active:scale-95 transition-all">Reject</button>
                 </div>
               </div>
             </div>
@@ -796,30 +802,30 @@ export default function GlobalNotificationProvider() {
 
         {showRejectConfirm && (
           <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-md animate-in fade-in duration-300">
-            <div className="bg-white rounded-3xl w-full max-w-lg p-8 text-center shadow-2xl relative animate-in zoom-in-95 duration-500">
-              <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-8 border border-rose-100">
-                <XCircle className="w-8 h-8" />
+            <div className="bg-white rounded-3xl w-full max-w-sm p-6 sm:p-8 text-center shadow-2xl relative animate-in zoom-in-95 duration-500">
+              <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-6 border border-rose-100">
+                <XCircle className="w-7 h-7" />
               </div>
-              <h3 className="text-2xl font-light text-gray-900 mb-4 tracking-tight">State Reason</h3>
-              <p className="text-gray-400 font-normal text-sm leading-relaxed mb-6 px-8">
+              <h3 className="text-xl font-light text-gray-900 mb-3 tracking-tight">State Reason</h3>
+              <p className="text-gray-400 font-normal text-xs leading-relaxed mb-6 px-4">
                 Tell <span className="text-gray-900 font-bold">{detailedAppointment?.customer_name}</span> why we can't accept this booking.
               </p>
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Reason (Optional)..."
-                className="w-full h-20 p-6 rounded-2xl bg-gray-50 border-gray-100 text-sm focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all resize-none mb-10"
+                placeholder="e.g. Staff not available, or slot unavailable..."
+                className="w-full h-24 p-4 rounded-xl bg-gray-50 border border-gray-100 text-xs focus:ring-2 focus:ring-pink-500/20 focus:border-brand-pink transition-all resize-none mb-6"
                 autoFocus
               />
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
                 <button
                   disabled={isProcessing}
                   onClick={confirmRejection}
-                  className="w-full py-4 rounded-full bg-red-500 text-white font-medium shadow-xl shadow-red-100 hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-3 transition-all"
+                  className="w-full py-3 rounded-full bg-brand-pink text-white text-sm font-medium shadow-lg shadow-pink-100 hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
                 >
-                  {isProcessing ? <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" /> : "Confirm Rejection"}
+                  {isProcessing ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "Confirm Rejection"}
                 </button>
-                <button onClick={() => { setShowRejectConfirm(false); setRejectionReason(""); }} className="w-full py-4 rounded-full text-gray-400 font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+                <button onClick={() => { setShowRejectConfirm(false); setRejectionReason(""); }} className="w-full py-3 rounded-full text-gray-400 text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
               </div>
             </div>
           </div>

@@ -1,229 +1,196 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowUpRight, ChevronLeft, ChevronRight, Quote, Star } from 'lucide-react';
+import { ArrowUpRight, Quote, Star } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
-import { SectionHeading, ServiceCard } from '@/components/salon-ui';
-import { supabase, type Service } from '@/lib/supabase';
-import { getHeroImages } from '@/lib/hero-images';
+import { SectionHeading } from '@/components/salon-ui';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/lib/auth-context';
 
-const heroWords = ['personalized.', 'reimagined.', 'luminous.', 'unforgettable.'];
-
-const fallbackServices: Service[] = [
-  { id: '1', name: 'Signature Facial', description: 'Deep-cleanse, exfoliate, and hydrate for a radiant glow.', category: 'Facials', duration_min: 60, price: 65, image_url: 'https://images.pexels.com/photos/3997981/pexels-photo-3997981.jpeg', created_at: '' },
-  { id: '2', name: 'Classic Haircut & Style', description: 'Precision cut tailored to your face shape, finished with a blow-dry.', category: 'Hair', duration_min: 60, price: 45, image_url: 'https://images.pexels.com/photos/3993449/pexels-photo-3993449.jpeg', created_at: '' },
-  { id: '3', name: 'Manicure & Gel Polish', description: 'Shape, buff, and long-lasting gel polish for flawless nails.', category: 'Nails', duration_min: 45, price: 35, image_url: 'https://images.pexels.com/photos/3997391/pexels-photo-3997391.jpeg', created_at: '' },
+const homeCategories = [
+  {
+    label: 'Hair Styling',
+    image: '/images/hero-radiant.jpg',
+    href: '/services',
+  },
+  {
+    label: 'Nail Art',
+    image: '/images/nails.png',
+    href: '/services',
+  },
+  {
+    label: 'Makeup & Beauty',
+    image: '/images/makeup.png',
+    href: '/services',
+  },
 ];
 
-function Sparkle({ className = '' }: { className?: string }) {
-  return (
-    <svg className={`pointer-events-none ${className}`} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z" />
-    </svg>
-  );
-}
+const slides = [
+  {
+    src: '/images/hero-radiant.jpg',
+    alt: 'Hair Salon Expert',
+    title: 'Timeless Trends',
+    subtitle: 'Creating',
+    category: 'Hair Styling',
+    buttonText: 'Book Now'
+  },
+  {
+    src: '/images/haircut.jpeg',
+    alt: 'Precision Styling',
+    title: 'Precision Styling & Cuts',
+    subtitle: 'Crafting',
+    category: 'Hair Care',
+    buttonText: 'Book Now'
+  },
+  {
+    src: '/images/nails.png',
+    alt: 'Artisan Nails',
+    title: 'Artisan Nail Artistry',
+    subtitle: 'Perfecting',
+    category: 'Nail Salon',
+    buttonText: 'Book Now'
+  },
+  {
+    src: '/images/makeup.png',
+    alt: 'Glamour Makeup',
+    title: 'Glamour & Makeup Artistry',
+    subtitle: 'Discovering',
+    category: 'Facial & Beauty',
+    buttonText: 'Book Now'
+  }
+];
 
 export default function Home() {
-  const [services, setServices] = useState<Service[]>(fallbackServices);
-  const [heroWordIndex, setHeroWordIndex] = useState(0);
-  const heroImages = getHeroImages();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const { user } = useAuth();
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % heroImages.length);
+      setCurrentImageIndex((prev) => (prev + 1) % slides.length);
     }, 4500);
     return () => window.clearInterval(timer);
-  }, [heroImages.length]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setHeroWordIndex((current) => (current + 1) % heroWords.length);
-    }, 6000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    supabase.from('services').select('*').limit(3).then(({ data }) => {
-      if (data?.length) setServices(data as Service[]);
-    });
   }, []);
 
   return (
     <SalonLayout>
       <main>
-        {/* Hero experience */}
-        <section className="hero-gradient relative min-h-[640px] overflow-hidden text-white">
-          {/* Subtle celestial sweeping arcs */}
-          <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-35" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="pinkArcGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#f43f8e" stopOpacity="0" />
-                <stop offset="45%" stopColor="#f43f8e" stopOpacity="0.7" />
-                <stop offset="100%" stopColor="#fb7185" stopOpacity="0.1" />
-              </linearGradient>
-            </defs>
-            <path d="M -100,180 Q 450,20 950,260 T 1700,200" fill="none" stroke="url(#pinkArcGlow)" strokeWidth="1.5" />
-            <path d="M 50,560 Q 600,120 1100,380 T 1800,120" fill="none" stroke="url(#pinkArcGlow)" strokeWidth="1" opacity="0.6" />
-          </svg>
-
-          <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 pt-8 pb-16 lg:grid-cols-[1fr_1.1fr] lg:px-10 lg:pt-10 lg:pb-20">
-            {/* Left Content */}
-            <div className="relative z-10 animate-fade-in-up">
-              <div className="mb-6 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.25em] text-[#f43f8e]">
-                <span className="h-[2px] w-8 bg-[#f43f8e]" /> THE ART OF FEELING RADIANT
+        {/* Full-width Carousel Hero */}
+        <section className="relative w-full h-screen -mt-20 overflow-hidden bg-neutral-950">
+          {/* Slides Container */}
+          <div className="absolute inset-0 w-full h-full">
+            {slides.map((slide, idx) => (
+              <div
+                key={idx}
+                className={`absolute inset-0 w-full h-full transition-all duration-1000 ease-in-out ${
+                  idx === currentImageIndex
+                    ? 'opacity-100 scale-100 z-10'
+                    : 'opacity-0 scale-105 pointer-events-none z-0'
+                }`}
+              >
+                {/* Image Background */}
+                <img
+                  src={slide.src}
+                  alt={slide.alt}
+                  className="w-full h-full object-cover object-center"
+                />
+                
+                {/* Premium Gradient Shadow Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/55" />
+                <div className="absolute inset-0 bg-neutral-950/10 backdrop-blur-[1px]" />
               </div>
-              <h1 className="max-w-xl font-serif text-6xl leading-[1.03] sm:text-7xl lg:text-[5.25rem] text-white">
-                Beauty,<br />
-                <em className="font-light italic text-[#ec4899] drop-shadow-[0_0_25px_rgba(236,72,153,0.45)] transition-opacity duration-500">
-                  {heroWords[heroWordIndex]}
-                </em>
-              </h1>
-              <p className="mt-8 max-w-md text-sm sm:text-base leading-relaxed text-white/70">
-                A modern salon experience designed around you.<br className="hidden sm:inline" />
-                Thoughtful treatments, exceptional artists, and a little more glow in every visit.
-              </p>
-              <div className="mt-10 flex flex-wrap items-center gap-4 sm:gap-5">
-                <button
-                  onClick={() => window.dispatchEvent(new CustomEvent('open-book'))}
-                  className="group flex items-center gap-2 rounded-full bg-[#ec3888] px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg shadow-pink-500/30 transition-all hover:bg-pink-500 hover:shadow-pink-500/50 hover:scale-[1.02]"
-                >
-                  Book your moment
-                  <ArrowUpRight className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" size={16} />
-                </button>
-                <Link
-                  href="/services"
-                  className="rounded-full border border-white/25 bg-white/[0.04] px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] text-white backdrop-blur transition-all hover:border-[#ec3888] hover:text-[#ec3888] hover:bg-white/[0.08]"
-                >
-                  Explore services
-                </Link>
-              </div>
-              <div className="mt-12 flex items-center gap-4">
-                <div className="flex -space-x-2.5">
-                  {[
-                    'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg',
-                    'https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg',
-                    'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg',
-                  ].map((src) => (
-                    <img
-                      key={src}
-                      src={src}
-                      className="h-10 w-10 rounded-full border-2 border-neutral-900 object-cover"
-                      alt="Candy and Rose Salon client"
-                    />
-                  ))}
-                </div>
-                <div>
-                  <div className="flex items-center gap-1 text-[#f43f8e]">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star key={s} size={14} fill="currentColor" />
-                    ))}
-                  </div>
-                  <p className="mt-1 text-xs font-medium text-white/50">Loved by 2,000+ clients</p>
-                </div>
-              </div>
-            </div>
+            ))}
+          </div>
 
-            {/* Right Visual: Glowing Neon Circular Hero Frame */}
-            <div className="relative flex items-center justify-center lg:justify-end animate-fade-in-up delay-200">
-              <div className="relative flex items-center justify-center">
-                {/* Background ambient radial glow */}
-                <div className="absolute h-[480px] w-[480px] rounded-full bg-pink-600/20 blur-[90px] pointer-events-none" />
+          {/* Centered Overlay Content */}
+          <div className="relative z-20 flex flex-col items-center justify-center text-center h-full w-full max-w-5xl mx-auto px-6">
+            <span className="font-script text-[5rem] sm:text-[7rem] lg:text-[9rem] text-pink-400 mb-[-2rem] drop-shadow-md select-none -rotate-2 leading-none relative z-10">
+              {slides[currentImageIndex].subtitle}
+            </span>
+            
+            <h1 className="font-sans text-4xl sm:text-5xl lg:text-6xl font-black uppercase tracking-[0.25em] text-white max-w-4xl mb-4 drop-shadow-md select-none relative z-20">
+              {slides[currentImageIndex].title}
+            </h1>
 
-                {/* Sparkling Stars around frame */}
-                <Sparkle className="absolute -left-10 top-12 h-6 w-6 text-pink-300 animate-pulse" />
-                <Sparkle className="absolute -left-2 bottom-20 h-5 w-5 text-rose-300 animate-pulse delay-200" />
-                <Sparkle className="absolute -right-6 top-16 h-5 w-5 text-pink-200 animate-pulse delay-300" />
-                <Sparkle className="absolute right-14 -bottom-4 h-4 w-4 text-pink-400 animate-pulse delay-100" />
-                <Sparkle className="absolute -top-6 left-1/3 h-5 w-5 text-pink-300 animate-pulse delay-300" />
+            <p className="text-white/90 max-w-2xl text-sm sm:text-base leading-relaxed mb-10 drop-shadow-md">
+              Our objective is to build customers for life, clients return again and again and again because of our exceptional commitment to provide quality service!
+            </p>
+            
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent(user ? 'open-book' : 'open-auth'))}
+              className="bg-black hover:bg-zinc-950 border border-white/20 text-white text-xs font-bold uppercase tracking-[0.25em] px-10 py-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              {slides[currentImageIndex].buttonText}
+            </button>
+          </div>
 
-                {/* Decorative orbit arcs */}
-                <div className="absolute h-[480px] w-[480px] sm:h-[550px] sm:w-[550px] rounded-full border border-pink-500/20 pointer-events-none" />
-                <div className="absolute h-[540px] w-[540px] sm:h-[630px] sm:w-[630px] rounded-full border border-pink-500/10 pointer-events-none" />
-
-                {/* Glowing Neon Ring Portrait with Dynamic Rotating Gallery */}
-                <div className="relative h-[340px] w-[340px] sm:h-[430px] sm:w-[430px] lg:h-[480px] lg:w-[480px] rounded-full p-[4px] bg-gradient-to-tr from-[#ec4899] via-[#f43f8e] to-[#fb7185] neon-ring-glow">
-                  <div className="relative h-full w-full overflow-hidden rounded-full border-2 border-white/40 bg-neutral-950">
-                    {heroImages.map((img, idx) => (
-                      <img
-                        key={img.id}
-                        src={img.src}
-                        alt={img.alt}
-                        style={{ objectPosition: img.objectPosition || 'center' }}
-                        className={`absolute inset-0 h-full w-full object-cover transition-all duration-700 ease-in-out ${
-                          idx === currentImageIndex
-                            ? 'opacity-100 scale-100 z-10'
-                            : 'opacity-0 scale-105 pointer-events-none z-0'
-                        }`}
-                      />
-                    ))}
-
-                    {/* Gradient Overlay for Readable Text & Theme Blend */}
-                    <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-[#0a0309]/85 via-transparent to-[#0a0309]/30" />
-
-                    {/* Top Progress Dots */}
-                    <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20">
-                      {heroImages.map((img, idx) => (
-                        <button
-                          key={img.id}
-                          onClick={() => setCurrentImageIndex(idx)}
-                          aria-label={`Go to ${img.title}`}
-                          className={`h-1.5 rounded-full transition-all duration-300 ${
-                            idx === currentImageIndex
-                              ? 'w-7 bg-[#ec4899] shadow-md shadow-pink-500/80'
-                              : 'w-2 bg-white/40 hover:bg-white/70'
-                          }`}
-                        />
-                      ))}
-                    </div>
-
-                    {/* Bottom Caption & Carousel Navigation */}
-                    <div className="absolute bottom-6 left-5 right-5 flex items-end justify-between z-20">
-                      <div className="text-left pl-2">
-                        <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.2em] text-pink-400 drop-shadow">
-                          {heroImages[currentImageIndex].category}
-                        </span>
-                        <p className="font-serif text-lg sm:text-xl font-medium text-white drop-shadow-md leading-tight">
-                          {heroImages[currentImageIndex].title}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5 pr-2">
-                        <button
-                          onClick={() => setCurrentImageIndex((prev) => (prev - 1 + heroImages.length) % heroImages.length)}
-                          aria-label="Previous gallery image"
-                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/30 bg-black/50 text-white backdrop-blur transition-all hover:bg-[#ec4899] hover:border-[#ec4899] hover:scale-105"
-                        >
-                          <ChevronLeft size={15} />
-                        </button>
-                        <button
-                          onClick={() => setCurrentImageIndex((prev) => (prev + 1) % heroImages.length)}
-                          aria-label="Next gallery image"
-                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/30 bg-black/50 text-white backdrop-blur transition-all hover:bg-[#ec4899] hover:border-[#ec4899] hover:scale-105"
-                        >
-                          <ChevronRight size={15} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* 4 Circle Indicators (Dots) */}
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-30">
+            {slides.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentImageIndex(idx)}
+                aria-label={`Go to slide ${idx + 1}`}
+                className={`h-2.5 w-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                  idx === currentImageIndex
+                    ? 'bg-white scale-125 shadow-md shadow-white/80'
+                    : 'bg-white/45 hover:bg-white/70'
+                }`}
+              />
+            ))}
           </div>
         </section>
 
-        {/* Services preview */}
+        {/* Services preview — Category Cards */}
         <section className="bg-white px-6 py-24 lg:px-10">
           <div className="mx-auto max-w-7xl">
-            <div className="flex flex-col justify-between gap-8 sm:flex-row sm:items-end">
-              <SectionHeading eyebrow="Curated for you" title="A ritual for every version of you."
-                description="From a quick polish to a full day of self-care, our menu is made to meet you exactly where you are." />
-              <Link href="/services" className="flex shrink-0 items-center gap-2 text-xs font-bold uppercase tracking-widest text-primary hover:gap-3">
-                View all services <ArrowUpRight size={15} />
-              </Link>
+            {/* Centered Heading */}
+            <div className="text-center mb-16">
+              <h2 className="font-serif text-5xl sm:text-6xl font-medium tracking-[0.2em] uppercase text-zinc-900 mb-4">
+                Services
+              </h2>
+              <div className="w-16 h-[2px] bg-primary mx-auto mb-6"></div>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">Curated for you</p>
+              <h3 className="font-serif text-3xl sm:text-4xl leading-tight text-zinc-800">A ritual for every version of you.</h3>
+              <p className="mt-4 text-sm leading-7 text-neutral-500 max-w-2xl mx-auto">From a quick polish to a full day of self-care, our menu is made to meet you exactly where you are.</p>
             </div>
-            <div className="mt-14 grid gap-6 md:grid-cols-3">
-              {services.map((service) => <ServiceCard key={service.id} service={service} />)}
+
+            {/* Category Cards */}
+            <div className="grid gap-4 md:grid-cols-3">
+              {homeCategories.map((cat) => (
+                <Link
+                  key={cat.label}
+                  href={cat.href}
+                  className="group relative overflow-hidden rounded-none aspect-[3/4] block"
+                >
+                  {/* Background Image */}
+                  <img
+                    src={cat.image}
+                    alt={cat.label}
+                    className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                  />
+                  {/* Dark gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent transition-opacity duration-300 group-hover:from-black/80" />
+                  {/* Category label */}
+                  <div className="absolute bottom-0 left-0 right-0 p-6">
+                    <p className="text-xs font-bold uppercase tracking-[0.25em] text-white/70 mb-1">Explore</p>
+                    <h3 className="font-serif text-2xl font-medium text-white leading-tight">{cat.label}</h3>
+                    <span className="mt-3 inline-block text-[10px] font-bold uppercase tracking-widest text-primary border-b border-primary pb-0.5 transition-all duration-200 group-hover:tracking-[0.3em]">View Services</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            {/* View All Link */}
+            <div className="mt-12 flex justify-center">
+              <Link
+                href="/services"
+                className="flex flex-col items-center gap-2 group"
+              >
+                <span className="text-base font-bold uppercase tracking-[0.3em] text-primary transition-colors duration-200 group-hover:text-pink-700">
+                  View All
+                </span>
+                <span className="block w-8 h-[2px] bg-primary transition-all duration-300 group-hover:w-14 group-hover:bg-pink-700" />
+              </Link>
             </div>
           </div>
         </section>

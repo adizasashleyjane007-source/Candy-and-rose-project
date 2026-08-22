@@ -52,12 +52,17 @@ export default function ServicesPage() {
     [category, services]
   );
 
-  const toggle = (service: Service) =>
-    setSelected((cur) =>
-      cur.some((s) => s.id === service.id)
-        ? cur.filter((s) => s.id !== service.id)
-        : [...cur, service]
-    );
+  const toggle = (service: Service) => {
+    setSelected((cur) => {
+      const exists = cur.some((s) => s.id === service.id);
+      if (exists) return cur.filter((s) => s.id !== service.id);
+      if (cur.length >= 2) {
+        alert("You can only select up to 2 services.");
+        return cur;
+      }
+      return [...cur, service];
+    });
+  };
 
   const total = selected.reduce((sum, s) => sum + Number(s.price || 0), 0);
   const duration = selected.reduce((sum, s) => sum + (s.duration_min || parseDurationToMinutes(s.duration)), 0);
@@ -116,7 +121,7 @@ export default function ServicesPage() {
       {selected.length > 0 && (
         <div className="fixed bottom-5 left-1/2 z-30 flex w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 items-center justify-between rounded-2xl bg-foreground p-4 text-white shadow-2xl shadow-black/30 sm:px-6 animate-scale-in">
           <div>
-            <p className="text-sm font-semibold">Your ritual · {selected.length} service{selected.length > 1 ? 's' : ''}</p>
+            <p className="text-sm font-semibold">{selected.length} service{selected.length > 1 ? 's' : ''}</p>
             <p className="mt-1 flex items-center gap-3 text-xs text-white/60">
               <span className="flex items-center gap-1"><Clock3 size={13} /> {duration} min</span>
               <span>₱{total.toLocaleString()}</span>
@@ -126,7 +131,7 @@ export default function ServicesPage() {
             onClick={() => setBookingModalOpen(true)}
             className="flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-xs font-bold uppercase tracking-widest text-white transition-all hover:bg-pink-600 active:scale-95"
           >
-            Select Date & Time <ArrowRight size={15} />
+            Next <ArrowRight size={15} />
           </button>
         </div>
       )}
