@@ -1,264 +1,436 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Quote, Star } from 'lucide-react';
+import { 
+  ArrowRight, CalendarDays, CheckCircle2, Heart, ShieldCheck, 
+  Sparkles, Star, UserCheck, Play, Award, Leaf 
+} from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { SectionHeading } from '@/components/salon-ui';
-import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 
-const homeCategories = [
+const servicesData = [
   {
-    label: 'Hair Styling',
+    title: 'Hair Styling',
+    description: 'Cut, style, blow-dry & more for a stunning you.',
+    image: '/images/hairstyle.png',
+    href: '/services',
+  },
+  {
+    title: 'Makeup Artistry',
+    description: 'Bridal, party & editorial makeup by experts.',
+    image: '/images/makeup.png',
+    href: '/services',
+  },
+  {
+    title: 'Skin Care & Facials',
+    description: 'Facials, cleanups & treatments for glowing skin.',
     image: '/images/hero-radiant.jpg',
     href: '/services',
   },
   {
-    label: 'Nail Art',
+    title: 'Nail Care',
+    description: 'Manicure, pedicure & artisan nail extensions.',
     image: '/images/nails.png',
     href: '/services',
   },
   {
-    label: 'Makeup & Beauty',
-    image: '/images/makeup.png',
+    title: 'Hair Color & Balayage',
+    description: 'Global color, highlights, balayage & glossing.',
+    image: '/images/color.png',
+    href: '/services',
+  },
+  {
+    title: 'Bridal Packages',
+    description: 'Complete bridal makeover for your special day.',
+    image: '/images/makeup 1.png',
     href: '/services',
   },
 ];
 
-const slides = [
+const highlights = [
   {
-    src: '/images/hero-radiant.jpg',
-    alt: 'Hair Salon Expert',
-    title: 'Timeless Trends',
-    subtitle: 'Creating',
-    category: 'Hair Styling',
-    buttonText: 'Book Now'
+    icon: UserCheck,
+    title: 'Expert Stylists',
+    subtitle: 'Trained & Certified',
   },
   {
-    src: '/images/haircut.jpeg',
-    alt: 'Precision Styling',
-    title: 'Precision Styling & Cuts',
-    subtitle: 'Crafting',
-    category: 'Hair Care',
-    buttonText: 'Book Now'
+    icon: Award,
+    title: 'Premium Products',
+    subtitle: 'Top Quality Brands',
   },
   {
-    src: '/images/nails.png',
-    alt: 'Artisan Nails',
-    title: 'Artisan Nail Artistry',
-    subtitle: 'Perfecting',
-    category: 'Nail Salon',
-    buttonText: 'Book Now'
+    icon: ShieldCheck,
+    title: 'Hygiene First',
+    subtitle: 'Clean & Safe',
   },
   {
-    src: '/images/makeup.png',
-    alt: 'Glamour Makeup',
-    title: 'Glamour & Makeup Artistry',
-    subtitle: 'Discovering',
-    category: 'Facial & Beauty',
-    buttonText: 'Book Now'
-  }
+    icon: Heart,
+    title: 'Personalized Care',
+    subtitle: 'Just for You',
+  },
+];
+
+const testimonials = [
+  {
+    name: 'Pooja Sharma',
+    role: 'Regular Client',
+    text: 'Absolutely loved the experience! The staff is super professional and my hair looks amazing after the balayage treatment.',
+    stars: 5,
+    avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=150',
+  },
+  {
+    name: 'Ankita Verma',
+    role: 'Bridal Customer',
+    text: 'Best salon in town! The makeup was flawless for my wedding reception and stayed intact all day long without feeling heavy.',
+    stars: 5,
+    avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
+  },
+  {
+    name: 'Neha Singh',
+    role: 'Frequent Guest',
+    text: 'Great service, relaxing ambiance, and very hygienic. Highly recommended for facial rituals and artisan nail extensions!',
+    stars: 5,
+    avatar: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=150',
+  },
+];
+
+const carouselImages = [
+  '/images/hairstyle.png',
+  '/images/nails.png',
+  '/images/makeup.png',
+  '/images/brown hair.png',
+];
+
+const rotatingWords = [
+  'Your Style',
+  'Your Radiance',
+  'Your Beauty',
+  'Your Confidence',
+  'Your Glow',
 ];
 
 export default function Home() {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const { user } = useAuth();
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [currentWordIdx, setCurrentWordIdx] = useState(0);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % slides.length);
+    const slideTimer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % carouselImages.length);
     }, 4500);
-    return () => window.clearInterval(timer);
+
+    const wordTimer = setInterval(() => {
+      setCurrentWordIdx((prev) => (prev + 1) % rotatingWords.length);
+    }, 3000);
+
+    return () => {
+      clearInterval(slideTimer);
+      clearInterval(wordTimer);
+    };
   }, []);
+
+  const triggerBooking = () => {
+    window.dispatchEvent(new CustomEvent(user ? 'open-book' : 'open-auth'));
+  };
 
   return (
     <SalonLayout>
-      <main>
-        {/* Full-width Carousel Hero */}
-        <section className="relative w-full h-screen -mt-20 overflow-hidden bg-neutral-950">
-          {/* Slides Container */}
-          <div className="absolute inset-0 w-full h-full">
-            {slides.map((slide, idx) => (
-              <div
-                key={idx}
-                className={`absolute inset-0 w-full h-full transition-all duration-1000 ease-in-out ${
-                  idx === currentImageIndex
-                    ? 'opacity-100 scale-100 z-10'
+      <main className="bg-white">
+        {/* HERO SECTION */}
+        <section className="relative min-h-[88vh] flex items-center justify-center bg-zinc-950 overflow-hidden">
+          {/* Background Image Carousel with High Clarity */}
+          <div className="absolute inset-0 z-0">
+            {carouselImages.map((src, idx) => (
+              <img
+                key={src}
+                src={src}
+                alt="Candy & Rose Salon"
+                className={`absolute inset-0 w-full h-full object-cover object-center transition-all duration-1000 ease-in-out ${
+                  idx === currentSlide
+                    ? 'opacity-85 scale-100 z-10'
                     : 'opacity-0 scale-105 pointer-events-none z-0'
                 }`}
-              >
-                {/* Image Background */}
-                <img
-                  src={slide.src}
-                  alt={slide.alt}
-                  className="w-full h-full object-cover object-center"
-                />
-                
-                {/* Premium Gradient Shadow Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/55" />
-                <div className="absolute inset-0 bg-neutral-950/10 backdrop-blur-[1px]" />
-              </div>
+              />
             ))}
+            {/* Clearer, subtle gradient overlays */}
+            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/60 to-transparent z-15" />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-black/30 z-15" />
           </div>
 
-          {/* Centered Overlay Content */}
-          <div className="relative z-20 flex flex-col items-center justify-center text-center h-full w-full max-w-5xl mx-auto px-6">
-            <span className="font-script text-[5rem] sm:text-[7rem] lg:text-[9rem] text-pink-400 mb-[-2rem] drop-shadow-md select-none -rotate-2 leading-none relative z-10">
-              {slides[currentImageIndex].subtitle}
-            </span>
-            
-            <h1 className="font-sans text-4xl sm:text-5xl lg:text-6xl font-black uppercase tracking-[0.25em] text-white max-w-4xl mb-4 drop-shadow-md select-none relative z-20">
-              {slides[currentImageIndex].title}
-            </h1>
+          {/* Hero Content */}
+          <div className="relative z-20 max-w-7xl mx-auto px-6 py-20 lg:px-10 w-full">
+            <div className="max-w-2xl">
+              <span className="font-serif italic text-pink-300 text-2xl sm:text-3xl font-normal tracking-wide block mb-3 drop-shadow">
+                Look Good, Feel Beautiful
+              </span>
 
-            <p className="text-white/90 max-w-2xl text-sm sm:text-base leading-relaxed mb-10 drop-shadow-md">
-              Our objective is to build customers for life, clients return again and again and again because of our exceptional commitment to provide quality service!
-            </p>
-            
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent(user ? 'open-book' : 'open-auth'))}
-              className="bg-black hover:bg-zinc-950 border border-white/20 text-white text-xs font-bold uppercase tracking-[0.25em] px-10 py-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
-            >
-              {slides[currentImageIndex].buttonText}
-            </button>
+              <h1 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-medium leading-[1.1] text-white tracking-tight drop-shadow-md">
+                Beauty that Reflects <br className="hidden sm:block" />
+                <span key={currentWordIdx} className="italic font-serif text-pink-400 inline-block animate-fade-in transition-all duration-500">
+                  {rotatingWords[currentWordIdx]}
+                </span>
+              </h1>
+
+              <p className="mt-6 text-sm sm:text-base text-zinc-200 leading-relaxed max-w-xl drop-shadow">
+                Experience premium salon & beauty services crafted to bring out the best in you. Personal consultation, bespoke treatments, and unmatched radiance.
+              </p>
+
+              <div className="mt-9 flex flex-wrap items-center gap-4">
+                <button
+                  onClick={triggerBooking}
+                  className="inline-flex items-center gap-2.5 rounded-full bg-pink-600 px-8 py-4 text-xs font-bold uppercase tracking-widest text-white shadow-xl shadow-pink-600/40 transition-all duration-300 hover:bg-pink-500 hover:scale-105 active:scale-95 cursor-pointer"
+                >
+                  <CalendarDays size={16} />
+                  Book Appointment
+                </button>
+
+                <Link
+                  href="/services"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-black/40 backdrop-blur-md px-8 py-4 text-xs font-bold uppercase tracking-widest text-white transition-all duration-300 hover:bg-white hover:text-zinc-950 hover:border-white cursor-pointer"
+                >
+                  Explore Services
+                  <ArrowRight size={15} />
+                </Link>
+              </div>
+            </div>
           </div>
 
-          {/* 4 Circle Indicators (Dots) */}
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-30">
-            {slides.map((_, idx) => (
+          {/* Carousel Slide Dots */}
+          <div className="absolute bottom-16 right-8 sm:right-16 z-20 flex items-center gap-2">
+            {carouselImages.map((_, idx) => (
               <button
                 key={idx}
-                onClick={() => setCurrentImageIndex(idx)}
+                onClick={() => setCurrentSlide(idx)}
                 aria-label={`Go to slide ${idx + 1}`}
-                className={`h-2.5 w-2.5 rounded-full transition-all duration-300 cursor-pointer ${
-                  idx === currentImageIndex
-                    ? 'bg-white scale-125 shadow-md shadow-white/80'
-                    : 'bg-white/45 hover:bg-white/70'
+                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                  idx === currentSlide
+                    ? 'w-8 bg-pink-500 shadow-md shadow-pink-500/50'
+                    : 'w-2 bg-white/40 hover:bg-white/70'
                 }`}
               />
             ))}
           </div>
         </section>
 
-        {/* Services preview — Category Cards */}
-        <section className="bg-white px-6 py-24 lg:px-10">
-          <div className="mx-auto max-w-7xl">
-            {/* Centered Heading */}
-            <div className="text-center mb-16">
-              <h2 className="font-serif text-5xl sm:text-6xl font-medium tracking-[0.2em] uppercase text-zinc-900 mb-4">
-                Services
-              </h2>
-              <div className="w-16 h-[2px] bg-primary mx-auto mb-6"></div>
-              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">Curated for you</p>
-              <h3 className="font-serif text-3xl sm:text-4xl leading-tight text-zinc-800">A ritual for every version of you.</h3>
-              <p className="mt-4 text-sm leading-7 text-neutral-500 max-w-2xl mx-auto">From a quick polish to a full day of self-care, our menu is made to meet you exactly where you are.</p>
-            </div>
+        {/* FLOATING FEATURE HIGHLIGHTS BAR */}
+        <section className="relative z-20 -mt-12 max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="rounded-3xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 p-6 sm:p-8 shadow-2xl grid grid-cols-2 md:grid-cols-4 gap-6 text-white">
+            {highlights.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.title} className="flex items-center gap-4 border-r border-zinc-800/80 last:border-0 pr-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-pink-600/20 text-pink-400 border border-pink-500/20">
+                    <Icon size={22} />
+                  </div>
+                  <div>
+                    <h4 className="font-serif text-base font-semibold text-white leading-tight">{item.title}</h4>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">{item.subtitle}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
 
-            {/* Category Cards */}
-            <div className="grid gap-4 md:grid-cols-3">
-              {homeCategories.map((cat) => (
+        {/* SERVICES SECTION */}
+        <section className="px-6 py-24 lg:px-10 bg-white">
+          <div className="mx-auto max-w-7xl">
+            <SectionHeading
+              eyebrow="OUR SERVICES"
+              title="Beauty & Care, All Under One Roof"
+              description="From precision haircuts to artisan nail transformations and bridal glam, explore our comprehensive luxury menu."
+              centered
+            />
+
+            <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {servicesData.map((service) => (
                 <Link
-                  key={cat.label}
-                  href={cat.href}
-                  className="group relative overflow-hidden rounded-none aspect-[3/4] block"
+                  key={service.title}
+                  href={service.href}
+                  className="group overflow-hidden rounded-3xl border border-zinc-100 bg-white transition-all duration-500 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-pink-100/80 block"
                 >
-                  {/* Background Image */}
-                  <img
-                    src={cat.image}
-                    alt={cat.label}
-                    className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
-                  />
-                  {/* Dark gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent transition-opacity duration-300 group-hover:from-black/80" />
-                  {/* Category label */}
-                  <div className="absolute bottom-0 left-0 right-0 p-6">
-                    <p className="text-xs font-bold uppercase tracking-[0.25em] text-white/70 mb-1">Explore</p>
-                    <h3 className="font-serif text-2xl font-medium text-white leading-tight">{cat.label}</h3>
-                    <span className="mt-3 inline-block text-[10px] font-bold uppercase tracking-widest text-primary border-b border-primary pb-0.5 transition-all duration-200 group-hover:tracking-[0.3em]">View Services</span>
+                  <div className="relative h-64 overflow-hidden bg-pink-50">
+                    <img
+                      src={service.image}
+                      alt={service.title}
+                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                    <span className="absolute bottom-4 left-4 rounded-full bg-white/90 backdrop-blur-md px-3.5 py-1 text-[10px] font-bold uppercase tracking-widest text-pink-600">
+                      Popular
+                    </span>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="font-serif text-2xl font-medium text-zinc-900 leading-tight group-hover:text-pink-600 transition-colors">
+                      {service.title}
+                    </h3>
+                    <p className="mt-2 text-xs leading-6 text-zinc-500">
+                      {service.description}
+                    </p>
+                    <div className="mt-5 flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-pink-600 group-hover:translate-x-1 transition-transform">
+                      View Options <ArrowRight size={14} />
+                    </div>
                   </div>
                 </Link>
               ))}
             </div>
 
-            {/* View All Link */}
-            <div className="mt-12 flex justify-center">
+            <div className="mt-14 flex justify-center">
               <Link
                 href="/services"
-                className="flex flex-col items-center gap-2 group"
+                className="inline-flex items-center gap-2.5 rounded-full bg-zinc-950 px-9 py-4 text-xs font-bold uppercase tracking-widest text-white transition-all duration-300 hover:bg-pink-600 hover:shadow-lg hover:shadow-pink-600/30 cursor-pointer"
               >
-                <span className="text-base font-bold uppercase tracking-[0.3em] text-primary transition-colors duration-200 group-hover:text-pink-700">
-                  View All
-                </span>
-                <span className="block w-8 h-[2px] bg-primary transition-all duration-300 group-hover:w-14 group-hover:bg-pink-700" />
+                View All Services
+                <ArrowRight size={15} />
               </Link>
             </div>
           </div>
         </section>
 
-        {/* About teaser */}
-        <section className="bg-pink-50 px-6 py-24 lg:px-10">
+        {/* ABOUT US SECTION */}
+        <section className="bg-pink-50/50 px-6 py-24 lg:px-10 border-y border-pink-100/60">
           <div className="mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-2">
-            <div className="relative">
-              <img src="https://images.pexels.com/photos/3993448/pexels-photo-3993448.jpeg" alt="Stylist at work"
-                className="aspect-[4/5] w-full rounded-[2rem] object-cover" />
-              <div className="absolute -bottom-8 -right-5 rounded-2xl bg-foreground px-6 py-5 text-white shadow-xl sm:-right-8">
-                <p className="font-serif text-3xl">12+</p>
-                <p className="mt-1 text-[10px] uppercase tracking-widest text-white/55">Years of craft</p>
+            {/* Left Image with Play Icon */}
+            <div className="relative group overflow-hidden rounded-3xl border border-pink-200/60 shadow-xl">
+              <img
+                src="/images/background.jpg"
+                alt="Salon Interior Experience"
+                className="aspect-[4/3] w-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+                <button
+                  onClick={() => alert('Video tour preview coming soon!')}
+                  aria-label="Play salon tour video"
+                  className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-pink-600 shadow-2xl transition-all duration-300 hover:scale-110 hover:bg-pink-600 hover:text-white"
+                >
+                  <Play size={24} className="fill-current ml-1" />
+                </button>
               </div>
             </div>
+
+            {/* Right Text Content */}
             <div>
-              <SectionHeading eyebrow="The Candy and Rose way" title="Beauty is personal. Your experience should be too."
-                description="We believe the best beauty experience is one that feels like it was made just for you. Our artists listen first, then create with intention." />
-              <div className="mt-10 space-y-6">
+              <SectionHeading
+                eyebrow="ABOUT US"
+                title="Where Beauty Meets Expertise"
+                description="At Candy & Rose, we believe beauty is personal. Our mission is to enhance your natural beauty with premium services, expert care, and a relaxing salon experience."
+              />
+
+              <div className="mt-8 space-y-4">
                 {[
-                  ['01', 'Listen deeply', 'Every appointment starts with a conversation, not a clipboard.'],
-                  ['02', 'Create intentionally', 'Our artists bring expertise, care, and a point of view to every detail.'],
-                  ['03', 'Leave luminous', 'The best part is how you feel when you step back into the world.'],
-                ].map(([num, title, text]) => (
-                  <div key={num} className="flex gap-5 border-b border-pink-200 pb-6">
-                    <span className="font-serif text-xl text-primary">{num}</span>
-                    <div>
-                      <h3 className="font-semibold">{title}</h3>
-                      <p className="mt-1 text-sm leading-6 text-neutral-500">{text}</p>
-                    </div>
+                  'Professional & Friendly Team',
+                  'Advanced Techniques & Trends',
+                  '100% Satisfaction Guarantee',
+                  'Hygienic & Comfortable Environment',
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-3">
+                    <CheckCircle2 size={18} className="text-pink-600 shrink-0" />
+                    <span className="text-xs sm:text-sm font-semibold text-zinc-800">{item}</span>
                   </div>
                 ))}
               </div>
-              <Link href="/about" className="mt-9 inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-xs font-bold uppercase tracking-widest text-white hover:bg-primary">
-                Meet our story <ArrowUpRight size={15} />
-              </Link>
+
+              <div className="mt-10">
+                <Link
+                  href="/about"
+                  className="inline-flex items-center gap-2.5 rounded-full bg-zinc-950 px-8 py-4 text-xs font-bold uppercase tracking-widest text-white transition-all duration-300 hover:bg-pink-600 shadow-md"
+                >
+                  Know More About Us
+                  <ArrowRight size={15} />
+                </Link>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Testimonials */}
-        <section className="bg-white px-6 py-24 lg:px-10">
+        {/* SPECIAL OFFER BANNER */}
+        <section className="px-6 py-20 lg:px-10 bg-white">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-12 flex items-end justify-between">
-              <SectionHeading eyebrow="Words from our guests" title="The glow is real." />
-              <Link href="/feedback" className="hidden text-xs font-bold uppercase tracking-widest text-primary sm:block">
-                Read all reviews →
-              </Link>
+            <div className="rounded-3xl bg-gradient-to-r from-zinc-950 via-zinc-900 to-pink-950 p-8 sm:p-14 text-white shadow-2xl flex flex-col md:flex-row items-center justify-between gap-10 border border-zinc-800 relative overflow-hidden">
+              <div className="max-w-xl z-10">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-600/30 px-3.5 py-1 text-[10px] font-bold uppercase tracking-widest text-pink-300 border border-pink-500/30 mb-4">
+                  <Sparkles size={12} /> SPECIAL OFFER
+                </span>
+                <h3 className="font-serif text-3xl sm:text-5xl font-medium leading-tight">
+                  Get 20% Off On Your First Visit
+                </h3>
+                <p className="mt-4 text-xs sm:text-sm text-zinc-300 leading-relaxed">
+                  Treat yourself to our top-tier hair treatments, facials, or bridal makeover packages at an exclusive discounted rate today.
+                </p>
+                <div className="mt-8">
+                  <button
+                    onClick={triggerBooking}
+                    className="inline-flex items-center gap-2 rounded-full bg-pink-600 px-8 py-4 text-xs font-bold uppercase tracking-widest text-white shadow-xl shadow-pink-600/40 transition-all duration-300 hover:bg-pink-500 hover:scale-105 active:scale-95 cursor-pointer"
+                  >
+                    Book Now
+                    <ArrowRight size={15} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Model Image */}
+              <div className="relative shrink-0 w-full max-w-xs md:max-w-sm rounded-2xl overflow-hidden shadow-2xl border border-white/10 z-10">
+                <img
+                  src="/images/login-customer.jpg"
+                  alt="Special Offer Salon Customer"
+                  className="w-full h-64 sm:h-72 object-cover"
+                />
+              </div>
             </div>
-            <div className="grid gap-6 md:grid-cols-3">
-              {[
-                'The most beautiful salon experience I have ever had. Every detail feels intentional, and I walked out feeling like the best version of myself.',
-                'Candy and Rose has become my monthly reset. The team remembers the little things and somehow always gets it exactly right.',
-                'From the warm welcome to the final mirror moment, this is care at its most thoughtful. My hair has never looked better.',
-              ].map((quote, index) => (
-                <div key={quote} className="rounded-2xl bg-neutral-50 p-7">
-                  <Quote className="mb-7 text-primary" size={23} fill="currentColor" />
-                  <p className="font-serif text-xl leading-8">&ldquo;{quote}&rdquo;</p>
-                  <div className="mt-8 flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-widest">
-                      {['Sofia M.', 'Amelia R.', 'Nina K.'][index]}
+          </div>
+        </section>
+
+        {/* CLIENT LOVE (TESTIMONIALS) */}
+        <section id="testimonials" className="px-6 py-24 lg:px-10 bg-zinc-50 border-t border-zinc-200/60">
+          <div className="mx-auto max-w-7xl">
+            <SectionHeading
+              eyebrow="CLIENT LOVE"
+              title="What Our Clients Say"
+              description="Read glowing feedback from our wonderful clients who trust us with their personal beauty rituals."
+              centered
+            />
+
+            <div className="mt-14 grid gap-8 md:grid-cols-3">
+              {testimonials.map((item) => (
+                <div
+                  key={item.name}
+                  className="rounded-3xl border border-zinc-200/80 bg-white p-8 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between"
+                >
+                  <div>
+                    {/* Stars */}
+                    <div className="flex text-amber-400 mb-6">
+                      {[...Array(item.stars)].map((_, i) => (
+                        <Star key={i} size={16} fill="currentColor" />
+                      ))}
+                    </div>
+                    <p className="text-xs sm:text-sm leading-7 text-zinc-600 font-medium italic">
+                      &ldquo;{item.text}&rdquo;
                     </p>
-                    <div className="flex text-primary">
-                      {[1, 2, 3, 4, 5].map((s) => <Star key={s} size={13} fill="currentColor" />)}
+                  </div>
+
+                  {/* Customer Info */}
+                  <div className="mt-8 flex items-center gap-4 border-t border-zinc-100 pt-6">
+                    <img
+                      src={item.avatar}
+                      alt={item.name}
+                      className="h-12 w-12 rounded-full object-cover border-2 border-pink-200"
+                    />
+                    <div>
+                      <h4 className="font-serif text-base font-semibold text-zinc-900">{item.name}</h4>
+                      <p className="text-[11px] text-pink-600 font-bold uppercase tracking-wider">{item.role}</p>
                     </div>
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Pagination Dots */}
+            <div className="mt-10 flex justify-center items-center gap-2">
+              <span className="h-2.5 w-7 rounded-full bg-pink-600"></span>
+              <span className="h-2.5 w-2.5 rounded-full bg-zinc-300"></span>
+              <span className="h-2.5 w-2.5 rounded-full bg-zinc-300"></span>
             </div>
           </div>
         </section>

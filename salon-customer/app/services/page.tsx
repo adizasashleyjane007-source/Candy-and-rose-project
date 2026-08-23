@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, CalendarDays, Check, Clock3, Plus } from 'lucide-react';
+import { ArrowRight, Check, Clock3, Plus, Sparkles } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { SectionHeading, ServiceCard } from '@/components/salon-ui';
 import { BookingModal } from '@/components/booking-modal';
@@ -9,7 +9,6 @@ import { supabase, type Service, type Staff, parseDurationToMinutes } from '@/li
 import { useAuth } from '@/lib/auth-context';
 
 const DEFAULT_CATEGORIES = ['Hair', 'Nails', 'Facials', 'Spa', 'Massage', 'Makeup'];
-
 
 export default function ServicesPage() {
   const { user } = useAuth();
@@ -53,6 +52,10 @@ export default function ServicesPage() {
   );
 
   const toggle = (service: Service) => {
+    if (!user) {
+      window.dispatchEvent(new CustomEvent('open-auth'));
+      return;
+    }
     setSelected((cur) => {
       const exists = cur.some((s) => s.id === service.id);
       if (exists) return cur.filter((s) => s.id !== service.id);
@@ -69,18 +72,25 @@ export default function ServicesPage() {
 
   return (
     <SalonLayout>
-      <main>
-        <section className="bg-pink-50 px-6 py-20 lg:px-10">
+      <main className="bg-white">
+        <section className="bg-gradient-to-b from-pink-50/70 to-white px-6 py-20 lg:px-10 border-b border-zinc-100">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-4 text-2xl font-bold uppercase tracking-[0.25em] text-[#f43f8e]">
-              SERVICES
-            </div>
-            <SectionHeading eyebrow="The menu" title="Find your next favorite ritual."
-              description="Every service is thoughtfully designed, beautifully executed, and always centered around you." />
-            <div className="mt-12 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <SectionHeading
+              eyebrow="OUR SERVICE MENU"
+              title="Find Your Next Favorite Ritual"
+              description="Every service is thoughtfully designed, beautifully executed, and centered around your natural radiance."
+            />
+            <div className="mt-10 flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide">
               {categories.map((item) => (
-                <button key={item} onClick={() => setCategory(item)}
-                  className={`whitespace-nowrap rounded-full px-5 py-3 text-xs font-bold uppercase tracking-widest transition-colors ${category === item ? 'bg-foreground text-white' : 'bg-white text-neutral-500 hover:text-primary'}`}>
+                <button
+                  key={item}
+                  onClick={() => setCategory(item)}
+                  className={`whitespace-nowrap rounded-full px-6 py-3 text-xs font-bold uppercase tracking-widest transition-all duration-300 ${
+                    category === item
+                      ? 'bg-zinc-950 text-white shadow-md'
+                      : 'bg-white text-zinc-600 hover:text-pink-600 border border-zinc-200/80 hover:border-pink-300'
+                  }`}
+                >
                   {item}
                 </button>
               ))}
@@ -91,10 +101,14 @@ export default function ServicesPage() {
         <section className="px-6 py-16 lg:px-10">
           <div className="mx-auto max-w-7xl">
             <div className="mb-8 flex items-center justify-between">
-              <p className="text-sm text-neutral-500">{shown.length} treatments available</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                {shown.length} treatments available
+              </p>
               {user && (
-                <button onClick={() => setShowAdd(!showAdd)}
-                  className="flex items-center gap-2 rounded-full border border-neutral-200 px-4 py-2 text-xs font-bold uppercase tracking-widest transition-colors hover:border-primary hover:text-primary">
+                <button
+                  onClick={() => setShowAdd(!showAdd)}
+                  className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-800 transition-colors hover:border-pink-600 hover:text-pink-600"
+                >
                   <Plus size={15} /> Add a service
                 </button>
               )}
@@ -102,14 +116,17 @@ export default function ServicesPage() {
 
             {user && showAdd && <AddServiceForm onAdded={() => setShowAdd(false)} />}
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
               {shown.map((service) => {
                 const assignedStaff = staffList.find((st) => st.role === service.required_role);
                 return (
-                  <ServiceCard key={service.id} service={service}
+                  <ServiceCard
+                    key={service.id}
+                    service={service}
                     selected={selected.some((s) => s.id === service.id)}
                     onSelect={toggle}
-                    assignedStaffName={assignedStaff?.name} />
+                    assignedStaffName={assignedStaff?.name}
+                  />
                 );
               })}
             </div>
@@ -119,19 +136,19 @@ export default function ServicesPage() {
 
       {/* Floating Bottom Bar when services are selected */}
       {selected.length > 0 && (
-        <div className="fixed bottom-5 left-1/2 z-30 flex w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 items-center justify-between rounded-2xl bg-foreground p-4 text-white shadow-2xl shadow-black/30 sm:px-6 animate-scale-in">
+        <div className="fixed bottom-6 left-1/2 z-40 flex w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 items-center justify-between rounded-3xl bg-zinc-950 p-5 text-white shadow-2xl shadow-black/50 sm:px-8 border border-zinc-800 animate-scale-in">
           <div>
-            <p className="text-sm font-semibold">{selected.length} service{selected.length > 1 ? 's' : ''}</p>
-            <p className="mt-1 flex items-center gap-3 text-xs text-white/60">
-              <span className="flex items-center gap-1"><Clock3 size={13} /> {duration} min</span>
-              <span>₱{total.toLocaleString()}</span>
+            <p className="text-sm font-bold text-white">{selected.length} Service{selected.length > 1 ? 's' : ''} Selected</p>
+            <p className="mt-1 flex items-center gap-3 text-xs text-zinc-400 font-medium">
+              <span className="flex items-center gap-1 text-pink-400"><Clock3 size={14} /> {duration} min</span>
+              <span className="font-serif text-sm font-bold text-white">₱{total.toLocaleString()}</span>
             </p>
           </div>
           <button
             onClick={() => setBookingModalOpen(true)}
-            className="flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-xs font-bold uppercase tracking-widest text-white transition-all hover:bg-pink-600 active:scale-95"
+            className="flex items-center gap-2 rounded-full bg-pink-600 px-6 py-3.5 text-xs font-bold uppercase tracking-widest text-white transition-all hover:bg-pink-500 shadow-lg shadow-pink-600/40 active:scale-95 cursor-pointer"
           >
-            Next <ArrowRight size={15} />
+            Continue <ArrowRight size={15} />
           </button>
         </div>
       )}
@@ -175,24 +192,24 @@ function AddServiceForm({ onAdded }: { onAdded: () => void }) {
   };
 
   return (
-    <div className="mb-10 rounded-2xl border border-pink-200 bg-pink-50 p-6">
-      <h3 className="mb-4 font-serif text-xl">Add a custom service</h3>
+    <div className="mb-10 rounded-3xl border border-pink-200 bg-pink-50/60 p-6 sm:p-8">
+      <h3 className="mb-4 font-serif text-xl font-medium text-zinc-900">Add Custom Service</h3>
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
         <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Service name"
-          className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-primary" />
+          className="rounded-xl border border-zinc-200 bg-white px-4 py-3 text-xs outline-none focus:border-pink-600" />
         <select value={category} onChange={(e) => setCategory(e.target.value)}
-          className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-primary">
+          className="rounded-xl border border-zinc-200 bg-white px-4 py-3 text-xs outline-none focus:border-pink-600">
           {DEFAULT_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
         </select>
         <input required type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Price (₱)"
-          className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-primary" />
+          className="rounded-xl border border-zinc-200 bg-white px-4 py-3 text-xs outline-none focus:border-pink-600" />
         <input required type="number" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="Duration (min)"
-          className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-primary" />
+          className="rounded-xl border border-zinc-200 bg-white px-4 py-3 text-xs outline-none focus:border-pink-600" />
         <textarea required value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" rows={2}
-          className="resize-none rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-primary sm:col-span-2" />
+          className="resize-none rounded-xl border border-zinc-200 bg-white px-4 py-3 text-xs outline-none focus:border-pink-600 sm:col-span-2" />
         <button disabled={busy}
-          className="flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-xs font-bold uppercase tracking-widest text-white disabled:opacity-60 sm:col-span-2">
-          <Plus size={15} /> {busy ? 'Adding...' : 'Add service'}
+          className="flex items-center justify-center gap-2 rounded-full bg-zinc-950 py-3.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-pink-600 transition-colors disabled:opacity-60 sm:col-span-2">
+          <Plus size={15} /> {busy ? 'Adding...' : 'Add Service'}
         </button>
       </form>
     </div>

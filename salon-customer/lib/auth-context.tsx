@@ -131,6 +131,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error('Error creating profile/customer record:', err);
       }
+
+      // Send welcome email notification
+      try {
+        await fetch('/api/send-welcome', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, name: fullName }),
+        });
+      } catch (emailErr) {
+        console.error('Error sending welcome email:', emailErr);
+      }
     }
     return { error: null };
   };

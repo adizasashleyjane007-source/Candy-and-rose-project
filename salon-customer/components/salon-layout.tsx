@@ -36,6 +36,10 @@ export default function SalonLayout({ children }: { children: ReactNode }) {
   }, []);
 
   const openBookModal = (services?: Service[]) => {
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
     if (services) {
       setPreselectedServices(services);
     }
