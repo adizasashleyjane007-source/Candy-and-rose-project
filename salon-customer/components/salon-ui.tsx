@@ -6,7 +6,7 @@ import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import {
   CalendarDays, Check, ChevronRight, Clock3, Heart, History,
   LogIn, LogOut, Mail, MapPin, Menu, Phone, Plus, Sparkles,
-  Star, X, Facebook, Twitter, Instagram, Youtube, ChevronDown, Leaf
+  Star, X, Facebook, Twitter, Instagram, Youtube, ChevronDown, Leaf, Eye, EyeOff, User
 } from 'lucide-react';
 import { supabase, type Appointment, type Service } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
@@ -15,8 +15,8 @@ export const headerNavItems: { label: string; href: string }[] = [
   { label: 'Home', href: '/' },
   { label: 'About Us', href: '/about' },
   { label: 'Services', href: '/services' },
-  { label: 'Gallery', href: '/feedback' },
-  { label: 'Packages', href: '/services' },
+  { label: 'Gallery', href: '/gallery' },
+  { label: 'Packages', href: '/packages' },
   { label: 'Testimonials', href: '/#testimonials' },
   { label: 'Contact', href: '/contact' },
 ];
@@ -66,7 +66,11 @@ export function Header({ onBook }: { onBook: () => void }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, profile, signOut } = useAuth();
+
+  const visibleNavItems = user
+    ? headerNavItems.filter((item) => item.label !== 'About Us' && item.label !== 'Gallery')
+    : headerNavItems;
 
   return (
     <header className="z-50 fixed top-0 left-0 right-0 w-full shadow-sm bg-white/95 backdrop-blur-md border-b border-zinc-100">
@@ -76,7 +80,7 @@ export function Header({ onBook }: { onBook: () => void }) {
         
         {/* Main Desktop Navigation */}
         <nav className="hidden items-center gap-7 xl:gap-9 lg:flex">
-          {headerNavItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive = pathname === item.href;
             
             return (
@@ -97,12 +101,70 @@ export function Header({ onBook }: { onBook: () => void }) {
 
         {/* Right Action Section */}
         <div className="flex items-center gap-4">
-          <button
-            onClick={onBook}
-            className="hidden sm:inline-flex items-center gap-2 rounded-full bg-pink-600 px-6 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-md transition-all duration-300 hover:bg-pink-700 hover:shadow-pink-700/30 active:scale-95 cursor-pointer"
-          >
-            Book Appointment
-          </button>
+          {user ? (
+            <div className="relative">
+              <button
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex items-center gap-4 rounded-full hover:bg-zinc-50 p-1.5 transition-all duration-200"
+                aria-label="Toggle user menu"
+              >
+                {/* Circular User Icon */}
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-pink-100 border border-pink-200 text-black">
+                  <User size={18} className="text-black" />
+                </div>
+                {/* Username */}
+                <span className="text-xs font-bold text-zinc-700 hover:text-pink-600 transition-colors">
+                  {user.email}
+                </span>
+                {/* Dropdown Arrow */}
+                <ChevronDown size={14} className={`text-zinc-500 transition-transform duration-200 ${profileOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Dropdown Menu */}
+              {profileOpen && (
+                <div className="absolute right-0 top-12 w-64 rounded-2xl border border-zinc-100 bg-white p-5 shadow-2xl shadow-black/10 z-50 animate-scale-in">
+                  <div className="mb-3 border-b border-zinc-100 pb-3">
+                    <p className="truncate font-semibold text-zinc-900 text-xs">
+                      {profile?.full_name || profile?.name || 'Candy & Rose guest'}
+                    </p>
+                    <p className="truncate text-[10px] text-zinc-500 mt-0.5">
+                      {user.email}
+                    </p>
+                  </div>
+                  <ul className="space-y-1">
+                    <li>
+                      <Link
+                        href="/profile"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs text-zinc-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
+                      >
+                        <History size={14} className="text-pink-600" /> History
+                      </Link>
+                    </li>
+                    <li>
+                      <button
+                        onClick={async () => {
+                          setProfileOpen(false);
+                          await signOut();
+                          window.location.href = '/';
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors text-left"
+                      >
+                        <LogOut size={14} /> Logout
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={onBook}
+              className="hidden sm:inline-flex items-center gap-2 rounded-full bg-pink-600 px-6 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-md transition-all duration-300 hover:bg-pink-700 hover:shadow-pink-700/30 active:scale-95 cursor-pointer"
+            >
+              Book Appointment
+            </button>
+          )}
 
           {/* Mobile Menu Toggle */}
           <button
@@ -119,7 +181,7 @@ export function Header({ onBook }: { onBook: () => void }) {
       {menuOpen && (
         <div className="border-t border-zinc-100 bg-white p-6 shadow-xl lg:hidden animate-in slide-in-from-top-4 duration-200">
           <nav className="flex flex-col gap-4">
-            {headerNavItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
@@ -132,12 +194,34 @@ export function Header({ onBook }: { onBook: () => void }) {
               </Link>
             ))}
             
-            <button
-              onClick={() => { setMenuOpen(false); onBook(); }}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-pink-600 py-3.5 text-xs font-bold uppercase tracking-widest text-white shadow-md hover:bg-pink-700"
-            >
-              <CalendarDays size={15} /> Book Appointment
-            </button>
+            {user ? (
+              <div className="mt-4 flex flex-col gap-2 pt-4 border-t border-zinc-100">
+                <Link
+                  href="/profile"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-pink-50 border border-pink-200 py-3 text-xs font-bold uppercase tracking-widest text-pink-600 hover:bg-pink-100 transition-all"
+                >
+                  <History size={15} /> History / Profile
+                </Link>
+                <button
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    await signOut();
+                    window.location.href = '/';
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-100 py-3 text-xs font-bold uppercase tracking-widest text-zinc-600 hover:bg-red-50 hover:text-red-600 transition-all"
+                >
+                  <LogOut size={15} /> Logout
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setMenuOpen(false); onBook(); }}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-pink-600 py-3.5 text-xs font-bold uppercase tracking-widest text-white shadow-md hover:bg-pink-700"
+              >
+                <CalendarDays size={15} /> Book Appointment
+              </button>
+            )}
           </nav>
         </div>
       )}
@@ -388,8 +472,10 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
   if (!open) return null;
@@ -397,6 +483,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
+    setSuccessMessage('');
     if (mode === 'register' && !agreed) {
       setError('Please agree to our Terms and Conditions to continue.');
       return;
@@ -409,9 +496,16 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
     if (result.error) {
       setError(result.error);
     } else {
-      setName(''); setEmail(''); setPassword(''); setAgreed(false);
-      onClose();
-      onSuccess();
+      if (mode === 'register') {
+        setName('');
+        setPassword('');
+        setMode('login');
+        setSuccessMessage('Account created successfully! Please sign in with your credentials.');
+      } else {
+        setName(''); setEmail(''); setPassword(''); setAgreed(false);
+        onClose();
+        onSuccess();
+      }
     }
   };
 
@@ -431,11 +525,11 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
         </div>
         <div className="p-7 sm:p-12 flex flex-col justify-center">
           <div className="mb-8 flex gap-6 border-b border-zinc-200">
-            <button onClick={() => setMode('login')}
+            <button onClick={() => { setMode('login'); setError(''); setSuccessMessage(''); }}
               className={`pb-3 text-sm font-bold uppercase tracking-wider ${mode === 'login' ? 'border-b-2 border-pink-600 text-pink-600' : 'text-zinc-400'}`}>
               Sign in
             </button>
-            <button onClick={() => setMode('register')}
+            <button onClick={() => { setMode('register'); setError(''); setSuccessMessage(''); }}
               className={`pb-3 text-sm font-bold uppercase tracking-wider ${mode === 'register' ? 'border-b-2 border-pink-600 text-pink-600' : 'text-zinc-400'}`}>
               Create account
             </button>
@@ -449,7 +543,30 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
               <Field label="Full name" value={name} onChange={setName} placeholder="Your name" />
             )}
             <Field label="Email address" type="email" value={email} onChange={setEmail} placeholder="you@example.com" />
-            <Field label="Password" type="password" value={password} onChange={setPassword} placeholder="At least 6 characters" />
+            
+            {/* Password input with visibility eye toggle */}
+            <div className="block">
+              <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-zinc-500">Password</span>
+              <div className="relative">
+                <input 
+                  required 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  type={showPassword ? 'text' : 'password'} 
+                  placeholder="At least 6 characters"
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 pl-4 pr-11 py-3 text-xs outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-600 focus:bg-white" 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-pink-600 transition-colors p-1"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
+
             {mode === 'register' && (
               <label className="flex cursor-pointer items-start gap-3 py-1 text-xs leading-5 text-zinc-500">
                 <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)}
@@ -457,9 +574,12 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                 <span>I agree to Candy & Rose&apos;s <strong className="text-zinc-900">Terms and Conditions</strong> and Privacy Policy.</span>
               </label>
             )}
-            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
+            
+            {successMessage && <p className="rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700 font-semibold">{successMessage}</p>}
+            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 font-semibold">{error}</p>}
+            
             <button disabled={busy}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-950 py-4 text-xs font-bold uppercase tracking-widest text-white transition-all hover:bg-pink-600 disabled:opacity-60 shadow-md">
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-pink-600 py-4 text-xs font-bold uppercase tracking-widest text-white transition-all hover:bg-pink-700 disabled:opacity-60 shadow-md">
               {busy ? 'Please wait...' : mode === 'login' ? 'Sign in' : 'Create account'}
               <ChevronRight size={15} />
             </button>

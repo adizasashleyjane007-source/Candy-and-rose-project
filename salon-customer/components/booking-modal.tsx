@@ -90,11 +90,13 @@ export function BookingModal({ open, onClose, initialServices = [], onBookingSuc
     setSubmitting(true);
     try {
       let customerId: string | null = null;
-      const { data: existingCustomer } = await supabase
+      const { data: custData } = await supabase
         .from('customers')
         .select('id, name')
         .eq('email', customerEmail.trim().toLowerCase())
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const existingCustomer = custData && custData.length > 0 ? custData[0] : null;
 
       if (existingCustomer) {
         customerId = existingCustomer.id;

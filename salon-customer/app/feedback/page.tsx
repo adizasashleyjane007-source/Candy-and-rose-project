@@ -14,11 +14,12 @@ const sampleReviews = [
 ];
 
 export default function FeedbackPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [reviews, setReviews] = useState<Feedback[]>([]);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
-  const [sent, setSent] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     supabase.from('feedback').select('*').order('created_at', { ascending: false })
@@ -28,9 +29,25 @@ export default function FeedbackPage() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!user || !rating) return;
-    const { data } = await supabase.from('feedback').insert({ rating, comment }).select().maybeSingle();
+    setSubmitting(true);
+    const userName = profile?.full_name || profile?.name || user.email?.split('@')[0] || 'Candy & Rose guest';
+    
+    const { data } = await supabase
+      .from('feedback')
+      .insert({
+        user_id: user.id,
+        user_name: userName,
+        rating,
+        comment
+      })
+      .select()
+      .maybeSingle();
+
     if (data) setReviews((cur) => [data as Feedback, ...cur]);
-    setComment(''); setRating(0); setSent(true);
+    setComment('');
+    setRating(0);
+    setSubmitting(false);
+    setShowSuccessModal(true);
   };
 
   return (
@@ -58,8 +75,8 @@ export default function FeedbackPage() {
                     {sampleReviews.map((r) => (
                       <ReviewCard key={`${copy}-${r.name}`} name={r.name} rating={r.rating} comment={r.comment} />
                     ))}
-                    {reviews.map((r) => (
-                      <ReviewCard key={`${copy}-${r.id}`} name="Candy and Rose guest" rating={r.rating} comment={r.comment || ''} />
+                    {reviews.map((r: any) => (
+                      <ReviewCard key={`${copy}-${r.id}`} name={r.user_name || "Candy and Rose guest"} rating={r.rating} comment={r.comment || ''} />
                     ))}
                   </div>
                 ))}
@@ -81,12 +98,6 @@ export default function FeedbackPage() {
                       Sign in to review
                     </button>
                   </div>
-                ) : sent ? (
-                  <div className="flex flex-col items-center py-8 text-center">
-                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600"><Check /></div>
-                    <h3 className="font-serif text-2xl">Thank you for sharing.</h3>
-                    <p className="mt-2 text-sm text-neutral-500">Your review is now part of our guest book.</p>
-                  </div>
                 ) : (
                   <form onSubmit={submit}>
                     <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Your rating</p>
@@ -104,9 +115,9 @@ export default function FeedbackPage() {
                         className="w-full resize-none rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-primary"
                         placeholder="What made your visit special?" />
                     </label>
-                    <button disabled={!rating}
-                      className="mt-6 rounded-full bg-primary px-7 py-4 text-xs font-bold uppercase tracking-widest text-white disabled:opacity-50">
-                      Publish review
+                    <button disabled={!rating || submitting}
+                      className="mt-6 rounded-full bg-primary px-7 py-4 text-xs font-bold uppercase tracking-widest text-white disabled:opacity-50 hover:bg-pink-700 transition-colors">
+                      {submitting ? 'Publishing...' : 'Publish review'}
                     </button>
                   </form>
                 )}
@@ -115,6 +126,27 @@ export default function FeedbackPage() {
           </div>
         </section>
       </main>
+
+      {/* SUCCESS CONFIRMATION MODAL */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-2xl animate-in zoom-in-95 duration-200 border border-zinc-100">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-pink-100 text-pink-600">
+              <Check size={28} className="stroke-[3]" />
+            </div>
+            <h3 className="font-serif text-2xl font-semibold text-zinc-900">Feedback Added</h3>
+            <p className="mt-3 text-xs leading-relaxed text-zinc-600 font-medium">
+              You&apos;re feedback has been added. Thank you for supporting Candy &amp; Rose Salon!
+            </p>
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="mt-6 w-full rounded-full bg-pink-600 py-3.5 text-xs font-bold uppercase tracking-widest text-white shadow-md hover:bg-pink-700 active:scale-95 transition-all"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </SalonLayout>
   );
 }

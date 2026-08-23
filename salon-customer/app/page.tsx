@@ -9,6 +9,7 @@ import {
 import SalonLayout from '@/components/salon-layout';
 import { SectionHeading } from '@/components/salon-ui';
 import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
 
 const servicesData = [
   {
@@ -72,35 +73,11 @@ const highlights = [
   },
 ];
 
-const testimonials = [
-  {
-    name: 'Pooja Sharma',
-    role: 'Regular Client',
-    text: 'Absolutely loved the experience! The staff is super professional and my hair looks amazing after the balayage treatment.',
-    stars: 5,
-    avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=150',
-  },
-  {
-    name: 'Ankita Verma',
-    role: 'Bridal Customer',
-    text: 'Best salon in town! The makeup was flawless for my wedding reception and stayed intact all day long without feeling heavy.',
-    stars: 5,
-    avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
-  },
-  {
-    name: 'Neha Singh',
-    role: 'Frequent Guest',
-    text: 'Great service, relaxing ambiance, and very hygienic. Highly recommended for facial rituals and artisan nail extensions!',
-    stars: 5,
-    avatar: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=150',
-  },
-];
+const testimonials: any[] = [];
 
 const carouselImages = [
-  '/images/hairstyle.png',
-  '/images/nails.png',
-  '/images/makeup.png',
-  '/images/brown hair.png',
+  '/images/salon-header-1.jpg',
+  '/images/salon-header-2.jpg',
 ];
 
 const rotatingWords = [
@@ -115,6 +92,19 @@ export default function Home() {
   const { user } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [currentWordIdx, setCurrentWordIdx] = useState(0);
+  const [fetchedReviews, setFetchedReviews] = useState<any[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from('feedback')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setFetchedReviews(data);
+        }
+      });
+  }, []);
 
   useEffect(() => {
     const slideTimer = setInterval(() => {
@@ -392,46 +382,61 @@ export default function Home() {
               centered
             />
 
-            <div className="mt-14 grid gap-8 md:grid-cols-3">
-              {testimonials.map((item) => (
-                <div
-                  key={item.name}
-                  className="rounded-3xl border border-zinc-200/80 bg-white p-8 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between"
-                >
-                  <div>
-                    {/* Stars */}
-                    <div className="flex text-amber-400 mb-6">
-                      {[...Array(item.stars)].map((_, i) => (
-                        <Star key={i} size={16} fill="currentColor" />
-                      ))}
-                    </div>
-                    <p className="text-xs sm:text-sm leading-7 text-zinc-600 font-medium italic">
-                      &ldquo;{item.text}&rdquo;
-                    </p>
-                  </div>
+            {fetchedReviews.length > 0 ? (
+              <>
+                <div className="mt-14 grid gap-8 md:grid-cols-3">
+                  {fetchedReviews.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-3xl border border-zinc-200/80 bg-white p-8 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between"
+                    >
+                      <div>
+                        {/* Stars */}
+                        <div className="flex text-amber-400 mb-6">
+                          {[...Array(item.rating || 5)].map((_, i) => (
+                            <Star key={i} size={16} fill="currentColor" />
+                          ))}
+                        </div>
+                        <p className="text-xs sm:text-sm leading-7 text-zinc-600 font-medium italic">
+                          &ldquo;{item.comment || 'Wonderful experience!'}&rdquo;
+                        </p>
+                      </div>
 
-                  {/* Customer Info */}
-                  <div className="mt-8 flex items-center gap-4 border-t border-zinc-100 pt-6">
-                    <img
-                      src={item.avatar}
-                      alt={item.name}
-                      className="h-12 w-12 rounded-full object-cover border-2 border-pink-200"
-                    />
-                    <div>
-                      <h4 className="font-serif text-base font-semibold text-zinc-900">{item.name}</h4>
-                      <p className="text-[11px] text-pink-600 font-bold uppercase tracking-wider">{item.role}</p>
+                      {/* Customer Info */}
+                      <div className="mt-8 flex items-center gap-4 border-t border-zinc-100 pt-6">
+                        <div className="h-12 w-12 rounded-full bg-pink-100 text-pink-600 font-bold flex items-center justify-center border-2 border-pink-200 text-base font-serif">
+                          {(item.user_name || 'G').slice(0, 1).toUpperCase()}
+                        </div>
+                        <div>
+                          <h4 className="font-serif text-base font-semibold text-zinc-900">{item.user_name || 'Candy & Rose Guest'}</h4>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            {/* Pagination Dots */}
-            <div className="mt-10 flex justify-center items-center gap-2">
-              <span className="h-2.5 w-7 rounded-full bg-pink-600"></span>
-              <span className="h-2.5 w-2.5 rounded-full bg-zinc-300"></span>
-              <span className="h-2.5 w-2.5 rounded-full bg-zinc-300"></span>
-            </div>
+                {/* Pagination Dots */}
+                <div className="mt-10 flex justify-center items-center gap-2">
+                  <span className="h-2.5 w-7 rounded-full bg-pink-600"></span>
+                  <span className="h-2.5 w-2.5 rounded-full bg-zinc-300"></span>
+                  <span className="h-2.5 w-2.5 rounded-full bg-zinc-300"></span>
+                </div>
+              </>
+            ) : (
+              <div className="mt-14 max-w-xl mx-auto rounded-3xl border border-zinc-200/80 bg-white p-8 sm:p-10 text-center shadow-sm">
+                <p className="text-zinc-500 text-xs sm:text-sm leading-relaxed">
+                  We are currently gathering feedback from our guests. If you have recently visited us, we would love to hear about your experience!
+                </p>
+                <div className="mt-6">
+                  <Link
+                    href="/feedback"
+                    className="inline-flex items-center gap-2.5 rounded-full bg-pink-600 hover:bg-pink-700 text-white px-6 py-3.5 text-xs font-bold uppercase tracking-widest transition-all duration-300 shadow-md"
+                  >
+                    Share Your Feedback <ArrowRight size={14} />
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       </main>

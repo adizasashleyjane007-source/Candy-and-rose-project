@@ -53,7 +53,9 @@ export default function SalonLayout({ children }: { children: ReactNode }) {
       <AuthModal
         open={authOpen}
         onClose={() => setAuthOpen(false)}
-        onSuccess={() => setBookingModalOpen(true)}
+        onSuccess={() => {
+          window.location.href = '/';
+        }}
       />
       <BookingModal
         open={bookingModalOpen}

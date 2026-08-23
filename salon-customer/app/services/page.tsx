@@ -104,17 +104,7 @@ export default function ServicesPage() {
               <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
                 {shown.length} treatments available
               </p>
-              {user && (
-                <button
-                  onClick={() => setShowAdd(!showAdd)}
-                  className="flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-800 transition-colors hover:border-pink-600 hover:text-pink-600"
-                >
-                  <Plus size={15} /> Add a service
-                </button>
-              )}
             </div>
-
-            {user && showAdd && <AddServiceForm onAdded={() => setShowAdd(false)} />}
 
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
               {shown.map((service) => {

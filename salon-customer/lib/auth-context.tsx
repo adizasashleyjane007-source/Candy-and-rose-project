@@ -33,35 +33,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('id', userId)
         .maybeSingle();
 
-      if (data) {
-        setProfile({
-          id: data.id,
-          name: data.name || data.full_name || userEmail?.split('@')[0],
-          full_name: data.name || data.full_name || userEmail?.split('@')[0],
-          email: data.email || userEmail,
-          phone: data.phone,
-          image_url: data.image_url,
-          avatar_url: data.avatar_url || data.image_url,
-          role: data.role,
-        });
-      } else if (userEmail) {
-        setProfile({
-          id: userId,
-          name: userEmail.split('@')[0],
-          full_name: userEmail.split('@')[0],
-          email: userEmail,
-        });
-      }
+      let resolvedName = userEmail?.split('@')[0] || '';
+      let resolvedPhone = '';
 
       if (userEmail) {
         const { data: custData } = await supabase
           .from('customers')
           .select('*')
           .eq('email', userEmail)
-          .maybeSingle();
-        if (custData) {
-          setCustomer(custData as Customer);
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (custData && custData.length > 0) {
+          const activeCust = custData[0];
+          setCustomer(activeCust as Customer);
+          resolvedName = activeCust.name || resolvedName;
+          resolvedPhone = activeCust.phone || '';
         }
+      }
+
+      if (data) {
+        setProfile({
+          id: data.id,
+          name: data.name || data.full_name || resolvedName,
+          full_name: data.name || data.full_name || resolvedName,
+          email: data.email || userEmail,
+          phone: data.phone || resolvedPhone,
+          image_url: data.image_url,
+          avatar_url: data.avatar_url || data.image_url,
+          role: data.role,
+        });
+      } else {
+        // Auto-create missing profile record
+        const newProfile = {
+          id: userId,
+          name: resolvedName,
+          email: userEmail || '',
+          phone: resolvedPhone || null,
+          role: 'Customer'
+        };
+        await supabase.from('profiles').upsert(newProfile);
+        setProfile({
+          id: userId,
+          name: resolvedName,
+          full_name: resolvedName,
+          email: userEmail || '',
+          phone: resolvedPhone,
+        });
       }
     } catch (e) {
       console.error('Error loading profile:', e);
