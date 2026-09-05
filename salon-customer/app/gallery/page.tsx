@@ -189,7 +189,7 @@ export default function GalleryPage() {
               <Sparkles size={11} className="text-pink-600 animate-pulse" /> VISUAL INSPIRATION
             </span>
             <h1 className="font-serif text-4xl leading-tight sm:text-6xl text-zinc-950 font-medium tracking-tight">
-              The Art of <span className="font-script text-4xl sm:text-6xl text-pink-500 font-normal">Candy & Rose</span>
+              The Art of <span className="font-brand italic text-pink-600 font-medium">Candy &amp; Rose</span>
             </h1>
             <p className="mt-6 mx-auto max-w-2xl text-xs sm:text-sm leading-relaxed text-zinc-600">
               Explore our lookbook of signature hair styling, artisan nail art, and therapeutic spa rituals designed to reveal your natural confidence.
@@ -264,7 +264,7 @@ export default function GalleryPage() {
         {/* VIDEO SHOWCASE SECTION */}
         <section className="px-6 py-20 lg:px-10 max-w-7xl mx-auto">
           <div className="mb-14 text-center sm:text-left border-b border-zinc-100 pb-8">
-            <span className="font-script text-3xl text-pink-500 font-normal">Aesthetic Clips</span>
+            <span className="font-serif italic text-2xl text-pink-600 font-medium">Aesthetic Clips</span>
             <h2 className="font-serif text-3xl sm:text-4xl font-medium text-zinc-900 mt-1">Transformations in Motion</h2>
             <p className="mt-2 text-xs text-zinc-500 max-w-xl">
               Watch our stylists and artists bring beauty to life with technical skill, precision movements, and premium care.
@@ -328,7 +328,7 @@ export default function GalleryPage() {
         <section className="px-6 py-20 lg:px-10 max-w-7xl mx-auto border-t border-zinc-100">
           <div className="mb-14 flex flex-col md:flex-row md:items-end md:justify-between gap-8 border-b border-zinc-100 pb-8">
             <div>
-              <span className="font-script text-3xl text-pink-500 font-normal">Our Lookbook</span>
+              <span className="font-serif italic text-2xl text-pink-600 font-medium">Our Lookbook</span>
               <h2 className="font-serif text-3xl sm:text-4xl font-medium text-zinc-900 mt-1">Signature Creations</h2>
             </div>
             

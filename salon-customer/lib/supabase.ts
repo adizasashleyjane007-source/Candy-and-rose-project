@@ -127,3 +127,46 @@ export function parseDurationToMinutes(durationStr: string | null | undefined): 
   return Math.round(value);
 }
 
+export type SalonInfo = {
+  name: string;
+  phone: string;
+  address: string;
+  email: string;
+  tagline?: string;
+  logo_url?: string;
+};
+
+export const defaultSalonInfo: SalonInfo = {
+  name: "Candy And Rose Salon",
+  address: "Blk and Lot, Dasmarinas Cavite",
+  phone: "09123456789",
+  email: "candyandroses@gmail.com",
+  tagline: "Where beauty meets elegance",
+};
+
+export async function getSalonInfo(): Promise<SalonInfo> {
+  try {
+    const { data, error } = await supabase
+      .from('salon_settings')
+      .select('*')
+      .eq('key', 'salon_info')
+      .maybeSingle();
+
+    if (error || !data) return defaultSalonInfo;
+
+    return {
+      name: data.name || defaultSalonInfo.name,
+      phone: data.phone || defaultSalonInfo.phone,
+      address: data.address || defaultSalonInfo.address,
+      email: data.email || defaultSalonInfo.email,
+      tagline: data.tagline || defaultSalonInfo.tagline,
+      logo_url: data.logo_url || "",
+      ...(data.value || {})
+    };
+  } catch (e) {
+    console.error('Error fetching salon info:', e);
+    return defaultSalonInfo;
+  }
+}
+
+

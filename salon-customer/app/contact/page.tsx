@@ -1,20 +1,25 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Check, Clock3, Mail, MapPin, Phone, Send } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { SectionHeading } from '@/components/salon-ui';
-import { supabase } from '@/lib/supabase';
+import { supabase, getSalonInfo, defaultSalonInfo, type SalonInfo } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 
 export default function ContactPage() {
   const { user, profile } = useAuth();
+  const [salonInfo, setSalonInfo] = useState<SalonInfo>(defaultSalonInfo);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('General question');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+
+  useEffect(() => {
+    getSalonInfo().then(setSalonInfo);
+  }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -68,7 +73,7 @@ export default function ContactPage() {
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pink-50 text-primary"><MapPin size={18} /></div>
                 <div>
                   <h3 className="font-semibold">Come by</h3>
-                  <p className="mt-1 text-sm leading-6 text-neutral-500">24 Rosewood Avenue<br />New York, NY 10013</p>
+                  <p className="mt-1 text-sm leading-6 text-neutral-500">{salonInfo.address}</p>
                 </div>
               </div>
               <div className="flex gap-4">
@@ -82,14 +87,14 @@ export default function ContactPage() {
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pink-50 text-primary"><Mail size={18} /></div>
                 <div>
                   <h3 className="font-semibold">Email us</h3>
-                  <p className="mt-1 text-sm leading-6 text-neutral-500">hello@candyandrose.salon</p>
+                  <p className="mt-1 text-sm leading-6 text-neutral-500">{salonInfo.email}</p>
                 </div>
               </div>
               <div className="flex gap-4">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pink-50 text-primary"><Phone size={18} /></div>
                 <div>
                   <h3 className="font-semibold">Call us</h3>
-                  <p className="mt-1 text-sm leading-6 text-neutral-500">+1 212 555 0198</p>
+                  <p className="mt-1 text-sm leading-6 text-neutral-500">{salonInfo.phone}</p>
                 </div>
               </div>
             </div>

@@ -18,8 +18,15 @@ export default function ServicesPage() {
   const [selected, setSelected] = useState<Service[]>([]);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [searchFilter, setSearchFilter] = useState('');
 
   useEffect(() => {
+    // Check URL for search query
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('q')) {
+      setSearchFilter(params.get('q') || '');
+    }
+
     supabase.from('services').select('*').order('created_at', { ascending: false }).then(({ data }) => {
       if (data) {
         setServices(data as Service[]);
@@ -43,12 +50,23 @@ export default function ServicesPage() {
   }, [services]);
 
   const shown = useMemo(
-    () => category === 'All' ? services : services.filter((s) => {
-      if (!s.category) return false;
-      const normalizedSvcCat = s.category.trim().charAt(0).toUpperCase() + s.category.trim().slice(1).toLowerCase();
-      return normalizedSvcCat === category;
-    }),
-    [category, services]
+    () => {
+      let filtered = category === 'All' ? services : services.filter((s) => {
+        if (!s.category) return false;
+        const normalizedSvcCat = s.category.trim().charAt(0).toUpperCase() + s.category.trim().slice(1).toLowerCase();
+        return normalizedSvcCat === category;
+      });
+
+      if (searchFilter) {
+        const lowerQ = searchFilter.toLowerCase();
+        filtered = filtered.filter(s => 
+          s.name.toLowerCase().includes(lowerQ) || 
+          (s.description && s.description.toLowerCase().includes(lowerQ))
+        );
+      }
+      return filtered;
+    },
+    [category, services, searchFilter]
   );
 
   const toggle = (service: Service) => {
@@ -102,8 +120,19 @@ export default function ServicesPage() {
           <div className="mx-auto max-w-7xl">
             <div className="mb-8 flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                {shown.length} treatments available
+                {shown.length} treatments available {searchFilter && `for "${searchFilter}"`}
               </p>
+              {searchFilter && (
+                <button 
+                  onClick={() => {
+                    setSearchFilter('');
+                    window.history.replaceState({}, '', '/services');
+                  }}
+                  className="text-xs text-pink-600 hover:text-pink-700 font-semibold"
+                >
+                  Clear Search
+                </button>
+              )}
             </div>
 
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">

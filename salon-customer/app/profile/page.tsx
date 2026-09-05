@@ -183,7 +183,7 @@ export default function ProfilePage() {
                 <Sparkles size={11} className="text-pink-600" /> Welcome back
               </span>
               <h1 className="font-serif text-3xl sm:text-5xl font-medium text-zinc-950 mt-4 leading-tight">
-                Your Sanctuary <span className="font-script text-3xl sm:text-5xl text-pink-500 font-normal">Dashboard</span>
+                Your Sanctuary <span className="font-serif italic text-pink-600 font-normal">Dashboard</span>
               </h1>
             </div>
             

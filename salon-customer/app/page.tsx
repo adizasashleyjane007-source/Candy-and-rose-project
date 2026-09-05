@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { 
   ArrowRight, CalendarDays, CheckCircle2, Heart, ShieldCheck, 
-  Sparkles, Star, UserCheck, Play, Award, Leaf 
+  Sparkles, Star, UserCheck, Play, Award, Leaf, Scissors
 } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { SectionHeading } from '@/components/salon-ui';
@@ -93,6 +93,7 @@ export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [currentWordIdx, setCurrentWordIdx] = useState(0);
   const [fetchedReviews, setFetchedReviews] = useState<any[]>([]);
+  const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
     supabase
@@ -115,9 +116,15 @@ export default function Home() {
       setCurrentWordIdx((prev) => (prev + 1) % rotatingWords.length);
     }, 3000);
 
+    const handleScroll = () => {
+      setScrollY(window.scrollY);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
     return () => {
       clearInterval(slideTimer);
       clearInterval(wordTimer);
+      window.removeEventListener('scroll', handleScroll);
     };
   }, []);
 
@@ -127,9 +134,12 @@ export default function Home() {
 
   return (
     <SalonLayout>
-      <main className="bg-white">
+      <main className="relative">
         {/* HERO SECTION */}
-        <section className="relative min-h-[88vh] flex items-center justify-center bg-zinc-950 overflow-hidden">
+        <section 
+          className="sticky top-0 h-[88vh] w-full flex items-center justify-center bg-zinc-950 overflow-hidden z-0"
+          style={{ transform: `translateY(-${scrollY * 0.4}px)` }}
+        >
           {/* Background Image Carousel with High Clarity */}
           <div className="absolute inset-0 z-0">
             {carouselImages.map((src, idx) => (
@@ -150,7 +160,7 @@ export default function Home() {
           </div>
 
           {/* Hero Content */}
-          <div className="relative z-20 max-w-7xl mx-auto px-6 py-20 lg:px-10 w-full">
+          <div className="relative z-20 max-w-7xl mx-auto px-6 pt-36 pb-20 lg:px-10 w-full">
             <div className="max-w-2xl">
               <span className="font-serif italic text-pink-300 text-2xl sm:text-3xl font-normal tracking-wide block mb-3 drop-shadow">
                 Look Good, Feel Beautiful
@@ -204,28 +214,26 @@ export default function Home() {
           </div>
         </section>
 
-        {/* FLOATING FEATURE HIGHLIGHTS BAR */}
-        <section className="relative z-20 -mt-12 max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="rounded-3xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 p-6 sm:p-8 shadow-2xl grid grid-cols-2 md:grid-cols-4 gap-6 text-white">
-            {highlights.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div key={item.title} className="flex items-center gap-4 border-r border-zinc-800/80 last:border-0 pr-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-pink-600/20 text-pink-400 border border-pink-500/20">
-                    <Icon size={22} />
-                  </div>
-                  <div>
-                    <h4 className="font-serif text-base font-semibold text-white leading-tight">{item.title}</h4>
-                    <p className="text-[11px] text-zinc-400 mt-0.5">{item.subtitle}</p>
-                  </div>
-                </div>
-              );
-            })}
+        {/* STATS HIGHLIGHTS */}
+        <section className="relative z-20 w-full bg-[#A98F78] py-16 sm:py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-0">
+            {[
+              { number: '1300+', label: 'CUSTOMER' },
+              { number: '30+', label: 'OUR TRAINER' },
+              { number: '2013', label: 'BEGIN ON' }
+            ].map((stat) => (
+              <div key={stat.label} className="flex flex-col items-center justify-center text-center">
+                <h4 className="font-serif text-6xl sm:text-7xl font-light text-white tracking-tight mb-4 leading-none">{stat.number}</h4>
+                <p className="text-sm font-medium tracking-[0.2em] uppercase text-white/90">
+                   {stat.label}
+                </p>
+              </div>
+            ))}
           </div>
         </section>
 
         {/* SERVICES SECTION */}
-        <section className="px-6 py-24 lg:px-10 bg-white">
+        <section className="relative z-20 px-6 py-24 lg:px-10 bg-white">
           <div className="mx-auto max-w-7xl">
             <SectionHeading
               eyebrow="OUR SERVICES"
@@ -280,7 +288,7 @@ export default function Home() {
         </section>
 
         {/* ABOUT US SECTION */}
-        <section className="bg-pink-50/50 px-6 py-24 lg:px-10 border-y border-pink-100/60">
+        <section className="relative z-20 bg-pink-50/50 px-6 py-24 lg:px-10 border-y border-pink-100/60">
           <div className="mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-2">
             {/* Left Image with Play Icon */}
             <div className="relative group overflow-hidden rounded-3xl border border-pink-200/60 shadow-xl">
@@ -336,7 +344,7 @@ export default function Home() {
         </section>
 
         {/* SPECIAL OFFER BANNER */}
-        <section className="px-6 py-20 lg:px-10 bg-white">
+        <section className="relative z-20 px-6 py-20 lg:px-10 bg-white">
           <div className="mx-auto max-w-7xl">
             <div className="rounded-3xl bg-gradient-to-r from-zinc-950 via-zinc-900 to-pink-950 p-8 sm:p-14 text-white shadow-2xl flex flex-col md:flex-row items-center justify-between gap-10 border border-zinc-800 relative overflow-hidden">
               <div className="max-w-xl z-10">
@@ -373,7 +381,7 @@ export default function Home() {
         </section>
 
         {/* CLIENT LOVE (TESTIMONIALS) */}
-        <section id="testimonials" className="px-6 py-24 lg:px-10 bg-zinc-50 border-t border-zinc-200/60">
+        <section id="testimonials" className="relative z-20 px-6 py-24 lg:px-10 bg-zinc-50 border-t border-zinc-200/60">
           <div className="mx-auto max-w-7xl">
             <SectionHeading
               eyebrow="CLIENT LOVE"

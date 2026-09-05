@@ -2,13 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { FormEvent, ReactNode, useEffect, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import {
   CalendarDays, Check, ChevronRight, Clock3, Heart, History,
   LogIn, LogOut, Mail, MapPin, Menu, Phone, Plus, Sparkles,
-  Star, X, Facebook, Twitter, Instagram, Youtube, ChevronDown, Leaf, Eye, EyeOff, User
+  Star, X, Facebook, Twitter, Instagram, Youtube, ChevronDown, Leaf, Eye, EyeOff, User, Search
 } from 'lucide-react';
-import { supabase, type Appointment, type Service } from '@/lib/supabase';
+import { supabase, getSalonInfo, defaultSalonInfo, type SalonInfo, type Appointment, type Service } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 
 export const headerNavItems: { label: string; href: string }[] = [
@@ -23,19 +23,25 @@ export const headerNavItems: { label: string; href: string }[] = [
 
 export function Logo({ light = false }: { light?: boolean }) {
   return (
-    <Link href="/" aria-label="Candy and Rose Salon home" className="flex items-center shrink-0 group">
-      <span className={`font-script text-3xl sm:text-4xl lg:text-5xl font-normal transition-all duration-300 ${
+    <Link href="/" aria-label="Candy and Rose Salon home" className="flex items-center shrink-0 group py-1">
+      <span className={`font-brand text-2xl sm:text-3xl lg:text-[2.25rem] font-medium tracking-tight transition-all duration-300 ${
         light 
           ? 'text-white group-hover:text-pink-300' 
           : 'text-zinc-950 group-hover:text-pink-600'
       }`}>
-        Candy & Rose
+        Candy <span className="font-brand italic font-normal text-pink-500 text-2xl sm:text-3xl lg:text-[2.35rem] mx-0.5">&amp;</span> Rose
       </span>
     </Link>
   );
 }
 
 export function TopBar() {
+  const [salonInfo, setSalonInfo] = useState<SalonInfo>(defaultSalonInfo);
+
+  useEffect(() => {
+    getSalonInfo().then(setSalonInfo);
+  }, []);
+
   return (
     <div className="bg-zinc-950 text-white text-[11px] py-2 px-4 border-b border-zinc-800/80 overflow-hidden relative">
       <div className="mx-auto max-w-[90rem] flex items-center justify-center font-medium tracking-wide text-zinc-300">
@@ -47,14 +53,17 @@ export function TopBar() {
               New Customer? Get 20% Off On Your First Visit
             </span>
             <span className="text-zinc-500">•</span>
-            <span className="text-zinc-300">Complimentary Hair & Skin Consultation with Every Booking</span>
+            <span className="text-zinc-300">Complimentary Hair &amp; Skin Consultation with Every Booking</span>
             <span className="text-zinc-500">•</span>
             <span className="flex items-center gap-1.5 text-pink-300 font-semibold">
               <Sparkles size={12} className="text-pink-400" />
-              Book Online & Enjoy Exclusive Salon Upgrades
+              Book Online &amp; Enjoy Exclusive Salon Upgrades
             </span>
+            <span className="text-zinc-300">{salonInfo.address}</span>
             <span className="text-zinc-500">•</span>
-            <span className="text-zinc-300">123 Beauty Street, Manila, Philippines • Call Us: +63 987 654 3210</span>
+            <span className="text-zinc-300 font-medium">
+              Call Us: <span className="text-pink-300 font-semibold ml-1.5">{salonInfo.phone}</span>
+            </span>
           </div>
         </div>
       </div>
@@ -64,19 +73,57 @@ export function TopBar() {
 
 export function Header({ onBook }: { onBook: () => void }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const isHome = pathname === '/';
+  
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, profile, signOut } = useAuth();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // Keep navbar transparent while over the hero section
+      const threshold = isHome ? window.innerHeight * 0.8 : 20;
+      setIsScrolled(window.scrollY > threshold);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    if (profileOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [profileOpen]);
+
+  useEffect(() => {
+    setMenuOpen(false);
+    setProfileOpen(false);
+    setIsSearchOpen(false);
+  }, [pathname]);
 
   const visibleNavItems = user
     ? headerNavItems.filter((item) => item.label !== 'About Us' && item.label !== 'Gallery')
     : headerNavItems;
 
   return (
-    <header className="z-50 fixed top-0 left-0 right-0 w-full shadow-sm bg-white/95 backdrop-blur-md border-b border-zinc-100">
+    <header className={`z-50 fixed top-0 left-0 right-0 w-full transition-all duration-300 ${isHome && !isScrolled ? 'bg-transparent border-transparent' : 'shadow-sm bg-white/95 backdrop-blur-md border-b border-zinc-100'}`}>
       <TopBar />
       <div className="mx-auto flex h-20 max-w-[90rem] w-full items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Logo />
+        <Logo light={isHome && !isScrolled} />
         
         {/* Main Desktop Navigation */}
         <nav className="hidden items-center gap-7 xl:gap-9 lg:flex">
@@ -87,10 +134,10 @@ export function Header({ onBook }: { onBook: () => void }) {
               <Link
                 key={item.label}
                 href={item.href}
-                className={`font-sans text-xs font-bold uppercase tracking-[0.16em] transition-all duration-200 ${
+                className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
                   isActive 
-                    ? 'text-pink-600 font-bold border-b-2 border-pink-600 pb-1' 
-                    : 'text-zinc-700 hover:text-pink-600'
+                    ? (isHome && !isScrolled ? 'text-white font-extrabold border-b-2 border-white' : 'text-pink-600 font-extrabold border-b-2 border-pink-600')
+                    : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
                 }`}
               >
                 {item.label}
@@ -101,30 +148,76 @@ export function Header({ onBook }: { onBook: () => void }) {
 
         {/* Right Action Section */}
         <div className="flex items-center gap-4">
-          {user ? (
-            <div className="relative">
+          {/* Search Action */}
+          <div className="relative flex items-center">
+            {isSearchOpen ? (
+              <div className={`flex items-center rounded-full px-3 py-1.5 backdrop-blur-md border transition-all ${isHome && !isScrolled ? 'bg-white/10 border-white/30 text-white' : 'bg-zinc-100 border-zinc-200 text-zinc-800'}`}>
+                <Search size={14} className={isHome && !isScrolled ? 'text-white/70' : 'text-zinc-500'} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchQuery.trim()) {
+                      setIsSearchOpen(false);
+                      router.push(`/services?q=${encodeURIComponent(searchQuery.trim())}`);
+                    }
+                  }}
+                  placeholder="Search..."
+                  autoFocus
+                  onBlur={() => !searchQuery && setIsSearchOpen(false)}
+                  className={`ml-2 bg-transparent text-[13px] font-medium outline-none w-24 sm:w-32 md:w-48 transition-all ${isHome && !isScrolled ? 'text-white placeholder:text-white/60' : 'text-zinc-900 placeholder:text-zinc-400'}`}
+                />
+                <button onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }} className={`ml-1 p-0.5 rounded-full ${isHome && !isScrolled ? 'hover:bg-white/20' : 'hover:bg-zinc-200'}`}>
+                  <X size={12} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsSearchOpen(true)}
+                className={`p-2 rounded-full transition-colors ${isHome && !isScrolled ? 'text-white hover:bg-white/20' : 'text-zinc-700 hover:bg-zinc-100'}`}
+                aria-label="Search"
+              >
+                <Search size={18} />
+              </button>
+            )}
+          </div>
+
+          {user && (
+            <div ref={dropdownRef} className="relative flex items-center gap-2">
+              {/* Circular User Icon - Clicking directs to profile */}
+              <Link
+                href="/profile"
+                className={`flex h-10 w-10 items-center justify-center rounded-full transition-all shadow-sm group ${
+                  isHome && !isScrolled
+                    ? 'bg-white/10 border border-white/20 text-white hover:bg-white/20 hover:scale-105'
+                    : 'bg-pink-100 border border-pink-200 text-black hover:bg-pink-200 hover:scale-105'
+                }`}
+                title="View Dashboard"
+                aria-label="View Dashboard"
+              >
+                <User size={18} className={isHome && !isScrolled ? 'text-white' : 'text-black group-hover:text-pink-700 transition-colors'} />
+              </Link>
+
+              {/* Dropdown Toggle for Email and Chevron */}
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center gap-4 rounded-full hover:bg-zinc-50 p-1.5 transition-all duration-200"
+                className={`flex items-center gap-2 rounded-full py-1.5 px-2 transition-all duration-200 ${isHome && !isScrolled ? 'hover:bg-white/10' : 'hover:bg-zinc-50'}`}
                 aria-label="Toggle user menu"
               >
-                {/* Circular User Icon */}
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-pink-100 border border-pink-200 text-black">
-                  <User size={18} className="text-black" />
-                </div>
                 {/* Username */}
-                <span className="text-xs font-bold text-zinc-700 hover:text-pink-600 transition-colors">
+                <span className={`text-xs font-bold transition-colors ${isHome && !isScrolled ? 'text-white hover:text-pink-300' : 'text-zinc-700 hover:text-pink-600'}`}>
                   {user.email}
                 </span>
                 {/* Dropdown Arrow */}
-                <ChevronDown size={14} className={`text-zinc-500 transition-transform duration-200 ${profileOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className={`transition-transform duration-200 ${profileOpen ? 'rotate-180' : ''} ${isHome && !isScrolled ? 'text-white/80' : 'text-zinc-500'}`} />
               </button>
 
               {/* Dropdown Menu */}
               {profileOpen && (
                 <div className="absolute right-0 top-12 w-64 rounded-2xl border border-zinc-100 bg-white p-5 shadow-2xl shadow-black/10 z-50 animate-scale-in">
                   <div className="mb-3 border-b border-zinc-100 pb-3">
-                    <p className="truncate font-semibold text-zinc-900 text-xs">
+                     <p className="truncate font-semibold text-zinc-900 text-xs">
                       {profile?.full_name || profile?.name || 'Candy & Rose guest'}
                     </p>
                     <p className="truncate text-[10px] text-zinc-500 mt-0.5">
@@ -135,13 +228,20 @@ export function Header({ onBook }: { onBook: () => void }) {
                     <li>
                       <Link
                         href="/profile"
-                        onClick={() => setProfileOpen(false)}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs text-zinc-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs text-zinc-700 hover:bg-pink-50 hover:text-pink-600 transition-colors font-medium"
                       >
                         <History size={14} className="text-pink-600" /> History
                       </Link>
                     </li>
                     <li>
+                      <Link
+                        href="/profile"
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
+                      >
+                        <User size={14} className="text-zinc-500" /> Profile Settings
+                      </Link>
+                    </li>
+                    <li className="pt-1 border-t border-zinc-100">
                       <button
                         onClick={async () => {
                           setProfileOpen(false);
@@ -157,18 +257,11 @@ export function Header({ onBook }: { onBook: () => void }) {
                 </div>
               )}
             </div>
-          ) : (
-            <button
-              onClick={onBook}
-              className="hidden sm:inline-flex items-center gap-2 rounded-full bg-pink-600 px-6 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-md transition-all duration-300 hover:bg-pink-700 hover:shadow-pink-700/30 active:scale-95 cursor-pointer"
-            >
-              Book Appointment
-            </button>
           )}
 
           {/* Mobile Menu Toggle */}
           <button
-            className="p-2 lg:hidden text-zinc-700 hover:text-pink-600 transition-colors"
+            className={`p-2 lg:hidden transition-colors ${isHome && !isScrolled ? 'text-white hover:text-pink-300' : 'text-zinc-700 hover:text-pink-600'}`}
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="Menu"
           >
@@ -185,7 +278,6 @@ export function Header({ onBook }: { onBook: () => void }) {
               <Link
                 key={item.label}
                 href={item.href}
-                onClick={() => setMenuOpen(false)}
                 className={`font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors py-2 border-b border-zinc-50 ${
                   pathname === item.href ? 'text-pink-600 font-bold' : 'text-zinc-800 hover:text-pink-600'
                 }`}
@@ -198,10 +290,15 @@ export function Header({ onBook }: { onBook: () => void }) {
               <div className="mt-4 flex flex-col gap-2 pt-4 border-t border-zinc-100">
                 <Link
                   href="/profile"
-                  onClick={() => setMenuOpen(false)}
                   className="flex w-full items-center justify-center gap-2 rounded-full bg-pink-50 border border-pink-200 py-3 text-xs font-bold uppercase tracking-widest text-pink-600 hover:bg-pink-100 transition-all"
                 >
-                  <History size={15} /> History / Profile
+                  <History size={15} /> Appointment History
+                </Link>
+                <Link
+                  href="/profile"
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-50 border border-zinc-200 py-3 text-xs font-bold uppercase tracking-widest text-zinc-700 hover:bg-zinc-100 transition-all"
+                >
+                  <User size={15} /> Profile Settings
                 </Link>
                 <button
                   onClick={async () => {
@@ -337,6 +434,12 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
 }
 
 export function Footer() {
+  const [salonInfo, setSalonInfo] = useState<SalonInfo>(defaultSalonInfo);
+
+  useEffect(() => {
+    getSalonInfo().then(setSalonInfo);
+  }, []);
+
   return (
     <footer className="bg-zinc-950 text-white pt-16 pb-12 border-t border-zinc-900">
       {/* Top CTA Banner inside Footer */}
@@ -414,15 +517,15 @@ export function Footer() {
           <div className="space-y-3 text-xs leading-6 text-zinc-400">
             <p className="flex items-start gap-2">
               <MapPin size={15} className="text-pink-400 shrink-0 mt-0.5" />
-              123 Beauty Street, Manila, Philippines
+              {salonInfo.address}
             </p>
             <p className="flex items-center gap-2">
               <Phone size={15} className="text-pink-400 shrink-0" />
-              +63 987 654 3210
+              {salonInfo.phone}
             </p>
             <p className="flex items-center gap-2">
               <Mail size={15} className="text-pink-400 shrink-0" />
-              hello@candyandrose.salon
+              {salonInfo.email}
             </p>
             <p className="text-[11px] text-zinc-500 pt-1">
               Mon - Sun: 10:00 AM - 8:00 PM
@@ -443,10 +546,12 @@ export function Footer() {
 }
 
 export function PageShell({ children, onBook }: { children: ReactNode; onBook: () => void }) {
+  const pathname = usePathname();
+  const isHome = pathname === '/';
   return (
     <div className="min-h-screen flex flex-col bg-white">
       <Header onBook={onBook} />
-      <div className="pt-[116px] flex-1">{children}</div>
+      <div className={`${isHome ? '' : 'pt-[116px]'} flex-1`}>{children}</div>
       <Footer />
     </div>
   );
@@ -706,9 +811,9 @@ export function SectionHeading({ eyebrow, title, description, centered = false }
 }) {
   return (
     <div className={centered ? 'mx-auto max-w-2xl text-center' : 'max-w-2xl'}>
-      <div className={`inline-flex items-center gap-1.5 mb-2.5 ${centered ? 'justify-center' : ''}`}>
-        <Leaf size={14} className="text-pink-500" />
-        <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-pink-600">{eyebrow}</p>
+      <div className={`inline-flex items-center gap-2 mb-3 ${centered ? 'justify-center' : ''}`}>
+        <Leaf size={16} className="text-pink-500" />
+        <p className="text-xs sm:text-[13px] font-bold uppercase tracking-[0.25em] text-pink-600">{eyebrow}</p>
       </div>
       <h2 className="font-serif text-4xl leading-tight sm:text-5xl text-zinc-900 font-medium">{title}</h2>
       {description && <p className="mt-3.5 text-xs sm:text-sm leading-6 text-zinc-500">{description}</p>}

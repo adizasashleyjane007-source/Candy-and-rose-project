@@ -10,7 +10,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        script: ['var(--font-great-vibes)'],
+        sans: ['var(--font-dm-sans)', 'sans-serif'],
+        serif: ['var(--font-playfair)', 'serif'],
+        script: ['var(--font-great-vibes)', 'cursive'],
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',

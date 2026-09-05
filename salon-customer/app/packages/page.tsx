@@ -250,7 +250,7 @@ export default function PackagesPage() {
             
             <h1 className="font-serif text-4xl leading-tight sm:text-6xl text-zinc-950 font-medium tracking-tight">
               Our Signature <br />
-              <span className="font-script text-4xl sm:text-6xl text-pink-500 font-normal">Pampering Packages</span>
+              <span className="font-serif italic text-4xl sm:text-6xl text-pink-600 font-normal">Pampering Packages</span>
             </h1>
             
             <p className="mt-6 mx-auto max-w-2xl text-xs sm:text-sm leading-relaxed text-zinc-600">
@@ -287,7 +287,7 @@ export default function PackagesPage() {
               <div>
                 <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
                   <Scissors size={16} className="text-pink-500" />
-                  <span className="font-script text-3xl text-pink-500 font-normal">Hair Service</span>
+                  <span className="font-serif italic text-2xl text-pink-600 font-medium">Hair Service</span>
                 </div>
                 <h2 className="font-serif text-3xl sm:text-4xl font-medium text-zinc-900">Shoulder Level Specials</h2>
               </div>
@@ -370,7 +370,7 @@ export default function PackagesPage() {
               <div>
                 <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
                   <Scissors size={16} className="text-pink-500" />
-                  <span className="font-script text-3xl text-pink-500 font-normal">Hair Services</span>
+                  <span className="font-serif italic text-2xl text-pink-600 font-medium">Hair Services</span>
                 </div>
                 <h2 className="font-serif text-3xl sm:text-4xl font-medium text-zinc-900">Any Length</h2>
               </div>
@@ -464,7 +464,7 @@ export default function PackagesPage() {
               <div>
                 <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
                   <Flower size={16} className="text-pink-500" />
-                  <span className="font-script text-3xl text-pink-500 font-normal">Nails Package</span>
+                  <span className="font-serif italic text-2xl text-pink-600 font-medium">Nails Package</span>
                 </div>
                 <h2 className="font-serif text-3xl sm:text-4xl font-medium text-zinc-900">Nails Package</h2>
               </div>
