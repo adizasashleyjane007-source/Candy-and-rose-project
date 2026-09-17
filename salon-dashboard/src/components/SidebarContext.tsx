@@ -7,15 +7,20 @@ interface SidebarContextType {
     isOpen: boolean;
     setIsOpen: (open: boolean) => void;
     toggle: () => void;
+    isCollapsed: boolean;
+    setIsCollapsed: (collapsed: boolean) => void;
+    toggleCollapse: () => void;
 }
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const pathname = usePathname();
 
     const toggle = () => setIsOpen((prev) => !prev);
+    const toggleCollapse = () => setIsCollapsed((prev) => !prev);
 
     // Close sidebar when route changes on mobile
     useEffect(() => {
@@ -23,7 +28,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     }, [pathname]);
 
     return (
-        <SidebarContext.Provider value={{ isOpen, setIsOpen, toggle }}>
+        <SidebarContext.Provider value={{ isOpen, setIsOpen, toggle, isCollapsed, setIsCollapsed, toggleCollapse }}>
             {children}
         </SidebarContext.Provider>
     );

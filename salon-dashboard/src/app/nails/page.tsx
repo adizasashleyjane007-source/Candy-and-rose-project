@@ -8,7 +8,8 @@ import {
     Type, Edit3, Plus, Trash2, Moon, Cloud, Zap, Diamond, Move, Circle,
     X, Loader2, Save, HelpCircle, RefreshCw, ZoomIn, ZoomOut,
     Eye, Sliders, Layers3, Sparkle, Maximize2, MousePointer, Award,
-    ChevronRight, Settings2, SlidersHorizontal, BookOpen, Layers2, Scissors, Paintbrush, Copy
+    ChevronRight, Settings2, SlidersHorizontal, BookOpen, Layers2, Scissors, Paintbrush, Copy,
+    Undo, Redo, RotateCcw, RotateCw
 } from "lucide-react";
 import Header from "@/components/Header";
 import { StudioConfigurations, Storage, NailDesigns, type StudioConfiguration } from "@/lib/db";
@@ -495,12 +496,16 @@ const PrecisionNailStudio = forwardRef((
     {
         designs, activeFinger, updateDesign, activeTool, setActiveTool, toolConfig,
         activeCharmId, setActiveCharmId,
-        studioView, nailPositions, setNailPositions, globalScale
+        studioView, nailPositions, setNailPositions, globalScale,
+        onUndo, canUndo, onRedo, canRedo, zoomLevel, setZoomLevel, onSelectFinger
     }: {
         designs: Record<string, FingerDesign>; activeFinger: string; updateDesign: (updates: Partial<FingerDesign>) => void;
         activeTool: string; setActiveTool: (t: string) => void; toolConfig: any;
         activeCharmId: string | null; setActiveCharmId: (id: string | null) => void;
         studioView: "single" | "hand"; nailPositions: any[]; setNailPositions: (p: any[]) => void; globalScale: number;
+        onUndo?: () => void; canUndo?: boolean; onRedo?: () => void; canRedo?: boolean;
+        zoomLevel: number; setZoomLevel: React.Dispatch<React.SetStateAction<number>>;
+        onSelectFinger?: (finger: string) => void;
     },
     ref
 ) => {
@@ -566,13 +571,35 @@ const PrecisionNailStudio = forwardRef((
         ctx.clearRect(0, 0, 800, 1000);
 
         const x = 400, y = 500;
-        const baseW = 260;
-        const baseH = 420 * (selectedLength / 2.0);
+        const baseW = 280;
+        const baseH = 450 * (selectedLength / 2.0);
+
+        // Ambient radial glow behind nail canvas
+        const glowGrad = ctx.createRadialGradient(x, y, 20, x, y, baseH * 0.75);
+        glowGrad.addColorStop(0, "rgba(244, 114, 182, 0.22)");
+        glowGrad.addColorStop(0.5, "rgba(244, 114, 182, 0.08)");
+        glowGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+        ctx.fillStyle = glowGrad;
+        ctx.beginPath();
+        ctx.ellipse(x, y, baseW * 0.9, baseH * 0.75, 0, 0, Math.PI * 2);
+        ctx.fill();
 
         ctx.save();
         ctx.translate(x, y);
 
         const path2d = new Path2D(SHAPE_PATH_MAP[selectedShape] || SHAPE_PATH_MAP["Round"]);
+
+        // Soft drop shadow directly behind nail shape
+        ctx.save();
+        ctx.scale(baseW / 100, baseH / 100);
+        ctx.translate(-50, -50);
+        ctx.shadowBlur = 35;
+        ctx.shadowColor = "rgba(236, 72, 153, 0.25)";
+        ctx.shadowOffsetY = 14;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.01)";
+        ctx.fill(path2d);
+        ctx.restore();
+
         ctx.save();
         ctx.scale(baseW / 100, baseH / 100);
         ctx.translate(-50, -50);
@@ -825,24 +852,35 @@ const PrecisionNailStudio = forwardRef((
 
         if (studioView === "hand") {
             const bgGrad = ctx.createLinearGradient(0, 0, 800, 1000);
-            bgGrad.addColorStop(0, "#fdf2f8"); bgGrad.addColorStop(1, "#fae8ff");
+            bgGrad.addColorStop(0, "#ffffff");
+            bgGrad.addColorStop(1, "#fdf2f8");
             ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, 800, 1000);
-
-            ctx.fillStyle = "#fbcfe8"; ctx.globalAlpha = 0.35;
-            ctx.beginPath();
-            ctx.ellipse(400, 750, 260, 200, 0, 0, Math.PI * 2); ctx.fill();
-            ctx.globalAlpha = 1.0;
 
             nailPositions.forEach((pos) => {
                 const fingerBuffer = document.createElement("canvas");
                 fingerBuffer.width = 800; fingerBuffer.height = 1000;
                 renderMaster(pos.finger, fingerBuffer);
 
+                const isSelected = pos.finger === activeFinger;
+
                 ctx.save();
                 ctx.translate(pos.x, pos.y);
-                ctx.scale(globalScale * 0.45, globalScale * 0.45);
+                ctx.scale(globalScale * 0.36, globalScale * 0.36);
                 ctx.rotate((pos.rotation * Math.PI) / 180);
-                ctx.shadowBlur = 20; ctx.shadowColor = "rgba(236, 72, 153, 0.3)";
+
+                if (isSelected) {
+                    ctx.shadowBlur = 32;
+                    ctx.shadowColor = "rgba(236, 72, 153, 0.65)";
+                    ctx.strokeStyle = "#ec4899";
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.roundRect(-165, -265, 330, 530, 48);
+                    ctx.stroke();
+                } else {
+                    ctx.shadowBlur = 12;
+                    ctx.shadowColor = "rgba(0, 0, 0, 0.1)";
+                }
+
                 ctx.drawImage(fingerBuffer, -400, -500);
                 ctx.restore();
             });
@@ -861,6 +899,17 @@ const PrecisionNailStudio = forwardRef((
         const rect = canvas.getBoundingClientRect();
         const x = (e.clientX - rect.left) * (800 / rect.width);
         const y = (e.clientY - rect.top) * (1000 / rect.height);
+
+        if (studioView === "hand") {
+            const clickedPos = nailPositions.find(pos => {
+                const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+                return dist < 70;
+            });
+            if (clickedPos && onSelectFinger) {
+                onSelectFinger(clickedPos.finger);
+                return;
+            }
+        }
 
         if (activeTool === "charm-select" || activeTool === "move") {
             const activeDesign = designs[activeFinger];
@@ -936,7 +985,7 @@ const PrecisionNailStudio = forwardRef((
             ctx.save();
             const activeDesign = designs[activeFinger];
             if (!activeDesign) return;
-            const baseW = 260, baseH = 420 * (activeDesign.length / 2.0);
+            const baseW = 280, baseH = 450 * (activeDesign.length / 2.0);
             const path2d = new Path2D(SHAPE_PATH_MAP[activeDesign.shape] || SHAPE_PATH_MAP["Round"]);
             ctx.translate(400, 500);
             ctx.scale(baseW / 100, baseH / 100);
@@ -973,60 +1022,138 @@ const PrecisionNailStudio = forwardRef((
         renderStudio();
     };
 
+    const activeTextureObj = NAIL_TEXTURES.find(t => t.id === designs[activeFinger]?.texture);
+    const textureName = activeTextureObj?.name || "High Gloss";
+
     return (
-        <div className="relative w-full h-full min-h-[580px] bg-gradient-to-b from-white to-pink-50/40 rounded-[3rem] border-8 border-white shadow-2xl flex items-center justify-center overflow-hidden group">
-            <canvas
-                ref={canvasRef}
-                width={800} height={1000}
-                className="w-full h-full object-contain cursor-crosshair touch-none"
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-            />
+        <div className="relative w-full h-full min-h-[580px] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white via-pink-50/40 to-pink-100/30 rounded-[2.5rem] border-4 border-white shadow-2xl shadow-pink-200/50 flex flex-col items-center justify-center overflow-hidden group">
+            {/* Canvas Header: Live Preview Badge & Active Specs */}
+            <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none z-10">
+                <div className="pointer-events-auto">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 backdrop-blur-md border border-emerald-500/20 text-emerald-600 rounded-full text-[10px] font-extrabold uppercase tracking-wider shadow-sm">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        Live Preview
+                    </span>
+                </div>
+
+                <div className="pointer-events-auto flex items-center gap-1.5 flex-wrap justify-end">
+                    <span className="px-2.5 py-1 bg-pink-500 text-white rounded-xl text-[11px] font-black shadow-sm shadow-pink-200">
+                        {activeFinger}
+                    </span>
+                    <span className="px-2.5 py-1 bg-white/90 backdrop-blur-md border border-pink-100 text-gray-700 rounded-xl text-[11px] font-bold shadow-sm">
+                        {designs[activeFinger]?.shape}
+                    </span>
+                    <span className="px-2.5 py-1 bg-white/90 backdrop-blur-md border border-pink-100 text-gray-700 rounded-xl text-[11px] font-bold shadow-sm">
+                        {designs[activeFinger]?.length.toFixed(1)} cm
+                    </span>
+                    <span className="px-2.5 py-1 bg-white/90 backdrop-blur-md border border-pink-100 text-gray-700 rounded-xl text-[11px] font-bold shadow-sm">
+                        {textureName}
+                    </span>
+                </div>
+            </div>
+
+            {/* Scalable Canvas Viewport */}
+            <div className="w-full h-full flex items-center justify-center transition-transform duration-200 ease-out" style={{ transform: `scale(${zoomLevel})` }}>
+                <canvas
+                    ref={canvasRef}
+                    width={800} height={1000}
+                    className="w-full h-full object-contain cursor-crosshair touch-none"
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                />
+            </div>
 
             <canvas ref={artCanvasRef} width={800} height={1000} className="hidden" />
 
-            <div className="absolute top-5 left-6 flex items-center gap-2">
-                <span className="px-4 py-2 bg-white/90 backdrop-blur-md border border-pink-100 rounded-full text-xs font-black text-pink-600 shadow-md uppercase tracking-wider flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-pink-500" />
-                    {designs[activeFinger]?.shape} • {designs[activeFinger]?.length.toFixed(1)}cm • {designs[activeFinger]?.texture}
-                </span>
-            </div>
-
-            {/* Floating Canvas Quick Tools Dock */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-xl border border-pink-100/80 rounded-2xl shadow-xl z-20">
+            {/* Floating Editor & Zoom Toolbar Dock */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-xl border border-white/90 rounded-full shadow-2xl shadow-pink-900/10 z-20 max-w-[95%] overflow-x-auto scrollbar-none">
                 <button
                     onClick={() => setActiveTool("charm-select")}
-                    className={`p-2.5 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold active:scale-95 ${activeTool === "charm-select" ? "bg-pink-500 text-white shadow-md shadow-pink-200" : "text-gray-600 hover:bg-pink-50 hover:text-pink-600"}`}
+                    className={`px-3 py-2 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold active:scale-95 ${activeTool === "charm-select" ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md shadow-pink-200" : "text-gray-600 hover:bg-pink-50 hover:text-pink-600"}`}
                     title="Select & Move Charms"
+                    aria-label="Select tool"
                 >
                     <MousePointer className="w-4 h-4" />
                     <span className="hidden sm:inline">Select</span>
                 </button>
                 <button
                     onClick={() => setActiveTool("draw")}
-                    className={`p-2.5 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold active:scale-95 ${activeTool === "draw" ? "bg-pink-500 text-white shadow-md shadow-pink-200" : "text-gray-600 hover:bg-pink-50 hover:text-pink-600"}`}
+                    className={`px-3 py-2 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold active:scale-95 ${activeTool === "draw" ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md shadow-pink-200" : "text-gray-600 hover:bg-pink-50 hover:text-pink-600"}`}
                     title="Hand Paint Brush"
+                    aria-label="Paint tool"
                 >
                     <Edit3 className="w-4 h-4" />
                     <span className="hidden sm:inline">Paint</span>
                 </button>
                 <button
                     onClick={() => setActiveTool(activeTool === "erase" ? "draw" : "erase")}
-                    className={`p-2.5 rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold active:scale-95 ${activeTool === "erase" ? "bg-pink-500 text-white shadow-md shadow-pink-200" : "text-gray-600 hover:bg-pink-50 hover:text-pink-600"}`}
+                    className={`px-3 py-2 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold active:scale-95 ${activeTool === "erase" ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md shadow-pink-200" : "text-gray-600 hover:bg-pink-50 hover:text-pink-600"}`}
                     title="Eraser"
+                    aria-label="Eraser tool"
                 >
                     <Eraser className="w-4 h-4" />
                     <span className="hidden sm:inline">Eraser</span>
                 </button>
-                <div className="w-px h-5 bg-pink-100 my-auto" />
+
+                <div className="w-px h-5 bg-pink-100/80 my-auto shrink-0" />
+
+                <button
+                    onClick={onUndo}
+                    disabled={!canUndo}
+                    className="p-2 text-gray-500 hover:text-pink-600 hover:bg-pink-50 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent active:scale-95"
+                    title="Undo"
+                    aria-label="Undo action"
+                >
+                    <Undo className="w-4 h-4" />
+                </button>
+                <button
+                    onClick={onRedo}
+                    disabled={!canRedo}
+                    className="p-2 text-gray-500 hover:text-pink-600 hover:bg-pink-50 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent active:scale-95"
+                    title="Redo"
+                    aria-label="Redo action"
+                >
+                    <Redo className="w-4 h-4" />
+                </button>
+
                 <button
                     onClick={handleClearArt}
-                    className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-95"
-                    title="Clear Canvas Painting"
+                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all active:scale-95"
+                    title="Clear Painting"
+                    aria-label="Clear painting"
                 >
                     <Trash2 className="w-4 h-4" />
                 </button>
+
+                <div className="w-px h-5 bg-pink-100/80 my-auto shrink-0" />
+
+                <div className="flex items-center gap-0.5 bg-pink-50/70 p-1 rounded-full border border-pink-100/60">
+                    <button
+                        onClick={() => setZoomLevel(z => Math.max(z - 0.15, 0.6))}
+                        className="p-1.5 text-gray-600 hover:text-pink-600 hover:bg-white rounded-full transition-all active:scale-95"
+                        title="Zoom Out"
+                        aria-label="Zoom Out"
+                    >
+                        <ZoomOut className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                        onClick={() => setZoomLevel(1.0)}
+                        className="px-2 py-0.5 text-[10px] font-extrabold text-pink-600 hover:bg-white rounded-md transition-all"
+                        title="Reset Zoom / Fit to Canvas"
+                        aria-label="Fit to Canvas"
+                    >
+                        {Math.round(zoomLevel * 100)}%
+                    </button>
+                    <button
+                        onClick={() => setZoomLevel(z => Math.min(z + 0.15, 2.0))}
+                        className="p-1.5 text-gray-600 hover:text-pink-600 hover:bg-white rounded-full transition-all active:scale-95"
+                        title="Zoom In"
+                        aria-label="Zoom In"
+                    >
+                        <ZoomIn className="w-3.5 h-3.5" />
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -1098,18 +1225,64 @@ export default function NailsStudioPage() {
     const [activeFinger, setActiveFinger] = useState<string>("Index");
     const activeDesign = designs[activeFinger];
 
+    // History Stack for Undo/Redo
+    const [historyStack, setHistoryStack] = useState<Record<string, FingerDesign>[]>([]);
+    const [historyIndex, setHistoryIndex] = useState<number>(-1);
+
+    // Canvas Zoom Level State
+    const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+
+    useEffect(() => {
+        if (historyStack.length === 0) {
+            setHistoryStack([designs]);
+            setHistoryIndex(0);
+        }
+    }, []);
+
+    const pushHistory = (newDesigns: Record<string, FingerDesign>) => {
+        setHistoryStack(prev => {
+            const next = prev.slice(0, historyIndex + 1);
+            next.push(newDesigns);
+            if (next.length > 30) next.shift();
+            return next;
+        });
+        setHistoryIndex(prev => Math.min(prev + 1, 29));
+    };
+
+    const handleUndo = () => {
+        if (historyIndex > 0) {
+            const prevIdx = historyIndex - 1;
+            setHistoryIndex(prevIdx);
+            setDesigns(historyStack[prevIdx]);
+        }
+    };
+
+    const handleRedo = () => {
+        if (historyIndex < historyStack.length - 1) {
+            const nextIdx = historyIndex + 1;
+            setHistoryIndex(nextIdx);
+            setDesigns(historyStack[nextIdx]);
+        }
+    };
+
     const updateDesign = (updates: Partial<FingerDesign>) => {
-        setDesigns(prev => ({ ...prev, [activeFinger]: { ...prev[activeFinger], ...updates } }));
+        setDesigns(prev => {
+            const next = { ...prev, [activeFinger]: { ...prev[activeFinger], ...updates } };
+            pushHistory(next);
+            return next;
+        });
     };
 
     const applyToAllFingers = () => {
-        setDesigns(prev => ({
+        const next = {
             Thumb: { ...activeDesign },
             Index: { ...activeDesign },
             Middle: { ...activeDesign },
             Ring: { ...activeDesign },
             Pinky: { ...activeDesign }
-        }));
+        };
+        setDesigns(next);
+        pushHistory(next);
         addNotification("Design Copied", `Applied ${activeFinger} design to all fingers.`, "system");
     };
 
@@ -1144,11 +1317,11 @@ export default function NailsStudioPage() {
     const [studioView, setStudioView] = useState<"single" | "hand">("single");
     const [globalScale, setGlobalScale] = useState(1.0);
     const [nailPositions, setNailPositions] = useState([
-        { id: 1, finger: "Thumb", x: 180, y: 680, rotation: -30 },
-        { id: 2, finger: "Index", x: 290, y: 460, rotation: -12 },
-        { id: 3, finger: "Middle", x: 400, y: 420, rotation: 0 },
-        { id: 4, finger: "Ring", x: 510, y: 460, rotation: 12 },
-        { id: 5, finger: "Pinky", x: 620, y: 640, rotation: 28 },
+        { id: 1, finger: "Thumb", x: 130, y: 500, rotation: 0 },
+        { id: 2, finger: "Index", x: 265, y: 500, rotation: 0 },
+        { id: 3, finger: "Middle", x: 400, y: 500, rotation: 0 },
+        { id: 4, finger: "Ring", x: 535, y: 500, rotation: 0 },
+        { id: 5, finger: "Pinky", x: 670, y: 500, rotation: 0 },
     ]);
 
     const [isSaving, setIsSaving] = useState(false);
@@ -1218,6 +1391,7 @@ export default function NailsStudioPage() {
             };
         });
         setDesigns(newDesigns);
+        pushHistory(newDesigns);
         addNotification("Applied to All", `The ${activeFinger} design was applied to all fingers.`, "system");
     };
 
@@ -1314,44 +1488,41 @@ export default function NailsStudioPage() {
             <div className="absolute top-16 left-10 w-72 h-72 bg-pink-200/30 rounded-full blur-[100px] pointer-events-none" />
             <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-200/30 rounded-full blur-[120px] pointer-events-none" />
 
-            <div className="px-4 sm:px-6 lg:px-8 pb-12 flex-1 max-w-[1700px] mx-auto w-full pt-4 relative z-10">
+            <div className="px-3 sm:px-6 lg:px-8 pb-12 flex-1 max-w-[1850px] mx-auto w-full pt-4 relative z-10 transition-all duration-300">
 
                 {/* TOP HEADER BAR */}
-                <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/60 backdrop-blur-md p-3.5 rounded-2xl border border-white/80 shadow-sm">
+                <div className="mb-4 sm:mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/60 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-white/80 shadow-sm transition-all">
                     <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-gradient-to-br from-pink-500 to-rose-500 text-white rounded-xl shadow-md shadow-pink-200 shrink-0">
-                            <Sparkles className="w-5 h-5" />
-                        </div>
                         <div>
-                            <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight leading-tight">
-                                NAIL DESIGN STUDIO
+                            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+                                Nail Design Studio
                             </h2>
-                            <p className="text-gray-500 font-medium text-xs">Precision shapes, tip styling, gradient layouts & 3D charms</p>
+                            <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Precision shapes, tip styling, gradient layouts & 3D charms</p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2.5 flex-wrap">
                         <button
                             onClick={() => setShowPresetsModal(true)}
-                            className="px-3.5 py-1.5 bg-white hover:bg-pink-50/60 border border-pink-100 hover:border-pink-300 text-gray-700 hover:text-pink-600 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5"
+                            className="px-3.5 py-2 bg-white hover:bg-pink-50/60 border border-pink-100 hover:border-pink-300 text-gray-700 hover:text-pink-600 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 active:scale-95"
                         >
-                            <Award className="w-3.5 h-3.5 text-pink-500" />
+                            <Award className="w-4 h-4 text-pink-500" />
                             <span>Presets</span>
                         </button>
 
                         <button
                             onClick={() => setShowTutorial(true)}
-                            className="px-3.5 py-1.5 bg-white hover:bg-pink-50/60 border border-pink-100 hover:border-pink-300 text-pink-600 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5"
+                            className="px-3.5 py-2 bg-white hover:bg-pink-50/60 border border-pink-100 hover:border-pink-300 text-pink-600 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 active:scale-95"
                         >
-                            <HelpCircle className="w-3.5 h-3.5" />
+                            <HelpCircle className="w-4 h-4" />
                             <span>Guide</span>
                         </button>
 
                         <button
                             onClick={() => setShowSaveModal(true)}
-                            className="px-4 py-1.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white rounded-xl font-black text-xs shadow-md shadow-pink-200 transition-all flex items-center gap-1.5 active:scale-95"
+                            className="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white rounded-xl font-black text-xs shadow-md shadow-pink-200 transition-all flex items-center gap-1.5 active:scale-95"
                         >
-                            <Save className="w-3.5 h-3.5" />
+                            <Save className="w-4 h-4" />
                             <span>Save Design</span>
                         </button>
                     </div>
@@ -1380,23 +1551,23 @@ export default function NailsStudioPage() {
                 </div>
 
                 {/* THREE-COLUMN WORKSPACE STRUCTURE */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 lg:gap-6 items-start transition-all duration-300">
 
                     {/* COLUMN 1 (LEFT): Collapsible Dropdown Forms for Colors & Tips */}
-                    <div className={`lg:col-span-3 space-y-3 ${mobileTab !== "palette" ? "hidden lg:block" : "block"}`}>
+                    <div className={`lg:col-span-3 space-y-3 sm:space-y-4 ${mobileTab !== "palette" ? "hidden lg:block" : "block"}`}>
 
                         {/* DROPDOWN 1: Multi-Color & Gradient Layout */}
-                        <div className="backdrop-blur-xl bg-white/85 rounded-2xl border border-white/80 shadow-md shadow-pink-100/20 overflow-hidden transition-all">
+                        <div className="backdrop-blur-md bg-white/75 rounded-2xl border border-white/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                             <button
                                 onClick={() => toggleSection("colorLayout")}
-                                className="w-full px-4 py-3 bg-white/60 hover:bg-pink-50/40 flex items-center justify-between transition-all"
+                                className="w-full px-4 py-3 sm:py-3.5 bg-white/60 hover:bg-pink-50/40 flex items-center justify-between transition-all"
                             >
                                 <div className="flex items-center gap-2">
                                     <Palette className="w-4 h-4 text-pink-500" />
-                                    <span className="text-xs font-black text-gray-800 uppercase tracking-wider">Color & Layout</span>
+                                    <span className="text-xs sm:text-sm font-bold text-gray-700 uppercase tracking-wider">Color & Layout</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold text-pink-600 bg-pink-100/80 px-2 py-0.5 rounded-full truncate max-w-[120px]">
+                                    <span className="text-[10px] sm:text-xs font-bold text-pink-600 bg-pink-100/80 px-2.5 py-0.5 rounded-full truncate max-w-[120px]">
                                         {MULTI_COLOR_MODES.find(m => m.id === activeDesign.colorMode)?.name}
                                     </span>
                                     <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${openSections.colorLayout ? "rotate-180 text-pink-500" : ""}`} />
@@ -1404,57 +1575,57 @@ export default function NailsStudioPage() {
                             </button>
 
                             {openSections.colorLayout && (
-                                <div className="p-3.5 border-t border-pink-50/80 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <div className="p-3.5 sm:p-4 border-t border-pink-50/80 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
                                     {/* Modes */}
-                                    <div className="grid grid-cols-3 gap-1.5">
+                                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                                         {MULTI_COLOR_MODES.map(mode => (
                                             <button
                                                 key={mode.id}
                                                 onClick={() => updateDesign({ colorMode: mode.id })}
-                                                className={`p-2 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-0.5 ${activeDesign.colorMode === mode.id ? "bg-pink-500 border-pink-500 text-white shadow-md shadow-pink-200" : "bg-white border-pink-50 text-gray-700 hover:bg-pink-50/60"}`}
+                                                className={`p-2 sm:p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-0.5 ${activeDesign.colorMode === mode.id ? "bg-pink-500 border-pink-500 text-white shadow-md shadow-pink-200" : "bg-white border-pink-50 text-gray-700 hover:bg-pink-50/60"}`}
                                             >
-                                                <span className="text-[10px] font-bold leading-tight">{mode.name}</span>
-                                                <span className={`text-[8px] ${activeDesign.colorMode === mode.id ? "text-pink-100" : "text-gray-400"}`}>{mode.colorsNeeded}c</span>
+                                                <span className="text-[10px] sm:text-xs font-bold leading-tight">{mode.name}</span>
+                                                <span className={`text-[8px] sm:text-[9px] ${activeDesign.colorMode === mode.id ? "text-pink-100" : "text-gray-400"}`}>{mode.colorsNeeded}c</span>
                                             </button>
                                         ))}
                                     </div>
 
                                     {/* Target Slot Row */}
-                                    <div className="p-2.5 bg-pink-50/40 rounded-xl border border-pink-100/60 space-y-1.5">
-                                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider block">Target Color Slot</label>
-                                        <div className="grid grid-cols-4 gap-1.5">
+                                    <div className="p-2.5 sm:p-3 bg-pink-50/40 rounded-xl border border-pink-100/60 space-y-1.5">
+                                        <label className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-wider block">Target Color Slot</label>
+                                        <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                                             <button
                                                 onClick={() => setActiveColorTarget("primary")}
-                                                className={`p-1.5 rounded-xl border flex flex-col items-center gap-1 transition-all ${activeColorTarget === "primary" ? "bg-white border-pink-500 shadow-sm ring-2 ring-pink-200" : "bg-white/60 border-transparent hover:bg-white"}`}
+                                                className={`p-1.5 sm:p-2 rounded-xl border flex flex-col items-center gap-1 transition-all ${activeColorTarget === "primary" ? "bg-white border-pink-500 shadow-sm ring-2 ring-pink-200" : "bg-white/60 border-transparent hover:bg-white"}`}
                                             >
-                                                <div className="w-4 h-4 rounded-full border shadow-inner" style={{ backgroundColor: activeDesign.primaryColor }} />
-                                                <span className="text-[8px] font-bold text-gray-700">1. Base</span>
+                                                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border shadow-inner" style={{ backgroundColor: activeDesign.primaryColor }} />
+                                                <span className="text-[8px] sm:text-[9px] font-bold text-gray-700">1. Base</span>
                                             </button>
 
                                             <button
                                                 onClick={() => setActiveColorTarget("tip")}
-                                                className={`p-1.5 rounded-xl border flex flex-col items-center gap-1 transition-all ${activeColorTarget === "tip" ? "bg-white border-pink-500 shadow-sm ring-2 ring-pink-200" : "bg-white/60 border-transparent hover:bg-white"}`}
+                                                className={`p-1.5 sm:p-2 rounded-xl border flex flex-col items-center gap-1 transition-all ${activeColorTarget === "tip" ? "bg-white border-pink-500 shadow-sm ring-2 ring-pink-200" : "bg-white/60 border-transparent hover:bg-white"}`}
                                             >
-                                                <div className="w-4 h-4 rounded-full border shadow-inner" style={{ backgroundColor: activeDesign.tipColor }} />
-                                                <span className="text-[8px] font-bold text-gray-700">Tip</span>
+                                                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border shadow-inner" style={{ backgroundColor: activeDesign.tipColor }} />
+                                                <span className="text-[8px] sm:text-[9px] font-bold text-gray-700">Tip</span>
                                             </button>
 
                                             <button
                                                 onClick={() => setActiveColorTarget("secondary")}
                                                 disabled={activeDesign.colorMode === "solid"}
-                                                className={`p-1.5 rounded-xl border flex flex-col items-center gap-1 transition-all ${activeColorTarget === "secondary" ? "bg-white border-pink-500 shadow-sm ring-2 ring-pink-200" : "bg-white/60 border-transparent hover:bg-white disabled:opacity-40"}`}
+                                                className={`p-1.5 sm:p-2 rounded-xl border flex flex-col items-center gap-1 transition-all ${activeColorTarget === "secondary" ? "bg-white border-pink-500 shadow-sm ring-2 ring-pink-200" : "bg-white/60 border-transparent hover:bg-white disabled:opacity-40"}`}
                                             >
-                                                <div className="w-4 h-4 rounded-full border shadow-inner" style={{ backgroundColor: activeDesign.secondaryColor }} />
-                                                <span className="text-[8px] font-bold text-gray-700">2. Accent</span>
+                                                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border shadow-inner" style={{ backgroundColor: activeDesign.secondaryColor }} />
+                                                <span className="text-[8px] sm:text-[9px] font-bold text-gray-700">2. Accent</span>
                                             </button>
 
                                             <button
                                                 onClick={() => setActiveColorTarget("tertiary")}
                                                 disabled={!activeDesign.colorMode.startsWith("tri") && activeDesign.colorMode !== "marble"}
-                                                className={`p-1.5 rounded-xl border flex flex-col items-center gap-1 transition-all ${activeColorTarget === "tertiary" ? "bg-white border-pink-500 shadow-sm ring-2 ring-pink-200" : "bg-white/60 border-transparent hover:bg-white disabled:opacity-40"}`}
+                                                className={`p-1.5 sm:p-2 rounded-xl border flex flex-col items-center gap-1 transition-all ${activeColorTarget === "tertiary" ? "bg-white border-pink-500 shadow-sm ring-2 ring-pink-200" : "bg-white/60 border-transparent hover:bg-white disabled:opacity-40"}`}
                                             >
-                                                <div className="w-4 h-4 rounded-full border shadow-inner" style={{ backgroundColor: activeDesign.tertiaryColor }} />
-                                                <span className="text-[8px] font-bold text-gray-700">3. Tri</span>
+                                                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border shadow-inner" style={{ backgroundColor: activeDesign.tertiaryColor }} />
+                                                <span className="text-[8px] sm:text-[9px] font-bold text-gray-700">3. Tri</span>
                                             </button>
                                         </div>
                                     </div>
@@ -1463,17 +1634,17 @@ export default function NailsStudioPage() {
                         </div>
 
                         {/* DROPDOWN 2: French Tip Style & Coverage */}
-                        <div className="backdrop-blur-xl bg-white/85 rounded-2xl border border-white/80 shadow-md shadow-pink-100/20 overflow-hidden transition-all">
+                        <div className="backdrop-blur-md bg-white/75 rounded-2xl border border-white/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                             <button
                                 onClick={() => toggleSection("frenchTip")}
-                                className="w-full px-4 py-3 bg-white/60 hover:bg-pink-50/40 flex items-center justify-between transition-all"
+                                className="w-full px-4 py-3 sm:py-3.5 bg-white/60 hover:bg-pink-50/40 flex items-center justify-between transition-all"
                             >
                                 <div className="flex items-center gap-2">
                                     <Scissors className="w-4 h-4 text-pink-500" />
-                                    <span className="text-xs font-black text-gray-800 uppercase tracking-wider">French & Tips</span>
+                                    <span className="text-xs sm:text-sm font-bold text-gray-700 uppercase tracking-wider">French & Tips</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold text-pink-600 bg-pink-100/80 px-2 py-0.5 rounded-full truncate max-w-[120px]">
+                                    <span className="text-[10px] sm:text-xs font-bold text-pink-600 bg-pink-100/80 px-2.5 py-0.5 rounded-full truncate max-w-[120px]">
                                         {(activeDesign.frenchHeight / 100).toFixed(2)} in
                                     </span>
                                     <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${openSections.frenchTip ? "rotate-180 text-pink-500" : ""}`} />
@@ -1481,31 +1652,31 @@ export default function NailsStudioPage() {
                             </button>
 
                             {openSections.frenchTip && (
-                                <div className="p-3.5 border-t border-pink-50/80 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                                    <div className="grid grid-cols-2 gap-1.5">
+                                <div className="p-3.5 sm:p-4 border-t border-pink-50/80 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                                         {TIP_STYLES.map(style => (
                                             <button
                                                 key={style.id}
                                                 onClick={() => {
                                                     updateDesign({ tipStyle: style.id, colorMode: "french" });
                                                 }}
-                                                className={`p-2 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-0.5 ${activeDesign.tipStyle === style.id && activeDesign.colorMode === "french" ? "bg-pink-500 border-pink-500 text-white shadow-md shadow-pink-200" : "bg-white border-pink-50 text-gray-700 hover:bg-pink-50/50"}`}
+                                                className={`p-2 sm:p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-0.5 ${activeDesign.tipStyle === style.id && activeDesign.colorMode === "french" ? "bg-pink-500 border-pink-500 text-white shadow-md shadow-pink-200" : "bg-white border-pink-50 text-gray-700 hover:bg-pink-50/50"}`}
                                             >
-                                                <span className="text-[10px] font-bold leading-tight">{style.name}</span>
+                                                <span className="text-[10px] sm:text-xs font-bold leading-tight">{style.name}</span>
                                             </button>
                                         ))}
                                     </div>
 
                                     {/* Quick Tip Shade */}
-                                    <div className="p-2.5 bg-pink-50/40 rounded-xl border border-pink-100/60 space-y-2">
+                                    <div className="p-2.5 sm:p-3 bg-pink-50/40 rounded-xl border border-pink-100/60 space-y-2">
                                         <div className="flex justify-between items-center">
-                                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Tip Color</span>
+                                            <span className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-wider">Tip Color</span>
                                             <button
                                                 onClick={() => {
                                                     updateDesign({ colorMode: "french" });
                                                     setActiveColorTarget("tip");
                                                 }}
-                                                className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase transition-all ${activeColorTarget === "tip" ? "bg-pink-500 text-white shadow-sm" : "bg-white text-pink-600 border border-pink-100"}`}
+                                                className={`px-2 py-0.5 rounded-lg text-[8px] sm:text-[9px] font-black uppercase transition-all ${activeColorTarget === "tip" ? "bg-pink-500 text-white shadow-sm" : "bg-white text-pink-600 border border-pink-100"}`}
                                             >
                                                 Edit Tip
                                             </button>
@@ -1521,7 +1692,7 @@ export default function NailsStudioPage() {
                                                             updateDesign({ tipColor: hex, colorMode: "french" });
                                                             setActiveColorTarget("tip");
                                                         }}
-                                                        className={`w-4 h-4 rounded-full border shrink-0 transition-transform ${activeDesign.tipColor === hex ? "scale-110 ring-2 ring-pink-400" : "hover:scale-105"}`}
+                                                        className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border shrink-0 transition-transform ${activeDesign.tipColor === hex ? "scale-110 ring-2 ring-pink-400" : "hover:scale-105"}`}
                                                         style={{ backgroundColor: hex }}
                                                     />
                                                 ))}
@@ -1532,8 +1703,8 @@ export default function NailsStudioPage() {
                                     {/* Tip Height */}
                                     <div className="space-y-1">
                                         <div className="flex justify-between items-center">
-                                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Height Coverage</label>
-                                            <span className="text-[9px] font-black text-pink-600">{(activeDesign.frenchHeight / 100).toFixed(2)} in</span>
+                                            <label className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-wider">Height Coverage</label>
+                                            <span className="text-[9px] sm:text-[10px] font-black text-pink-600">{(activeDesign.frenchHeight / 100).toFixed(2)} in</span>
                                         </div>
                                         <input
                                             type="range" min="0.10" max="0.45" step="0.01"
@@ -1546,14 +1717,14 @@ export default function NailsStudioPage() {
                         </div>
 
                         {/* DROPDOWN 3: Ink Pigment Library */}
-                        <div className="backdrop-blur-xl bg-white/85 rounded-2xl border border-white/80 shadow-md shadow-pink-100/20 overflow-hidden transition-all">
+                        <div className="backdrop-blur-md bg-white/75 rounded-2xl border border-white/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                             <button
                                 onClick={() => toggleSection("pigments")}
-                                className="w-full px-4 py-3 bg-white/60 hover:bg-pink-50/40 flex items-center justify-between transition-all"
+                                className="w-full px-4 py-3 sm:py-3.5 bg-white/60 hover:bg-pink-50/40 flex items-center justify-between transition-all"
                             >
                                 <div className="flex items-center gap-2">
                                     <Droplets className="w-4 h-4 text-pink-500" />
-                                    <span className="text-xs font-black text-gray-800 uppercase tracking-wider">Pigment Library</span>
+                                    <span className="text-xs sm:text-sm font-bold text-gray-700 uppercase tracking-wider">Pigment Library</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="w-3.5 h-3.5 rounded-full border shadow-sm" style={{ backgroundColor: activeColorTarget === "primary" ? activeDesign.primaryColor : activeColorTarget === "secondary" ? activeDesign.secondaryColor : activeColorTarget === "tertiary" ? activeDesign.tertiaryColor : activeDesign.tipColor }} />
@@ -1562,14 +1733,14 @@ export default function NailsStudioPage() {
                             </button>
 
                             {openSections.pigments && (
-                                <div className="p-3.5 border-t border-pink-50/80 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <div className="p-3.5 sm:p-4 border-t border-pink-50/80 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none flex-1">
                                             {Object.entries(PIGMENT_LIBRARY).map(([key, cat]) => (
                                                 <button
                                                     key={key}
                                                     onClick={() => setPigmentTab(key as any)}
-                                                    className={`px-2 py-1 rounded-lg text-[9px] font-bold whitespace-nowrap transition-all ${pigmentTab === key ? "bg-gray-900 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-pink-50"}`}
+                                                    className={`px-2.5 py-1 rounded-lg text-[9px] sm:text-[10px] font-bold whitespace-nowrap transition-all ${pigmentTab === key ? "bg-gray-900 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-pink-50"}`}
                                                 >
                                                     {cat.name}
                                                 </button>
@@ -1580,13 +1751,13 @@ export default function NailsStudioPage() {
                                                 type="color"
                                                 value={customColor}
                                                 onChange={(e) => { setCustomColor(e.target.value); handleSelectPigment(e.target.value); }}
-                                                className="w-5 h-5 rounded-lg border shadow-sm cursor-pointer overflow-hidden p-0"
+                                                className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg border shadow-sm cursor-pointer overflow-hidden p-0"
                                                 title="Custom Hex Picker"
                                             />
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-5 gap-1.5 p-2 bg-pink-50/30 rounded-xl border border-pink-50 max-h-32 overflow-y-auto">
+                                    <div className="grid grid-cols-5 gap-1.5 sm:gap-2 p-2 sm:p-2.5 bg-pink-50/30 rounded-xl border border-pink-50 max-h-36 overflow-y-auto">
                                         {PIGMENT_LIBRARY[pigmentTab].colors.map(c => {
                                             const activeHex = activeColorTarget === "primary" ? activeDesign.primaryColor : activeColorTarget === "secondary" ? activeDesign.secondaryColor : activeColorTarget === "tertiary" ? activeDesign.tertiaryColor : activeColorTarget === "tip" ? activeDesign.tipColor : activeColorTarget === "brush" ? brushColor : charmColor;
                                             return (
@@ -1596,7 +1767,7 @@ export default function NailsStudioPage() {
                                                     className="flex flex-col items-center gap-0.5 focus:outline-none"
                                                     title={c.name}
                                                 >
-                                                    <PolishBottle color={c.hex} active={activeHex.toLowerCase() === c.hex.toLowerCase()} size="w-5 h-7" />
+                                                    <PolishBottle color={c.hex} active={activeHex.toLowerCase() === c.hex.toLowerCase()} size="w-5 h-7 sm:w-6 sm:h-8" />
                                                 </button>
                                             );
                                         })}
@@ -1607,56 +1778,63 @@ export default function NailsStudioPage() {
 
                     </div>
 
-                    {/* COLUMN 2 (CENTER): Interactive Canvas Stage */}
+                    {/* COLUMN 2 (CENTER HERO CANVAS): Main Canvas Stage */}
                     <div className={`lg:col-span-6 flex flex-col items-center ${mobileTab !== "canvas" ? "hidden lg:flex" : "flex"}`}>
-                        <div className="w-full max-w-[580px] flex flex-col">
+                        <div className="w-full max-w-[760px] xl:max-w-[840px] 2xl:max-w-[900px] flex flex-col transition-all duration-300">
 
                             {/* Top Stage Controls Bar */}
-                            <div className="bg-white/85 backdrop-blur-md p-2 rounded-2xl border border-white/80 shadow-md flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <div className="bg-white/80 backdrop-blur-md p-2.5 sm:p-3 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap items-center justify-between gap-2.5 mb-3.5 transition-all">
                                 {/* Single vs 5-Finger Mode */}
                                 <div className="flex bg-gray-100/80 p-1 rounded-xl">
                                     <button
                                         onClick={() => setStudioView("single")}
-                                        className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${studioView === "single" ? "bg-gray-900 text-white shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
+                                        className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 ${studioView === "single" ? "bg-gray-900 text-white shadow-sm" : "text-gray-500 hover:text-gray-900"}`}
                                     >
-                                        <Maximize2 className="w-3 h-3" />
+                                        <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         <span>Single</span>
                                     </button>
                                     <button
                                         onClick={() => setStudioView("hand")}
-                                        className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${studioView === "hand" ? "bg-pink-500 text-white shadow-sm" : "text-gray-500 hover:text-pink-600"}`}
+                                        className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 ${studioView === "hand" ? "bg-pink-500 text-white shadow-sm" : "text-gray-500 hover:text-pink-600"}`}
                                     >
-                                        <Eye className="w-3 h-3" />
+                                        <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         <span>5-Finger</span>
                                     </button>
                                 </div>
 
-                                {/* Finger Switcher Pill Bar */}
-                                <div className="flex items-center gap-1 bg-pink-50/60 p-1 rounded-xl border border-pink-100/60">
-                                    {["Thumb", "Index", "Middle", "Ring", "Pinky"].map(finger => (
-                                        <button
-                                            key={finger}
-                                            onClick={() => setActiveFinger(finger)}
-                                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all ${activeFinger === finger ? "bg-pink-500 text-white shadow-sm shadow-pink-200" : "text-gray-600 hover:bg-white"}`}
-                                        >
-                                            {finger}
-                                        </button>
-                                    ))}
+                                {/* Finger Switcher Pill Bar with Active Highlight */}
+                                <div className="flex items-center gap-1 sm:gap-1.5 bg-pink-50/70 p-1 rounded-xl border border-pink-100/60">
+                                    {["Thumb", "Index", "Middle", "Ring", "Pinky"].map(finger => {
+                                        const isActive = activeFinger === finger;
+                                        return (
+                                            <button
+                                                key={finger}
+                                                onClick={() => setActiveFinger(finger)}
+                                                className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 ${
+                                                    isActive
+                                                        ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md shadow-pink-300/60 scale-105 ring-2 ring-pink-200"
+                                                        : "text-gray-600 hover:bg-white hover:text-pink-600"
+                                                }`}
+                                            >
+                                                {finger}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
 
                                 {/* Apply To All Quick Button */}
                                 <button
                                     onClick={handleApplyToAll}
-                                    className="px-2.5 py-1.5 bg-pink-50 hover:bg-pink-100 text-pink-600 border border-pink-200/60 rounded-xl text-[10px] font-black transition-all flex items-center gap-1 shadow-sm"
+                                    className="px-3 sm:px-3.5 py-1.5 sm:py-2 bg-white hover:bg-pink-50 text-pink-600 border border-pink-200/80 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
                                     title="Copy current finger design to all other fingers"
                                 >
-                                    <Copy className="w-3 h-3" />
-                                    <span>Sync All</span>
+                                    <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                    <span className="hidden sm:inline">Sync All</span>
                                 </button>
                             </div>
 
-                            {/* Canvas Stage Container */}
-                            <div className="w-full aspect-[4/5] relative mb-3">
+                            {/* Center Canvas Stage Container */}
+                            <div className="w-full aspect-[4/5] relative mb-3.5">
                                 <PrecisionNailStudio
                                     ref={studioRef}
                                     designs={designs}
@@ -1670,6 +1848,13 @@ export default function NailsStudioPage() {
                                     nailPositions={nailPositions}
                                     setNailPositions={setNailPositions}
                                     globalScale={globalScale}
+                                    onUndo={handleUndo}
+                                    canUndo={historyIndex > 0}
+                                    onRedo={handleRedo}
+                                    canRedo={historyIndex < historyStack.length - 1}
+                                    zoomLevel={zoomLevel}
+                                    setZoomLevel={setZoomLevel}
+                                    onSelectFinger={setActiveFinger}
                                     toolConfig={{
                                         selectedCharmType,
                                         charmScale,
@@ -1701,14 +1886,14 @@ export default function NailsStudioPage() {
                     <div className={`lg:col-span-3 space-y-3 ${mobileTab === "finishes" || mobileTab === "charms" ? "block" : "hidden lg:block"}`}>
 
                         {/* DROPDOWN 4: Nail Shape & Extension Length */}
-                        <div className="backdrop-blur-xl bg-white/85 rounded-2xl border border-white/80 shadow-md shadow-pink-100/20 overflow-hidden transition-all">
+                        <div className="backdrop-blur-md bg-white/75 rounded-2xl border border-white/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                             <button
                                 onClick={() => toggleSection("shapeLength")}
                                 className="w-full px-4 py-3 bg-white/60 hover:bg-pink-50/40 flex items-center justify-between transition-all"
                             >
                                 <div className="flex items-center gap-2">
                                     <Shapes className="w-4 h-4 text-pink-500" />
-                                    <span className="text-xs font-black text-gray-800 uppercase tracking-wider">Shape & Length</span>
+                                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Shape & Length</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-[10px] font-bold text-pink-600 bg-pink-100/80 px-2 py-0.5 rounded-full truncate max-w-[120px]">
@@ -1751,14 +1936,14 @@ export default function NailsStudioPage() {
                         </div>
 
                         {/* DROPDOWN 5: Topcoat Texture Finish */}
-                        <div className="backdrop-blur-xl bg-white/85 rounded-2xl border border-white/80 shadow-md shadow-pink-100/20 overflow-hidden transition-all">
+                        <div className="backdrop-blur-md bg-white/75 rounded-2xl border border-white/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                             <button
                                 onClick={() => toggleSection("topcoat")}
                                 className="w-full px-4 py-3 bg-white/60 hover:bg-pink-50/40 flex items-center justify-between transition-all"
                             >
                                 <div className="flex items-center gap-2">
                                     <Sun className="w-4 h-4 text-pink-500" />
-                                    <span className="text-xs font-black text-gray-800 uppercase tracking-wider">Topcoat Finish</span>
+                                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Topcoat Finish</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-[10px] font-bold text-pink-600 bg-pink-100/80 px-2 py-0.5 rounded-full truncate max-w-[120px]">
@@ -1785,14 +1970,14 @@ export default function NailsStudioPage() {
                         </div>
 
                         {/* DROPDOWN 6: 3D Charms & Placed Layers */}
-                        <div className="backdrop-blur-xl bg-white/85 rounded-2xl border border-white/80 shadow-md shadow-pink-100/20 overflow-hidden transition-all">
+                        <div className="backdrop-blur-md bg-white/75 rounded-2xl border border-white/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                             <button
                                 onClick={() => toggleSection("charms")}
                                 className="w-full px-4 py-3 bg-white/60 hover:bg-pink-50/40 flex items-center justify-between transition-all"
                             >
                                 <div className="flex items-center gap-2">
                                     <Sparkle className="w-4 h-4 text-pink-500" />
-                                    <span className="text-xs font-black text-gray-800 uppercase tracking-wider">3D Charms & Layers</span>
+                                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">3D Charms & Layers</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-[10px] font-bold text-pink-600 bg-pink-100/80 px-2 py-0.5 rounded-full">

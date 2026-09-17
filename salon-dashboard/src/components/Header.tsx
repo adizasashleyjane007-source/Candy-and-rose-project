@@ -12,7 +12,7 @@ import NotificationChatModal from "./NotificationChatModal";
 
 export default function Header() {
     const router = useRouter();
-    const { toggle } = useSidebar();
+    const { toggle, isCollapsed, toggleCollapse } = useSidebar();
     const [unreadCount, setUnreadCount] = useState(0);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -225,10 +225,20 @@ export default function Header() {
     }, [updateCount, loadProfile, loadNotifications]);
 
     return (
-        <header className="flex items-center justify-between px-4 sm:px-6 py-4 bg-transparent gap-4 relative z-30">
+        <header className="flex items-center justify-between px-4 sm:px-6 py-4 bg-transparent gap-4 relative z-30 transition-all duration-300">
+            {/* Mobile menu toggle */}
             <button
                 onClick={toggle}
                 className="lg:hidden p-2 rounded-full bg-white text-gray-600 hover:text-pink-500 shadow-sm transition-colors shrink-0"
+            >
+                <Menu className="w-5 h-5" />
+            </button>
+            
+            {/* Desktop menu toggle (visible only when sidebar is collapsed) */}
+            <button
+                onClick={toggleCollapse}
+                className={`hidden ${isCollapsed ? 'lg:flex' : 'lg:hidden'} p-2 rounded-lg bg-white text-gray-600 hover:text-pink-500 shadow-sm transition-all duration-300 shrink-0 mr-2`}
+                title="Expand Sidebar"
             >
                 <Menu className="w-5 h-5" />
             </button>

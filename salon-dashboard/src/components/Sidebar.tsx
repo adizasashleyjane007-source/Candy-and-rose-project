@@ -20,6 +20,7 @@ import {
     X,
     ChevronDown,
     ChevronRight,
+    Menu,
     type LucideIcon
 } from "lucide-react";
 import { useSidebar } from "./SidebarContext";
@@ -118,7 +119,7 @@ const AUTH_ROUTES = ["/login", "/signup", "/auth", "/forgot-password", "/reset-p
 
 export default function Sidebar() {
     const pathname = usePathname();
-    const { isOpen, setIsOpen } = useSidebar();
+    const { isOpen, setIsOpen, isCollapsed, toggleCollapse } = useSidebar();
     const [salonInfo, setSalonInfo] = useState({
         name: "Candy And Rose",
         logo: "/LOGO.jpg"
@@ -240,24 +241,33 @@ export default function Sidebar() {
             )}
 
             <aside className={`
-                fixed inset-y-0 left-0 z-50 w-72 bg-[#12080d] border-r border-[#2d1320] text-zinc-300 flex flex-col h-screen overflow-y-auto no-scrollbar transition-transform duration-300 lg:translate-x-0 lg:static lg:block
+                fixed inset-y-0 left-0 z-50 bg-[#12080d] border-r border-[#2d1320] text-zinc-300 flex flex-col h-screen overflow-y-auto no-scrollbar transition-all duration-300 lg:static lg:block
                 ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+                ${isCollapsed ? "lg:w-0 lg:border-none lg:overflow-hidden lg:-translate-x-full lg:opacity-0 lg:px-0" : "w-72 lg:w-72 lg:opacity-100"}
             `}>
-                <div className="p-8 pb-4 relative">
+                <div className="p-6 pb-4 relative flex items-center justify-between">
+                    <div className="flex items-center gap-3.5">
+                        <img src={salonInfo.logo} alt="Candy & Rose Logo" className="w-12 h-12 rounded-full object-contain mix-blend-lighten ring-2 ring-pink-500/20" />
+                        <h1 className="font-semibold text-base leading-tight text-white tracking-wide">
+                            {salonInfo.name}<br />
+                            <span className="text-xs font-normal text-pink-400">Salon Management</span>
+                        </h1>
+                    </div>
+
                     <button
                         onClick={() => setIsOpen(false)}
-                        className="lg:hidden absolute right-4 top-4 p-2 text-zinc-500 hover:text-white"
+                        className="lg:hidden p-2 text-zinc-400 hover:text-white hover:bg-zinc-800/60 rounded-xl transition-all duration-200"
                     >
                         <X className="w-5 h-5" />
                     </button>
 
-                    <div className="flex items-center gap-4 mb-4">
-                        <img src={salonInfo.logo} alt="Candy & Rose Logo" className="w-14 h-14 rounded-full object-contain mix-blend-lighten ring-2 ring-pink-500/20" />
-                        <h1 className="font-semibold text-lg leading-tight text-white tracking-wide">
-                            {salonInfo.name}<br />
-                            <span className="text-sm font-normal text-pink-400">Salon Management</span>
-                        </h1>
-                    </div>
+                    <button
+                        onClick={toggleCollapse}
+                        className="hidden lg:flex items-center justify-center p-2 text-zinc-400 hover:text-white hover:bg-zinc-800/60 rounded-xl transition-all duration-200 focus:outline-none"
+                        title="Collapse Menu"
+                    >
+                        <Menu className="w-5 h-5" />
+                    </button>
                 </div>
 
                 <nav className="flex-1 px-4 space-y-6 pb-8 mt-2">
