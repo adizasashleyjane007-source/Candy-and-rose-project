@@ -1336,7 +1336,7 @@ export default function NailsStudioPage() {
             addNotification("Saved", "Nail design saved to database successfully!", "system");
         } catch (e: any) {
             console.error(e);
-            addNotification("Error", "Failed to save design.", "alert");
+            addNotification("Error", "Failed to save design.", "system");
         }
         setIsSaving(false);
     };

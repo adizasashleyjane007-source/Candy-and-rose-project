@@ -1,7 +1,7 @@
 "use client";
 
 import Header from "@/components/Header";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { addNotification } from "@/lib/notifications";
 import { SettingsDB, ArchiveDB, ArchivedRecord, PromotionsDB, Promotion } from "@/lib/db";
 import {
@@ -28,7 +28,14 @@ import {
     RotateCcw,
     FileText,
     Percent,
-    Tag
+    Tag,
+    Search,
+    Filter as FilterIcon,
+    ArrowUpDown,
+    AlertCircle,
+    Calendar,
+    Image as ImageIcon,
+    Check
 } from "lucide-react";
 import Pagination from "@/components/Pagination";
 
@@ -162,6 +169,36 @@ export default function SettingsPage() {
     const [selectedArchiveItem, setSelectedArchiveItem] = useState<ArchivedRecord | null>(null);
     const [isArchiveLoading, setIsArchiveLoading] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+
+    // Archive Enhancements State
+    const [archiveSearchQuery, setArchiveSearchQuery] = useState("");
+    const [archiveFilterType, setArchiveFilterType] = useState("All Types");
+    const [archiveFilterDate, setArchiveFilterDate] = useState("All Dates");
+    const [archiveSortOrder, setArchiveSortOrder] = useState("Newest First");
+
+    const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
+    const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+    const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+    const archiveDropdownsRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (archiveDropdownsRef.current && !archiveDropdownsRef.current.contains(event.target as Node)) {
+                setIsTypeDropdownOpen(false);
+                setIsDateDropdownOpen(false);
+                setIsSortDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    const [itemToRestore, setItemToRestore] = useState<ArchivedRecord | null>(null);
+    const [itemToPermanentDelete, setItemToPermanentDelete] = useState<ArchivedRecord | null>(null);
+    const [isEmptyArchiveModalOpen, setIsEmptyArchiveModalOpen] = useState(false);
+    const [emptyArchiveConfirmText, setEmptyArchiveConfirmText] = useState("");
 
     // Payment Methods State
     const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
@@ -341,7 +378,9 @@ export default function SettingsPage() {
         }
     };
 
-    const handleRestoreItem = async (item: ArchivedRecord) => {
+    const executeRestoreItem = async () => {
+        if (!itemToRestore) return;
+        const item = itemToRestore;
         try {
             setSaving(true);
             await ArchiveDB.restoreItem(item);
@@ -351,41 +390,58 @@ export default function SettingsPage() {
             setArchiveItems(updated);
             showToast(`Successfully restored ${item.type} "${item.name}"!`);
             addNotification("Item Restored", `The deleted ${item.type} "${item.name}" has been restored.`, "system");
+            
+            // Adjust pagination if needed
+            if (paginatedArchiveItems.length === 1 && currentPage > 1) {
+                setCurrentPage(p => p - 1);
+            }
         } catch (e: any) {
             console.error("Restore failed:", e);
             showToast(`Restore failed: ${e.message || e}`);
         } finally {
             setSaving(false);
+            setItemToRestore(null);
         }
     };
 
-    const handleDeletePermanent = async (itemId: string) => {
+    const executeDeletePermanent = async () => {
+        if (!itemToPermanentDelete) return;
         try {
             setSaving(true);
             const current = await ArchiveDB.getArchive();
-            const updated = current.filter(x => x.id !== itemId);
+            const updated = current.filter(x => x.id !== itemToPermanentDelete.id);
             await ArchiveDB.saveArchive(updated);
             setArchiveItems(updated);
-            showToast("Item permanently deleted from archive.");
+            showToast("Record permanently deleted.");
+            
+            // Adjust pagination if needed
+            if (paginatedArchiveItems.length === 1 && currentPage > 1) {
+                setCurrentPage(p => p - 1);
+            }
         } catch (e) {
             console.error(e);
             showToast("Failed to delete item permanently.");
         } finally {
             setSaving(false);
+            setItemToPermanentDelete(null);
         }
     };
 
-    const handleEmptyArchive = async () => {
+    const executeEmptyArchive = async () => {
+        if (emptyArchiveConfirmText !== "DELETE") return;
         try {
             setSaving(true);
             await ArchiveDB.saveArchive([]);
             setArchiveItems([]);
             showToast("Archive emptied successfully.");
+            setCurrentPage(1);
         } catch (e) {
             console.error(e);
             showToast("Failed to empty archive.");
         } finally {
             setSaving(false);
+            setIsEmptyArchiveModalOpen(false);
+            setEmptyArchiveConfirmText("");
         }
     };
 
@@ -445,10 +501,60 @@ export default function SettingsPage() {
         { key: "archive" as const, label: "Archive", icon: Archive },
     ];
 
+    // --- Archive Derived State ---
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [archiveSearchQuery, archiveFilterType, archiveFilterDate, archiveSortOrder]);
+
+    const filteredArchiveItems = archiveItems.filter(item => {
+        const matchesSearch = !archiveSearchQuery || 
+            item.name.toLowerCase().includes(archiveSearchQuery.toLowerCase()) ||
+            item.type.toLowerCase().includes(archiveSearchQuery.toLowerCase());
+        
+        const matchesType = archiveFilterType === "All Types" || item.type === archiveFilterType;
+        
+        let matchesDate = true;
+        if (archiveFilterDate !== "All Dates") {
+            const itemDate = new Date(item.deleted_at);
+            const now = new Date();
+            if (archiveFilterDate === "Today") {
+                matchesDate = itemDate.toDateString() === now.toDateString();
+            } else if (archiveFilterDate === "This Week") {
+                const oneWeekAgo = new Date(new Date().setDate(now.getDate() - 7));
+                matchesDate = itemDate >= oneWeekAgo;
+            } else if (archiveFilterDate === "This Month") {
+                matchesDate = itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
+            } else if (archiveFilterDate === "Older") {
+                const oneMonthAgo = new Date(new Date().setMonth(now.getMonth() - 1));
+                matchesDate = itemDate < oneMonthAgo;
+            }
+        }
+        
+        return matchesSearch && matchesType && matchesDate;
+    });
+
+    const sortedArchiveItems = [...filteredArchiveItems].sort((a, b) => {
+        if (archiveSortOrder === "Newest First") return new Date(b.deleted_at).getTime() - new Date(a.deleted_at).getTime();
+        if (archiveSortOrder === "Oldest First") return new Date(a.deleted_at).getTime() - new Date(b.deleted_at).getTime();
+        if (archiveSortOrder === "Name A–Z") return a.name.localeCompare(b.name);
+        if (archiveSortOrder === "Name Z–A") return b.name.localeCompare(a.name);
+        return 0;
+    });
+
     const itemsPerPage = 5;
-    const totalPages = Math.ceil(archiveItems.length / itemsPerPage) || 1;
+    const totalPages = Math.ceil(sortedArchiveItems.length / itemsPerPage) || 1;
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginatedArchiveItems = archiveItems.slice(startIndex, startIndex + itemsPerPage);
+    const paginatedArchiveItems = sortedArchiveItems.slice(startIndex, startIndex + itemsPerPage);
+
+    // Compute stats
+    const totalArchived = archiveItems.length;
+    const nailDesignsCount = archiveItems.filter(i => i.type === "nail_design").length;
+    const recentlyDeletedCount = archiveItems.filter(i => {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        return new Date(i.deleted_at) >= sevenDaysAgo;
+    }).length;
+    const othersCount = totalArchived - nailDesignsCount;
 
     if (loading) {
         return (
@@ -833,59 +939,243 @@ export default function SettingsPage() {
 
                 {activeSection === "archive" && (
                     <div className="space-y-6">
-                        <div className="bg-white rounded-3xl p-8 shadow-sm border border-pink-100 relative min-h-[400px]">
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {[
+                                { title: "Total Archived", value: totalArchived, icon: Archive, color: "text-gray-700", bg: "bg-gray-100" },
+                                { title: "Nail Designs", value: nailDesignsCount, icon: ImageIcon, color: "text-pink-500", bg: "bg-pink-100" },
+                                { title: "Recently Deleted", value: recentlyDeletedCount, icon: Clock, color: "text-orange-500", bg: "bg-orange-100" },
+                                { title: "Others", value: othersCount, icon: FileText, color: "text-blue-500", bg: "bg-blue-100" }
+                            ].map((stat, idx) => (
+                                <div key={idx} className="bg-white rounded-3xl p-4.5 sm:p-5 shadow-sm border border-pink-50 flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-2xl ${stat.bg} flex items-center justify-center shrink-0`}>
+                                        <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">{stat.title}</p>
+                                        <h4 className="text-2xl font-black text-gray-900">{stat.value}</h4>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-pink-100 relative min-h-[400px]">
                             {isArchiveLoading && (
                                 <div className="absolute inset-0 bg-white/50 z-10 rounded-3xl flex items-center justify-center">
                                     <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
                                 </div>
                             )}
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-2xl bg-pink-100 flex items-center justify-center">
-                                        <Archive className="w-5 h-5 text-pink-500" />
+
+                            {/* Dedicated Header Area */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-gray-100">
+                                <div className="flex items-center gap-3.5">
+                                    <div className="w-11 h-11 rounded-2xl bg-pink-100 flex items-center justify-center shrink-0 shadow-xs">
+                                        <Archive className="w-5.5 h-5.5 text-pink-500" />
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-bold text-gray-900">Deleted Records</h3>
-                                        <p className="text-sm text-gray-500">View and restore records deleted data</p>
+                                        <h3 className="text-xl font-bold text-gray-900 tracking-tight">Deleted Records</h3>
+                                        <p className="text-sm text-gray-500 font-medium">View and restore deleted data</p>
                                     </div>
                                 </div>
+
                                 {archiveItems.length > 0 && (
                                     <button
-                                        onClick={handleEmptyArchive}
-                                        className="px-5 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border border-red-100 shadow-sm cursor-pointer"
+                                        onClick={() => setIsEmptyArchiveModalOpen(true)}
+                                        className="px-4.5 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 border border-red-100 shadow-xs cursor-pointer self-start sm:self-auto"
                                     >
-                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <Trash2 className="w-4 h-4" />
                                         Empty Archive
                                     </button>
                                 )}
                             </div>
 
+                            {/* Single Row Toolbar (Search + Filters + Sort) */}
+                            <div ref={archiveDropdownsRef} className="flex flex-col md:flex-row items-stretch md:items-center gap-3 mb-6 w-full">
+                                {/* Search Bar (Pill-shaped, Takes majority space) */}
+                                <div className="relative flex-1 w-full min-w-[220px]">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-pink-500 pointer-events-none" />
+                                    <input 
+                                        type="text"
+                                        placeholder="Search archived records..."
+                                        value={archiveSearchQuery}
+                                        onChange={e => setArchiveSearchQuery(e.target.value)}
+                                        className="w-full pl-10.5 pr-4 py-2.5 h-11 bg-white border border-pink-100 hover:border-pink-200 rounded-full text-sm font-normal text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400 shadow-2xs transition-all"
+                                    />
+                                </div>
+
+                                {/* Type Filter (Compact Pill Button + Custom Dropdown Popover) */}
+                                <div className="relative w-full md:w-auto md:min-w-[160px] md:max-w-[180px]">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsTypeDropdownOpen(!isTypeDropdownOpen);
+                                            setIsDateDropdownOpen(false);
+                                            setIsSortDropdownOpen(false);
+                                        }}
+                                        className="w-full h-11 px-4 bg-pink-50/40 hover:bg-pink-50/80 border border-pink-100 hover:border-pink-200 rounded-full text-sm font-normal text-gray-900 shadow-2xs transition-all cursor-pointer flex items-center justify-between gap-2"
+                                    >
+                                        <div className="flex items-center gap-2 truncate">
+                                            <FilterIcon className="w-4 h-4 text-pink-500 shrink-0" />
+                                            <span className="truncate">
+                                                {archiveFilterType === "All Types" 
+                                                    ? "All Types" 
+                                                    : archiveFilterType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                            </span>
+                                        </div>
+                                        <ChevronDown className={`w-3.5 h-3.5 text-pink-400 shrink-0 transition-transform duration-200 ${isTypeDropdownOpen ? 'rotate-180 text-pink-600' : ''}`} />
+                                    </button>
+
+                                    {isTypeDropdownOpen && (
+                                        <div className="absolute top-full mt-2 left-0 md:left-auto md:right-0 w-full min-w-[170px] bg-white rounded-2xl shadow-xl border border-pink-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
+                                            <div className="max-h-60 overflow-y-auto space-y-0.5 px-1">
+                                                {["All Types", ...Array.from(new Set(archiveItems.map(i => i.type)))].map(type => {
+                                                    const isSelected = archiveFilterType === type;
+                                                    const label = type === "All Types" ? "All Types" : type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                                    return (
+                                                        <button
+                                                            key={type}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setArchiveFilterType(type);
+                                                                setIsTypeDropdownOpen(false);
+                                                            }}
+                                                            className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-normal transition-colors flex items-center justify-between cursor-pointer ${
+                                                                isSelected 
+                                                                    ? "bg-pink-50 text-pink-600 font-semibold" 
+                                                                    : "text-gray-700 hover:bg-pink-50/60 hover:text-pink-600"
+                                                            }`}
+                                                        >
+                                                            <span>{label}</span>
+                                                            {isSelected && <Check className="w-4 h-4 text-pink-600 shrink-0" />}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {/* Date Filter (Compact Pill Button + Custom Dropdown Popover) */}
+                                <div className="relative w-full md:w-auto md:min-w-[160px] md:max-w-[180px]">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsDateDropdownOpen(!isDateDropdownOpen);
+                                            setIsTypeDropdownOpen(false);
+                                            setIsSortDropdownOpen(false);
+                                        }}
+                                        className="w-full h-11 px-4 bg-pink-50/40 hover:bg-pink-50/80 border border-pink-100 hover:border-pink-200 rounded-full text-sm font-normal text-gray-900 shadow-2xs transition-all cursor-pointer flex items-center justify-between gap-2"
+                                    >
+                                        <div className="flex items-center gap-2 truncate">
+                                            <Calendar className="w-4 h-4 text-pink-500 shrink-0" />
+                                            <span className="truncate">{archiveFilterDate}</span>
+                                        </div>
+                                        <ChevronDown className={`w-3.5 h-3.5 text-pink-400 shrink-0 transition-transform duration-200 ${isDateDropdownOpen ? 'rotate-180 text-pink-600' : ''}`} />
+                                    </button>
+
+                                    {isDateDropdownOpen && (
+                                        <div className="absolute top-full mt-2 left-0 md:left-auto md:right-0 w-full min-w-[170px] bg-white rounded-2xl shadow-xl border border-pink-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
+                                            <div className="max-h-60 overflow-y-auto space-y-0.5 px-1">
+                                                {["All Dates", "Today", "This Week", "This Month", "Older"].map(dOption => {
+                                                    const isSelected = archiveFilterDate === dOption;
+                                                    return (
+                                                        <button
+                                                            key={dOption}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setArchiveFilterDate(dOption);
+                                                                setIsDateDropdownOpen(false);
+                                                            }}
+                                                            className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-normal transition-colors flex items-center justify-between cursor-pointer ${
+                                                                isSelected 
+                                                                    ? "bg-pink-50 text-pink-600 font-semibold" 
+                                                                    : "text-gray-700 hover:bg-pink-50/60 hover:text-pink-600"
+                                                            }`}
+                                                        >
+                                                            <span>{dOption}</span>
+                                                            {isSelected && <Check className="w-4 h-4 text-pink-600 shrink-0" />}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {/* Sort Order (Compact Pill Button + Custom Dropdown Popover) */}
+                                <div className="relative w-full md:w-auto md:min-w-[175px] md:max-w-[200px]">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsSortDropdownOpen(!isSortDropdownOpen);
+                                            setIsTypeDropdownOpen(false);
+                                            setIsDateDropdownOpen(false);
+                                        }}
+                                        className="w-full h-11 px-4 bg-pink-50/40 hover:bg-pink-50/80 border border-pink-100 hover:border-pink-200 rounded-full text-sm font-normal text-gray-900 shadow-2xs transition-all cursor-pointer flex items-center justify-between gap-2"
+                                    >
+                                        <div className="flex items-center gap-2 truncate">
+                                            <ArrowUpDown className="w-4 h-4 text-pink-500 shrink-0" />
+                                            <span className="truncate">{archiveSortOrder}</span>
+                                        </div>
+                                        <ChevronDown className={`w-3.5 h-3.5 text-pink-400 shrink-0 transition-transform duration-200 ${isSortDropdownOpen ? 'rotate-180 text-pink-600' : ''}`} />
+                                    </button>
+
+                                    {isSortDropdownOpen && (
+                                        <div className="absolute top-full mt-2 left-0 md:left-auto md:right-0 w-full min-w-[185px] bg-white rounded-2xl shadow-xl border border-pink-100 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
+                                            <div className="max-h-60 overflow-y-auto space-y-0.5 px-1">
+                                                {["Newest First", "Oldest First", "Name A–Z", "Name Z–A"].map(sOption => {
+                                                    const isSelected = archiveSortOrder === sOption;
+                                                    return (
+                                                        <button
+                                                            key={sOption}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setArchiveSortOrder(sOption);
+                                                                setIsSortDropdownOpen(false);
+                                                            }}
+                                                            className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-normal transition-colors flex items-center justify-between cursor-pointer ${
+                                                                isSelected 
+                                                                    ? "bg-pink-50 text-pink-600 font-semibold" 
+                                                                    : "text-gray-700 hover:bg-pink-50/60 hover:text-pink-600"
+                                                            }`}
+                                                        >
+                                                            <span>{sOption}</span>
+                                                            {isSelected && <Check className="w-4 h-4 text-pink-600 shrink-0" />}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left border-separate" style={{ borderSpacing: "0 8px" }}>
+                                <table className="w-full text-left border-separate" style={{ borderSpacing: "0 10px" }}>
                                     <thead>
                                         <tr>
-                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Name</th>
-                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Type</th>
-                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Date Deleted</th>
-                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Time Deleted</th>
-                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Action</th>
+                                            <th className="px-5 py-3 text-xs font-bold text-gray-900 uppercase tracking-wider">Record / Name</th>
+                                            <th className="px-5 py-3 text-xs font-bold text-gray-900 uppercase tracking-wider">Type</th>
+                                            <th className="px-5 py-3 text-xs font-bold text-gray-900 uppercase tracking-wider">Date Deleted</th>
+                                            <th className="px-5 py-3 text-xs font-bold text-gray-900 uppercase tracking-wider">Time Deleted</th>
+                                            <th className="px-5 py-3 text-xs font-bold text-gray-900 uppercase tracking-wider text-center">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {paginatedArchiveItems.map((item) => (
                                             <tr key={item.id} className="bg-gray-50/50 hover:bg-pink-50/30 transition-all group">
-                                                <td className="py-4 px-4 rounded-l-2xl border-y border-l border-transparent group-hover:border-pink-100">
+                                                <td className="py-4.5 px-5 rounded-l-2xl border-y border-l border-transparent group-hover:border-pink-100">
                                                     <div className="flex items-center gap-3">
                                                         <button
                                                             onClick={() => setSelectedArchiveItem(item)}
                                                             className="font-bold text-gray-900 hover:text-pink-600 hover:underline transition-colors text-left cursor-pointer"
-                                                            title="Click to view details"
+                                                            title="View Details"
                                                         >
                                                             {item.name}
                                                         </button>
                                                     </div>
                                                 </td>
-                                                <td className="py-4 px-4 border-y border-transparent group-hover:border-pink-100">
+                                                <td className="py-4.5 px-5 border-y border-transparent group-hover:border-pink-100">
                                                     {(() => {
                                                         const colors: Record<string, string> = {
                                                             customer: "bg-emerald-50 text-emerald-600 border-emerald-100",
@@ -904,36 +1194,35 @@ export default function SettingsPage() {
                                                         );
                                                     })()}
                                                 </td>
-                                                <td className="py-4 px-4 border-y border-transparent group-hover:border-pink-100 text-sm font-semibold text-gray-500">
-                                                    {new Date(item.deleted_at).toLocaleDateString()}
+                                                <td className="py-4.5 px-5 border-y border-transparent group-hover:border-pink-100 text-sm font-semibold text-gray-500">
+                                                    {new Date(item.deleted_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                                                 </td>
-                                                <td className="py-4 px-4 border-y border-transparent group-hover:border-pink-100 text-sm font-semibold text-gray-500">
+                                                <td className="py-4.5 px-5 border-y border-transparent group-hover:border-pink-100 text-sm font-semibold text-gray-500">
                                                      {new Date(item.deleted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </td>
-                                                <td className="py-4 px-4 rounded-r-2xl border-y border-r border-transparent group-hover:border-pink-100 text-center">
-                                                    <div className="flex items-center justify-center gap-2.5">
+                                                <td className="py-4.5 px-5 rounded-r-2xl border-y border-r border-transparent group-hover:border-pink-100 text-center">
+                                                    <div className="flex items-center justify-center gap-3">
                                                         <button
                                                             onClick={() => setSelectedArchiveItem(item)}
-                                                            className="p-2 text-gray-500 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
-                                                            title="View raw details"
+                                                            className="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors cursor-pointer relative group/btn"
+                                                            title="View Details"
+                                                            aria-label="View Details"
                                                         >
                                                             <FileText className="w-4 h-4" />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleRestoreItem(item)}
-                                                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors cursor-pointer"
-                                                            title="Restore to system"
+                                                            onClick={() => setItemToRestore(item)}
+                                                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors cursor-pointer relative group/btn"
+                                                            title="Restore"
+                                                            aria-label="Restore"
                                                         >
                                                             <RotateCcw className="w-4 h-4" />
                                                         </button>
                                                         <button
-                                                            onClick={() => {
-                                                                if (confirm(`Are you sure you want to permanently delete this ${item.type} from the archive?`)) {
-                                                                    handleDeletePermanent(item.id);
-                                                                }
-                                                            }}
-                                                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                                                            title="Delete permanently"
+                                                            onClick={() => setItemToPermanentDelete(item)}
+                                                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer relative group/btn"
+                                                            title="Delete Permanently"
+                                                            aria-label="Delete Permanently"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
@@ -941,12 +1230,19 @@ export default function SettingsPage() {
                                                 </td>
                                             </tr>
                                         ))}
-                                        {archiveItems.length === 0 && !isArchiveLoading && (
+                                        {paginatedArchiveItems.length === 0 && !isArchiveLoading && (
                                             <tr>
                                                 <td colSpan={5} className="py-20 text-center">
-                                                    <div className="flex flex-col items-center justify-center opacity-40">
-                                                        <Archive className="w-12 h-12 mb-3 text-gray-300" />
-                                                        <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">No archived items found</p>
+                                                    <div className="flex flex-col items-center justify-center opacity-60">
+                                                        <Archive className="w-16 h-16 mb-4 text-gray-300" />
+                                                        <h4 className="text-lg font-bold text-gray-500 mb-1">
+                                                            {archiveItems.length === 0 ? "Your archive is empty" : "No matching records found"}
+                                                        </h4>
+                                                        <p className="text-sm font-semibold text-gray-400">
+                                                            {archiveItems.length === 0 
+                                                                ? "Deleted records will appear here and can be restored when needed." 
+                                                                : "Try changing your search or filters."}
+                                                        </p>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -968,58 +1264,251 @@ export default function SettingsPage() {
             {/* Archive Detail Viewer Modal */}
             {selectedArchiveItem && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[32px] w-full max-w-lg shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 border border-pink-100 max-h-[85vh] flex flex-col">
-                        <div className="p-6 md:p-8 flex-1 overflow-y-auto">
+                    <div className="bg-white rounded-3xl w-full max-w-[620px] mx-auto shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 border border-pink-100 max-h-[85vh] flex flex-col">
+                        <div className="px-6 py-5 border-b border-gray-100 relative shrink-0">
                             <button
                                 onClick={() => setSelectedArchiveItem(null)}
-                                className="absolute right-6 top-6 p-1.5 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full transition-colors z-50 cursor-pointer animate-in fade-in"
+                                className="absolute right-5 top-5 p-1.5 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full transition-colors z-50 cursor-pointer"
                             >
-                                <X className="w-5 h-5 font-bold" />
+                                <X className="w-5 h-5" />
                             </button>
 
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">Deleted Record Details</h3>
-                            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-6">
-                                Type: {selectedArchiveItem.type} | ID: {selectedArchiveItem.id}
-                            </p>
-
-                            <div className="space-y-4 bg-gray-50 p-5 rounded-2xl border border-gray-100 max-h-[50vh] overflow-y-auto text-left">
-                                {Object.entries(selectedArchiveItem.details || {}).map(([key, val]) => {
-                                    if (typeof val === "object" && val !== null) {
-                                        return (
-                                            <div key={key} className="border-b border-gray-200/50 pb-2.5 last:border-0 last:pb-0">
-                                                <span className="block text-xs font-bold text-gray-400 uppercase tracking-widest">{key}</span>
-                                                <pre className="text-xs font-semibold text-gray-700 bg-white border border-gray-150 rounded-lg p-2 mt-1 overflow-x-auto whitespace-pre-wrap">
-                                                    {JSON.stringify(val, null, 2)}
-                                                </pre>
-                                            </div>
-                                        );
-                                    }
+                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1.5">Deleted Record Details</h3>
+                            
+                            <div className="flex items-center gap-3">
+                                {selectedArchiveItem.name && (
+                                    <h4 className="text-xl font-black text-gray-900">{selectedArchiveItem.name}</h4>
+                                )}
+                                {(() => {
+                                    const colors: Record<string, string> = {
+                                        customer: "bg-emerald-50 text-emerald-600 border-emerald-100",
+                                        staff: "bg-amber-50 text-amber-600 border-amber-100",
+                                        service: "bg-purple-50 text-purple-600 border-purple-100",
+                                        appointment: "bg-blue-50 text-blue-600 border-blue-100",
+                                        inventory: "bg-pink-50 text-pink-600 border-pink-100",
+                                        billing: "bg-yellow-50 text-yellow-600 border-yellow-100",
+                                        notification: "bg-gray-50 text-gray-600 border-gray-200"
+                                    };
+                                    const colorClass = colors[selectedArchiveItem.type] || "bg-pink-50 text-pink-600 border-pink-100";
                                     return (
-                                        <div key={key} className="flex justify-between items-start gap-4 border-b border-gray-200/50 pb-2.5 last:border-0 last:pb-0">
-                                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{key.replace(/_/g, " ")}</span>
-                                            <span className="text-sm font-semibold text-gray-800 text-right word-break break-all">{val !== null && val !== undefined ? val.toString() : "N/A"}</span>
-                                        </div>
+                                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${colorClass}`}>
+                                            {selectedArchiveItem.type.replace(/_/g, ' ')}
+                                        </span>
                                     );
-                                })}
+                                })()}
                             </div>
                         </div>
 
-                        <div className="px-6 py-4 md:px-8 md:py-6 bg-gray-50 border-t border-gray-100 flex gap-3.5 justify-end">
+                        <div className="p-6 overflow-y-auto space-y-6 bg-gray-50/30 flex-1">
+                            {/* Image Preview for Nail Designs */}
+                            {selectedArchiveItem.type === 'nail_design' && (
+                                <div className="flex justify-center">
+                                    {(selectedArchiveItem.details.image_url || selectedArchiveItem.details.imageUrl) ? (
+                                        <div className="rounded-2xl overflow-hidden border border-pink-100 shadow-sm w-full bg-white flex justify-center items-center">
+                                            <img 
+                                                src={selectedArchiveItem.details.image_url || selectedArchiveItem.details.imageUrl} 
+                                                alt={selectedArchiveItem.name}
+                                                className="w-full max-h-[240px] object-contain"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="w-full max-h-[160px] h-32 bg-gray-50 rounded-2xl flex items-center justify-center border border-gray-200 border-dashed">
+                                            <span className="text-sm font-semibold text-gray-400">No preview available</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Grouping details */}
+                            {(() => {
+                                const details = selectedArchiveItem.details || {};
+                                
+                                const formatVal = (val: any) => {
+                                    if (val === null || val === undefined || val === '') return <span className="text-gray-400 italic">Not specified</span>;
+                                    if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+                                    if (typeof val === 'object') return <pre className="text-xs text-gray-600 bg-white border border-gray-150 rounded-lg p-2.5 mt-1 overflow-x-auto whitespace-pre-wrap">{JSON.stringify(val, null, 2)}</pre>;
+                                    
+                                    // Try to format date strings
+                                    if (typeof val === 'string' && val.includes('T') && val.includes('Z')) {
+                                        const d = new Date(val);
+                                        if (!isNaN(d.getTime())) {
+                                            return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) + ' • ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                        }
+                                    }
+                                    return val.toString();
+                                };
+
+                                const renderSection = (title: string, entries: [string, any][]) => {
+                                    if (entries.length === 0) return null;
+                                    return (
+                                        <div className="mb-6 last:mb-0 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                                            <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">{title}</h5>
+                                            <div className="space-y-2.5">
+                                                {entries.map(([key, val]) => (
+                                                    <div key={key} className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4">
+                                                        <span className="text-xs font-bold text-gray-500 capitalize shrink-0 pt-0.5">{key.replace(/_/g, " ")}</span>
+                                                        <div className="text-sm font-semibold text-gray-900 sm:text-right break-words overflow-hidden w-full">{formatVal(val)}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                };
+
+                                const generalKeys = ['name', 'category', 'description', 'price', 'duration', 'status'];
+                                const designKeys = ['shape', 'texture', 'art_data', 'is_gradient', 'gradient_colors', 'style'];
+                                const omitKeys = ['created_at', 'createdAt', 'updated_at', 'updatedAt', 'deleted_at', 'deletedAt', 'deleted_by', 'deletedBy', 'id', 'image_url', 'imageUrl'];
+
+                                const generalInfo = Object.entries(details).filter(([k]) => 
+                                    generalKeys.includes(k) || (!designKeys.includes(k) && !omitKeys.includes(k))
+                                );
+                                
+                                const designInfo = Object.entries(details).filter(([k]) => designKeys.includes(k));
+                                
+                                const recordInfo = [
+                                    ['Created', details.created_at || details.createdAt || null],
+                                    ['Updated', details.updated_at || details.updatedAt || null],
+                                    ['Deleted', selectedArchiveItem.deleted_at],
+                                    ['Deleted By', details.deleted_by || details.deletedBy || null],
+                                    ['Record ID', selectedArchiveItem.id],
+                                ].filter(([_, v]) => v !== null && v !== undefined) as [string, any][];
+
+                                return (
+                                    <div className="space-y-4">
+                                        {renderSection("General Information", generalInfo)}
+                                        {renderSection("Design Details", designInfo)}
+                                        {renderSection("Record Information", recordInfo)}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-gray-100 bg-white flex gap-3 justify-end shrink-0">
                             <button
                                 onClick={() => setSelectedArchiveItem(null)}
-                                className="px-5 py-2.5 rounded-xl bg-white border border-pink-100 text-gray-600 font-bold hover:bg-gray-50 transition-colors text-xs cursor-pointer"
+                                disabled={saving}
+                                className="px-5 py-2.5 rounded-xl bg-gray-50 text-gray-600 font-bold hover:bg-gray-100 transition-colors text-sm cursor-pointer"
                             >
                                 Close
                             </button>
                             <button
                                 onClick={() => {
-                                    handleRestoreItem(selectedArchiveItem);
+                                    setItemToRestore(selectedArchiveItem);
                                     setSelectedArchiveItem(null);
                                 }}
-                                className="px-5 py-2.5 rounded-xl bg-pink-500 text-white font-bold hover:bg-pink-600 shadow-md shadow-pink-100 transition-all text-xs flex items-center gap-1.5 cursor-pointer"
+                                disabled={saving}
+                                className="px-5 py-2.5 rounded-xl bg-emerald-500 text-white font-bold hover:bg-emerald-600 shadow-md shadow-emerald-100 transition-all text-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
                             >
-                                <RotateCcw className="w-3.5 h-3.5" />
+                                <RotateCcw className="w-4 h-4" />
                                 Restore Record
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Restore Confirmation Modal */}
+            {itemToRestore && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl p-8 relative animate-in zoom-in-95 duration-300 border border-emerald-100 text-center">
+                        <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                            <RotateCcw className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Restore Record?</h3>
+                        <p className="text-gray-500 font-medium mb-8">
+                            <span className="font-bold text-gray-700">{itemToRestore.name}</span> will be returned to its original section.
+                        </p>
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => setItemToRestore(null)}
+                                disabled={saving}
+                                className="flex-1 py-4 rounded-2xl bg-gray-50 text-gray-500 font-bold hover:bg-gray-100 transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={executeRestoreItem}
+                                disabled={saving}
+                                className="flex-1 py-4 rounded-2xl bg-emerald-500 text-white font-bold hover:bg-emerald-600 shadow-lg shadow-emerald-100 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                {saving ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Restore'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Permanent Delete Confirmation Modal */}
+            {itemToPermanentDelete && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl p-8 relative animate-in zoom-in-95 duration-300 border border-rose-100 text-center">
+                        <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                            <AlertCircle className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Delete Permanently?</h3>
+                        <p className="text-gray-500 font-medium mb-8">
+                            This record will be permanently deleted and cannot be restored.
+                        </p>
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => setItemToPermanentDelete(null)}
+                                disabled={saving}
+                                className="flex-1 py-4 rounded-2xl bg-gray-50 text-gray-500 font-bold hover:bg-gray-100 transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={executeDeletePermanent}
+                                disabled={saving}
+                                className="flex-1 py-4 rounded-2xl bg-rose-500 text-white font-bold hover:bg-rose-600 shadow-lg shadow-rose-100 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                {saving ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Empty Archive Confirmation Modal */}
+            {isEmptyArchiveModalOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[32px] w-full max-w-sm shadow-2xl p-8 relative animate-in zoom-in-95 duration-300 border border-rose-100 text-center">
+                        <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                            <Trash2 className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Empty Archive?</h3>
+                        <p className="text-gray-500 font-medium mb-6">
+                            This will permanently delete all <span className="font-bold text-gray-700">{archiveItems.length}</span> archived records. This action cannot be undone.
+                        </p>
+                        
+                        <div className="mb-6 text-left">
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 pl-1">Type DELETE to confirm</label>
+                            <input 
+                                type="text"
+                                placeholder="DELETE"
+                                value={emptyArchiveConfirmText}
+                                onChange={e => setEmptyArchiveConfirmText(e.target.value)}
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-center font-bold text-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-400 transition-all"
+                            />
+                        </div>
+
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => {
+                                    setIsEmptyArchiveModalOpen(false);
+                                    setEmptyArchiveConfirmText("");
+                                }}
+                                disabled={saving}
+                                className="flex-1 py-4 rounded-2xl bg-gray-50 text-gray-500 font-bold hover:bg-gray-100 transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={executeEmptyArchive}
+                                disabled={saving || emptyArchiveConfirmText !== "DELETE"}
+                                className="flex-1 py-4 rounded-2xl bg-rose-500 text-white font-bold hover:bg-rose-600 shadow-lg shadow-rose-100 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                {saving ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Empty'}
                             </button>
                         </div>
                     </div>
