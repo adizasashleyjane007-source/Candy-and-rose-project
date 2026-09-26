@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
 export default function RegisterPage() {
@@ -12,6 +13,7 @@ export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [busy, setBusy] = useState(false);
@@ -106,37 +108,66 @@ export default function RegisterPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Your Name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full h-13 rounded-xl border border-[#E2E0E3] bg-[#FAFAFA] px-4.5 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/20"
-                    />
+                  <div className="space-y-1.5">
+                    <label htmlFor="register-name" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
+                      Your Name
+                    </label>
+                    <div className="relative group">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 h-[19px] w-[19px] text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                      <input
+                        id="register-name"
+                        type="text"
+                        required
+                        placeholder="Enter your name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full h-13 rounded-xl border border-[#E2E0E3] bg-[#FAFAFA] pl-11 pr-4.5 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <input
-                      type="email"
-                      required
-                      placeholder="Email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full h-13 rounded-xl border border-[#E2E0E3] bg-[#FAFAFA] px-4.5 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/20"
-                    />
+                  <div className="space-y-1.5">
+                    <label htmlFor="register-email" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
+                      Email
+                    </label>
+                    <div className="relative group">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-[19px] w-[19px] text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                      <input
+                        id="register-email"
+                        type="email"
+                        required
+                        placeholder="Enter your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full h-13 rounded-xl border border-[#E2E0E3] bg-[#FAFAFA] pl-11 pr-4.5 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <input
-                      type="password"
-                      required
-                      placeholder="Password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full h-13 rounded-xl border border-[#E2E0E3] bg-[#FAFAFA] px-4.5 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/20"
-                    />
+                  <div className="space-y-1.5">
+                    <label htmlFor="register-password" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
+                      Password
+                    </label>
+                    <div className="relative group">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-[19px] w-[19px] text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                      <input
+                        id="register-password"
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full h-13 rounded-xl border border-[#E2E0E3] bg-[#FAFAFA] pl-11 pr-11 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="pt-2">
