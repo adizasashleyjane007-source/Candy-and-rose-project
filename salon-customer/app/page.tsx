@@ -71,12 +71,12 @@ const highlights = [
 ];
 
 const FEATURED_NAIL_IMAGES = [
-  { id: 'nail1', src: '/images/Nail1.jpg', title: 'Rose Gold Sculpt' },
+  { id: 'nail5', src: '/images/NAIL5.jpg', title: 'Artisan Gel Nails' },
   { id: 'nail2', src: '/images/NAIL2.jpg', title: 'Fine-Line French' },
-  { id: 'nail3', src: '/images/NAIL3.jpg', title: 'Botanical Hand-Art' },
+  { id: 'nail7', src: '/images/NAIL7.jpg', title: 'Botanical Hand-Art' },
   { id: 'nail4', src: '/images/NAIL4.jpg', title: 'Velvet Rose Cat-Eye' },
-  { id: 'nail5', src: '/images/nails.png', title: 'Signature Gel Art' },
-  { id: 'nail6', src: '/nail.jpeg', title: 'Minimalist Luxe Nails' },
+  { id: 'nail8', src: '/images/NAIL8.jpg', title: 'Rose Gold Sculpt' },
+  { id: 'nail-main', src: '/nail.jpeg', title: 'Minimalist Luxe Nails' },
 ];
 
 const HOMEPAGE_GALLERY_IMAGES = [
