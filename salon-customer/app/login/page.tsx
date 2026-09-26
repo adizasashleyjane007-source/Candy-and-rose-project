@@ -147,7 +147,7 @@ export default function LoginPage() {
                         type="checkbox"
                         checked={rememberMe}
                         onChange={(e) => setRememberMe(e.target.checked)}
-                        className="h-4 w-4 rounded border-zinc-300 accent-[#E2A0B8] cursor-pointer"
+                        className="h-4 w-4 rounded border-zinc-300 accent-[#E61E73] cursor-pointer"
                       />
                       <span>Remember me</span>
                     </label>
@@ -157,7 +157,7 @@ export default function LoginPage() {
                     <button
                       type="submit"
                       disabled={busy}
-                      className="w-full h-[52px] rounded-xl bg-[#E2A0B8] hover:bg-[#d48ea6] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all hover:-translate-y-0.5 active:translate-y-0 shadow-sm disabled:opacity-60 cursor-pointer text-center flex items-center justify-center"
+                      className="w-full h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
                     >
                       {busy ? 'LOGGING IN...' : 'LOGIN'}
                     </button>
@@ -166,7 +166,7 @@ export default function LoginPage() {
 
                 <div className="mt-7 text-center text-xs sm:text-[13.5px] text-[#77727A]">
                   Don&apos;t have an account?{' '}
-                  <Link href="/register" className="text-[#E2A0B8] hover:text-[#d48ea6] font-semibold transition-colors">
+                  <Link href="/register" className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors">
                     Register
                   </Link>
                 </div>

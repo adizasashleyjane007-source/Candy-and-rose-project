@@ -174,7 +174,7 @@ export default function RegisterPage() {
                     <button
                       type="submit"
                       disabled={busy}
-                      className="w-full h-[52px] rounded-xl bg-[#E2A0B8] hover:bg-[#d48ea6] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all hover:-translate-y-0.5 active:translate-y-0 shadow-sm disabled:opacity-60 cursor-pointer text-center flex items-center justify-center"
+                      className="w-full h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
                     >
                       {busy ? 'REGISTERING...' : 'REGISTER'}
                     </button>
@@ -183,7 +183,7 @@ export default function RegisterPage() {
 
                 <div className="mt-7 text-center text-xs sm:text-[13.5px] text-[#77727A]">
                   Already have an account?{' '}
-                  <Link href="/login" className="text-[#E2A0B8] hover:text-[#d48ea6] font-semibold transition-colors">
+                  <Link href="/login" className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors">
                     Login
                   </Link>
                 </div>
