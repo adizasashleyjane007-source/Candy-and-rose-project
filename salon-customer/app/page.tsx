@@ -71,12 +71,12 @@ const highlights = [
 ];
 
 const FEATURED_NAIL_IMAGES = [
-  { id: 'nail5', src: '/images/NAIL5.jpg', title: 'Artisan Gel Nails' },
+  { id: 'nail1', src: '/images/Nail1.jpg', title: 'Rose Gold Sculpt' },
   { id: 'nail2', src: '/images/NAIL2.jpg', title: 'Fine-Line French' },
-  { id: 'nail7', src: '/images/NAIL7.jpg', title: 'Botanical Hand-Art' },
+  { id: 'nail3', src: '/images/NAIL3.jpg', title: 'Botanical Hand-Art' },
   { id: 'nail4', src: '/images/NAIL4.jpg', title: 'Velvet Rose Cat-Eye' },
-  { id: 'nail8', src: '/images/NAIL8.jpg', title: 'Rose Gold Sculpt' },
-  { id: 'nail-main', src: '/nail.jpeg', title: 'Minimalist Luxe Nails' },
+  { id: 'nail7', src: '/images/NAIL7.jpg', title: 'Artisan Floral Nails' },
+  { id: 'nails-png', src: '/images/nails.png', title: 'Signature Nail Art' },
 ];
 
 const HOMEPAGE_GALLERY_IMAGES = [
@@ -403,7 +403,7 @@ export default function Home() {
                 FEATURED WORK
               </span>
               <h2 className="font-sans text-3xl sm:text-4xl text-zinc-950 font-medium tracking-tight">
-                Artisan Nail Portfolio
+                Nail Arts Portfolio
               </h2>
               <p className="mt-3 text-sm text-zinc-600 font-normal leading-relaxed">
                 Explore our signature artisan nail designs crafted with precision, care, and long-lasting quality.
