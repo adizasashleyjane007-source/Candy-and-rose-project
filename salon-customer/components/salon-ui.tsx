@@ -708,7 +708,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                       Your Name
                     </label>
                     <div className="relative group">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 h-[19px] w-[19px] text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
                       <input
                         id="auth-modal-name"
                         type="text"
@@ -716,7 +716,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                         placeholder="Enter your name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full h-13 rounded-xl border border-[#E2E0E3] bg-[#FAFAFA] pl-11 pr-4.5 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                        className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
                       />
                     </div>
                   </div>
@@ -727,7 +727,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                     Email
                   </label>
                   <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-[19px] w-[19px] text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
                     <input
                       id="auth-modal-email"
                       type="email"
@@ -735,7 +735,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                       placeholder="Enter your email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full h-13 rounded-xl border border-[#E2E0E3] bg-[#FAFAFA] pl-11 pr-4.5 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                      className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
                     />
                   </div>
                 </div>
@@ -745,7 +745,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                     Password
                   </label>
                   <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-[19px] w-[19px] text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
                     <input
                       id="auth-modal-password"
                       type={showPassword ? 'text' : 'password'}
@@ -753,7 +753,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                       placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full h-13 rounded-xl border border-[#E2E0E3] bg-[#FAFAFA] pl-11 pr-11 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                      className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
                     />
                     <button
                       type="button"
@@ -784,7 +784,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full h-13 rounded-xl bg-[#E2A0B8] hover:bg-[#d48ea6] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all hover:-translate-y-0.5 active:translate-y-0 shadow-sm disabled:opacity-60 cursor-pointer text-center flex items-center justify-center"
+                    className="w-full h-[52px] rounded-xl bg-[#E2A0B8] hover:bg-[#d48ea6] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all hover:-translate-y-0.5 active:translate-y-0 shadow-sm disabled:opacity-60 cursor-pointer text-center flex items-center justify-center"
                   >
                     {busy ? (mode === 'login' ? 'LOGGING IN...' : 'REGISTERING...') : (mode === 'login' ? 'LOGIN' : 'REGISTER')}
                   </button>
