@@ -642,19 +642,19 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto">
       {/* Primary Floating Modal Container */}
-      <div className="relative w-full max-w-4xl my-auto rounded-2xl overflow-hidden shadow-2xl animate-scale-in">
-        <div className="grid md:grid-cols-2 min-h-[480px]">
+      <div className="relative w-full max-w-[1100px] my-auto rounded-3xl overflow-hidden shadow-2xl animate-scale-in">
+        <div className="grid md:grid-cols-2 min-h-[580px] md:min-h-[620px]">
           {/* Left Column: Image with Overlay */}
-          <div className="relative min-h-[260px] md:min-h-[500px] bg-zinc-950 flex flex-col justify-end p-8 sm:p-12 overflow-hidden">
+          <div className="relative min-h-[280px] md:min-h-[620px] bg-zinc-950 flex flex-col justify-end p-8 sm:p-12 md:p-14 overflow-hidden">
             <img
               src={mode === 'login' ? '/images/login-img.jpg' : '/images/login-customer.jpg'}
               alt="Candy & Rose Beauty Experience"
               className="absolute inset-0 w-full h-full object-cover object-center"
             />
-            <div className="absolute inset-0 bg-black/45" />
+            <div className="absolute inset-0 bg-black/40" />
 
             <div className="relative z-10 text-white max-w-md">
-              <h2 className="font-sans text-2xl sm:text-3xl lg:text-[2rem] font-medium leading-[1.35] tracking-tight text-white drop-shadow-md">
+              <h2 className="font-sans text-2xl sm:text-3xl lg:text-[2.1rem] font-medium leading-[1.35] tracking-tight text-white drop-shadow-md">
                 We show your skin,<br />
                 hair, and body the<br />
                 care and attention<br />
@@ -666,22 +666,22 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
             </div>
           </div>
 
-          {/* Right Column: Dark Form Panel */}
-          <div className="relative bg-[#1E1E1E] p-8 sm:p-12 flex flex-col justify-center text-white">
-            {/* Minimal X Close Button inside top-right corner of dark form panel */}
+          {/* Right Column: White Form Panel */}
+          <div className="relative bg-white p-8 sm:p-12 md:p-14 flex flex-col justify-center text-zinc-900">
+            {/* Minimal X Close Button inside top-right corner of white form panel */}
             <button 
               onClick={onClose} 
-              className="absolute top-5 right-6 text-zinc-400 hover:text-white transition-colors p-1 cursor-pointer z-20"
+              className="absolute top-6 right-6 text-zinc-400 hover:text-zinc-800 transition-colors p-1 cursor-pointer z-20"
               aria-label="Close modal"
             >
               <X size={20} />
             </button>
 
             <div className="max-w-md w-full mx-auto">
-              <h2 className="font-sans text-2xl sm:text-3xl font-medium text-white mb-2">
+              <h2 className="font-sans text-2xl sm:text-3xl font-medium text-zinc-950 mb-2">
                 {mode === 'login' ? 'Login' : 'Register'}
               </h2>
-              <p className="text-xs sm:text-[13px] text-zinc-400 font-normal leading-relaxed mb-7 pr-4">
+              <p className="text-xs sm:text-[13.5px] text-zinc-500 font-normal leading-relaxed mb-8 pr-4">
                 {mode === 'login'
                   ? "Welcome back, we are glad you're feeling beautiful today. Login to continue"
                   : "Welcome to Candy & Rose Beauty Salon, we hope your stay with us feel as bright as the morning sun."
@@ -689,13 +689,13 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
               </p>
 
               {error && (
-                <div className="mb-5 rounded-md bg-red-950/70 border border-red-800 p-3.5 text-xs text-red-200 font-medium">
+                <div className="mb-5 rounded-xl bg-red-50 border border-red-200 p-3.5 text-xs text-red-600 font-medium">
                   {error}
                 </div>
               )}
 
               {successMessage && (
-                <div className="mb-5 rounded-md bg-green-950/70 border border-green-800 p-3.5 text-xs text-green-200 font-medium">
+                <div className="mb-5 rounded-xl bg-green-50 border border-green-200 p-3.5 text-xs text-green-700 font-medium">
                   {successMessage}
                 </div>
               )}
@@ -709,7 +709,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                       placeholder="Your Name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full rounded-md border border-zinc-700/80 bg-[#282828] px-4 py-3.5 text-xs sm:text-sm text-white placeholder-zinc-500 outline-none transition-colors focus:border-zinc-400 focus:bg-[#2e2e2e]"
+                      className="w-full rounded-xl border border-zinc-200/90 bg-zinc-50/50 px-4 py-3.5 text-xs sm:text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-all focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-500/20"
                     />
                   </div>
                 )}
@@ -721,7 +721,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                     placeholder="Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-md border border-zinc-700/80 bg-[#282828] px-4 py-3.5 text-xs sm:text-sm text-white placeholder-zinc-500 outline-none transition-colors focus:border-zinc-400 focus:bg-[#2e2e2e]"
+                    className="w-full rounded-xl border border-zinc-200/90 bg-zinc-50/50 px-4 py-3.5 text-xs sm:text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-all focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-500/20"
                   />
                 </div>
 
@@ -732,18 +732,18 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                     placeholder="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-md border border-zinc-700/80 bg-[#282828] px-4 py-3.5 text-xs sm:text-sm text-white placeholder-zinc-500 outline-none transition-colors focus:border-zinc-400 focus:bg-[#2e2e2e]"
+                    className="w-full rounded-xl border border-zinc-200/90 bg-zinc-50/50 px-4 py-3.5 text-xs sm:text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-all focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-500/20"
                   />
                 </div>
 
                 {mode === 'login' && (
                   <div className="flex items-center pt-1">
-                    <label className="flex items-center gap-2.5 text-xs text-zinc-400 cursor-pointer select-none">
+                    <label className="flex items-center gap-2.5 text-xs text-zinc-600 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={rememberMe}
                         onChange={(e) => setRememberMe(e.target.checked)}
-                        className="h-4 w-4 rounded border-zinc-700 bg-[#282828] accent-pink-600 cursor-pointer"
+                        className="h-4 w-4 rounded border-zinc-300 accent-pink-600 cursor-pointer"
                       />
                       <span>Remember me</span>
                     </label>
@@ -754,20 +754,20 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full rounded-md bg-[#F7F3EB] hover:bg-white text-zinc-950 font-semibold py-3.5 px-6 text-xs sm:text-sm tracking-wide transition-colors shadow-md disabled:opacity-60 cursor-pointer text-center"
+                    className="w-full rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold py-3.5 px-6 text-xs sm:text-sm uppercase tracking-wider transition-all shadow-md shadow-pink-600/20 disabled:opacity-60 cursor-pointer text-center"
                   >
                     {busy ? (mode === 'login' ? 'Logging in...' : 'Registering...') : (mode === 'login' ? 'Login' : 'Register')}
                   </button>
                 </div>
               </form>
 
-              <div className="mt-8 text-center text-xs text-zinc-400">
+              <div className="mt-8 text-center text-xs text-zinc-500">
                 {mode === 'login' ? (
                   <>
                     Don&apos;t have an account?{' '}
                     <button
                       onClick={() => { setMode('register'); setError(''); setSuccessMessage(''); }}
-                      className="text-amber-500 hover:text-amber-400 font-semibold transition-colors cursor-pointer"
+                      className="text-pink-600 hover:text-pink-700 font-semibold transition-colors cursor-pointer"
                     >
                       Register
                     </button>
@@ -777,7 +777,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                     Already have an account?{' '}
                     <button
                       onClick={() => { setMode('login'); setError(''); setSuccessMessage(''); }}
-                      className="text-amber-500 hover:text-amber-400 font-semibold transition-colors cursor-pointer"
+                      className="text-pink-600 hover:text-pink-700 font-semibold transition-colors cursor-pointer"
                     >
                       Login
                     </button>
