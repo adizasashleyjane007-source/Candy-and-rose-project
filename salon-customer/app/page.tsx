@@ -76,7 +76,7 @@ const FEATURED_NAIL_IMAGES = [
   { id: 'nail3', src: '/images/NAIL3.jpg', title: 'Botanical Hand-Art' },
   { id: 'nail4', src: '/images/NAIL4.jpg', title: 'Velvet Rose Cat-Eye' },
   { id: 'nail7', src: '/images/NAIL7.jpg', title: 'Artisan Floral Nails' },
-  { id: 'nails-png', src: '/images/nails.png', title: 'Signature Nail Art' },
+  { id: 'nail10', src: '/images/NAIL10.jpg', title: 'Signature Nail Art' },
 ];
 
 const HOMEPAGE_GALLERY_IMAGES = [
