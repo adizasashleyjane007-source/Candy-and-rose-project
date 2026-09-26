@@ -191,6 +191,28 @@
   animation: marquee 18s linear infinite;
 }
 
+@keyframes marquee-left {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes marquee-right {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0%); }
+}
+
+.animate-marquee-left {
+  display: flex;
+  width: max-content;
+  animation: marquee-left 40s linear infinite;
+}
+
+.animate-marquee-right {
+  display: flex;
+  width: max-content;
+  animation: marquee-right 45s linear infinite;
+}
+
 .animate-fade-in-up {
   animation: fade-in-up 0.7s ease-out both;
 }
@@ -244,17 +266,39 @@
 }
 
 .font-brand {
-  font-family: var(--font-cormorant), var(--font-playfair), 'Times New Roman', Georgia, serif;
+  font-family: var(--font-poppins), system-ui, sans-serif;
+  font-weight: 400;
 }
 
 .font-serif {
-  font-family: var(--font-playfair), Georgia, serif;
+  font-family: var(--font-poppins), system-ui, sans-serif;
+  font-weight: 400;
 }
 
 .font-sans {
-  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  font-family: var(--font-poppins), system-ui, sans-serif;
 }
 
 .font-script {
-  font-family: var(--font-playfair), Georgia, serif;
+  font-family: var(--font-poppins), system-ui, sans-serif;
+}
+
+/* Site-wide light & clean font weight hierarchy matching reference */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-poppins), system-ui, sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* Lighten heavy font-weights globally for smooth, elegant, approachable appearance */
+.font-extrabold {
+  font-weight: 500 !important;
+}
+
+.font-bold {
+  font-weight: 500 !important;
+}
+
+.font-semibold {
+  font-weight: 500 !important;
 }

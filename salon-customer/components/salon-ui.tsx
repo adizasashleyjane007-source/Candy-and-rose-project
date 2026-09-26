@@ -16,7 +16,7 @@ export const headerNavItems: { label: string; href: string }[] = [
   { label: 'Services', href: '/services' },
   { label: 'Promo', href: '/packages' },
   { label: 'Gallery', href: '/gallery' },
-  { label: 'Testimonials', href: '/#testimonials' },
+  { label: 'Testimonials', href: '/testimonials' },
   { label: 'Contact', href: '/contact' },
 ];
 
@@ -25,7 +25,7 @@ export const footerNavItems: { label: string; href: string }[] = [
   { label: 'About', href: '/about' },
   { label: 'Services', href: '/services' },
   { label: 'Gallery', href: '/gallery' },
-  { label: 'Testimonials', href: '/#testimonials' },
+  { label: 'Testimonials', href: '/testimonials' },
   { label: 'Contact', href: '/contact' },
 ];
 
@@ -43,41 +43,7 @@ export function Logo({ light = false }: { light?: boolean }) {
   );
 }
 
-export function TopBar() {
-  const [salonInfo, setSalonInfo] = useState<SalonInfo>(defaultSalonInfo);
 
-  useEffect(() => {
-    getSalonInfo().then(setSalonInfo);
-  }, []);
-
-  return (
-    <div className="bg-zinc-950 text-white text-[11px] py-2 px-4 border-b border-zinc-800/80 overflow-hidden relative">
-      <div className="mx-auto max-w-[90rem] flex items-center justify-center font-medium tracking-wide text-zinc-300">
-        {/* Scrolling / Moving Announcement Ticker */}
-        <div className="w-full overflow-hidden relative">
-          <div className="flex items-center gap-8 whitespace-nowrap animate-marquee">
-            <span className="flex items-center gap-1.5 text-pink-300 font-semibold">
-              <Sparkles size={12} className="text-pink-400" />
-              New Customer? Get 20% Off On Your First Visit
-            </span>
-            <span className="text-zinc-500">•</span>
-            <span className="text-zinc-300">Complimentary Hair &amp; Skin Consultation with Every Booking</span>
-            <span className="text-zinc-500">•</span>
-            <span className="flex items-center gap-1.5 text-pink-300 font-semibold">
-              <Sparkles size={12} className="text-pink-400" />
-              Book Online &amp; Enjoy Exclusive Salon Upgrades
-            </span>
-            <span className="text-zinc-300">{salonInfo.address}</span>
-            <span className="text-zinc-500">•</span>
-            <span className="text-zinc-300 font-medium">
-              Call Us: <span className="text-pink-300 font-semibold ml-1.5">{salonInfo.phone}</span>
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function Header({ onBook }: { onBook: () => void }) {
   const pathname = usePathname();
@@ -86,13 +52,11 @@ export function Header({ onBook }: { onBook: () => void }) {
   
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [servicesOpen, setServicesOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const servicesDropdownRef = useRef<HTMLDivElement>(null);
   const { user, profile, signOut } = useAuth();
 
   useEffect(() => {
@@ -110,28 +74,23 @@ export function Header({ onBook }: { onBook: () => void }) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setProfileOpen(false);
       }
-      if (servicesDropdownRef.current && !servicesDropdownRef.current.contains(event.target as Node)) {
-        setServicesOpen(false);
-      }
     };
-    if (profileOpen || servicesOpen) {
+    if (profileOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [profileOpen, servicesOpen]);
+  }, [profileOpen]);
 
   useEffect(() => {
     setMenuOpen(false);
     setProfileOpen(false);
-    setServicesOpen(false);
     setIsSearchOpen(false);
   }, [pathname]);
 
   return (
     <header className={`z-50 fixed top-0 left-0 right-0 w-full transition-all duration-300 ${isHome && !isScrolled ? 'bg-transparent border-transparent' : 'shadow-sm bg-white/95 backdrop-blur-md border-b border-zinc-100'}`}>
-      <TopBar />
       <div className="mx-auto flex h-20 max-w-[90rem] w-full items-center justify-between px-4 sm:px-6 lg:px-8">
         <Logo light={isHome && !isScrolled} />
         
@@ -140,56 +99,33 @@ export function Header({ onBook }: { onBook: () => void }) {
           {/* HOME */}
           <Link
             href="/"
-            className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
               pathname === '/'
-                ? (isHome && !isScrolled ? 'text-white font-extrabold border-b-2 border-white' : 'text-pink-600 font-extrabold border-b-2 border-pink-600')
+                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
                 : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
             }`}
           >
             Home
           </Link>
 
-          {/* SERVICES DROPDOWN */}
-          <div ref={servicesDropdownRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setServicesOpen((prev) => !prev)}
-              className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 inline-flex items-center gap-1.5 cursor-pointer ${
-                pathname === '/services' || pathname === '/packages'
-                  ? (isHome && !isScrolled ? 'text-white font-extrabold border-b-2 border-white' : 'text-pink-600 font-extrabold border-b-2 border-pink-600')
-                  : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
-              }`}
-            >
-              Services
-              <ChevronDown size={14} className={`transition-transform duration-200 ${servicesOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {servicesOpen && (
-              <div className="absolute left-0 top-full mt-2 w-44 rounded-2xl border border-zinc-100 bg-white p-2 shadow-2xl shadow-black/10 z-50 animate-scale-in">
-                <Link
-                  href="/services"
-                  onClick={() => setServicesOpen(false)}
-                  className="flex w-full items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
-                >
-                  Services
-                </Link>
-                <Link
-                  href="/packages"
-                  onClick={() => setServicesOpen(false)}
-                  className="flex w-full items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
-                >
-                  Packages
-                </Link>
-              </div>
-            )}
-          </div>
+          {/* SERVICES */}
+          <Link
+            href="/services"
+            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+              pathname === '/services'
+                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
+                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
+            }`}
+          >
+            Services
+          </Link>
 
           {/* PROMO */}
           <Link
             href="/packages"
-            className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
               pathname === '/packages'
-                ? (isHome && !isScrolled ? 'text-white font-extrabold border-b-2 border-white' : 'text-pink-600 font-extrabold border-b-2 border-pink-600')
+                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
                 : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
             }`}
           >
@@ -199,9 +135,9 @@ export function Header({ onBook }: { onBook: () => void }) {
           {/* GALLERY */}
           <Link
             href="/gallery"
-            className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
               pathname === '/gallery'
-                ? (isHome && !isScrolled ? 'text-white font-extrabold border-b-2 border-white' : 'text-pink-600 font-extrabold border-b-2 border-pink-600')
+                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
                 : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
             }`}
           >
@@ -210,9 +146,11 @@ export function Header({ onBook }: { onBook: () => void }) {
 
           {/* TESTIMONIALS */}
           <Link
-            href="/#testimonials"
-            className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
-              isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600'
+            href="/testimonials"
+            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+              pathname === '/testimonials'
+                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
+                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
             }`}
           >
             Testimonials
@@ -221,9 +159,9 @@ export function Header({ onBook }: { onBook: () => void }) {
           {/* CONTACT */}
           <Link
             href="/contact"
-            className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
               pathname === '/contact'
-                ? (isHome && !isScrolled ? 'text-white font-extrabold border-b-2 border-white' : 'text-pink-600 font-extrabold border-b-2 border-pink-600')
+                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
                 : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
             }`}
           >
@@ -636,7 +574,7 @@ export function PageShell({ children, onBook }: { children: ReactNode; onBook: (
   return (
     <div className="min-h-screen flex flex-col bg-transparent">
       <Header onBook={onBook} />
-      <div className={`${isHome ? '' : 'pt-[116px]'} flex-1`}>{children}</div>
+      <div className={`${isHome ? '' : 'pt-20'} flex-1`}>{children}</div>
       <Footer />
     </div>
   );

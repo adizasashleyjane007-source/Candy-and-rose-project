@@ -10,9 +10,10 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-dm-sans)', 'sans-serif'],
-        serif: ['var(--font-playfair)', 'serif'],
-        script: ['var(--font-great-vibes)', 'cursive'],
+        sans: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
+        brand: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
+        script: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',

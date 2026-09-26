@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { Check, Mail, MapPin, Phone, Send, Sparkles } from 'lucide-react';
+import { Check, Phone, Mail, MapPin, Clock, Facebook, Instagram } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { supabase, getSalonInfo, defaultSalonInfo, type SalonInfo } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
@@ -9,24 +9,24 @@ import { useAuth } from '@/lib/auth-context';
 export default function ContactPage() {
   const { user, profile } = useAuth();
   const [salonInfo, setSalonInfo] = useState<SalonInfo>(defaultSalonInfo);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [subject, setSubject] = useState('');
+  const [service, setService] = useState('');
+  const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
     getSalonInfo().then(setSalonInfo);
-    // Pre-fill if logged in
     if (profile?.full_name || profile?.name) {
-      const names = (profile.full_name || profile.name || '').split(' ');
-      setFirstName(names[0] || '');
-      setLastName(names.slice(1).join(' ') || '');
+      setFullName(profile.full_name || profile.name || '');
     }
     if (user?.email) {
       setEmail(user.email);
+    }
+    if (profile?.phone) {
+      setPhone(profile.phone);
     }
   }, [user, profile]);
 
@@ -34,27 +34,34 @@ export default function ContactPage() {
     e.preventDefault();
     setBusy(true);
 
-    const fullName = `${firstName} ${lastName}`.trim() || 'Guest';
+    const nameToSubmit = fullName.trim() || 'Guest';
+    const subjectLine = service.trim() ? `Inquiry for ${service.trim()}` : 'General Inquiry';
+    const combinedMessage = [
+      phone.trim() ? `Phone: ${phone.trim()}` : null,
+      service.trim() ? `Interested Service: ${service.trim()}` : null,
+      message.trim()
+    ].filter(Boolean).join('\n\n');
 
     try {
       await supabase.from('messages').insert({
-        name: fullName,
+        name: nameToSubmit,
         email: email,
-        subject: subject || 'General Inquiry',
-        message: message,
+        subject: subjectLine,
+        message: combinedMessage,
       });
 
       await supabase.from('notifications').insert({
-        title: `New Message: ${subject || 'General Inquiry'} from ${fullName}`,
-        message: message,
+        title: `New Message: ${subjectLine} from ${nameToSubmit}`,
+        message: combinedMessage,
         type: 'customer',
         is_read: false,
       });
 
       setSent(true);
-      setFirstName('');
-      setLastName('');
-      setSubject('');
+      setFullName('');
+      setEmail('');
+      setService('');
+      setPhone('');
       setMessage('');
     } catch (err) {
       console.error('Failed to send contact message:', err);
@@ -65,197 +72,233 @@ export default function ContactPage() {
 
   return (
     <SalonLayout>
-      <main className="bg-[#FAF8F8] min-h-screen pb-32 overflow-x-hidden font-sans">
+      <main className="bg-[#FAF8F8] min-h-screen pt-6 sm:pt-8 lg:pt-12 pb-14 lg:pb-18 px-4 sm:px-6 lg:px-8 overflow-x-hidden font-sans text-zinc-900">
         
-        {/* HERO SECTION */}
-        <section className="relative px-6 pt-24 pb-16 lg:pt-36 lg:pb-20 text-center animate-fade-in-up">
-          <div className="mx-auto max-w-4xl relative">
-            <h1 className="font-brand text-5xl sm:text-6xl lg:text-7xl font-medium text-zinc-900 tracking-tight leading-[1.1]">
-              Get in <span className="font-brand italic font-normal text-pink-500">Touch</span>
-            </h1>
+        {/* SECTION 1: CONTACT INFO + FORM */}
+        <section className="max-w-6xl mx-auto mb-14 lg:mb-18">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-stretch">
             
-            {/* Subtle decorative elements */}
-            <div className="absolute top-0 right-10 sm:right-20 text-pink-300 animate-pulse hidden sm:block">
-              <Sparkles size={24} strokeWidth={1.5} />
-            </div>
-            
-            <svg className="mx-auto mt-8 w-24 text-pink-300" viewBox="0 0 100 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1 10C25 2 75 2 99 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </div>
-        </section>
+            {/* LEFT: CONTACT INFORMATION PANEL (~40%) */}
+            <div className="lg:col-span-5 bg-white border border-zinc-200/80 rounded-sm p-6 sm:p-8 lg:p-9 flex flex-col justify-between shadow-sm">
+              <div>
+                <h2 className="font-sans text-2xl sm:text-[30px] text-zinc-950 font-medium mb-3 tracking-normal">
+                  Contact Information
+                </h2>
+                <p className="text-zinc-600 text-sm leading-relaxed mb-6 lg:mb-8 font-normal">
+                  Feel free to reach out to us for appointments, inquiries, or any questions about our salon services. We're here to make your beauty experience as comfortable and welcoming as possible.
+                </p>
 
-        {/* MAIN CONTACT SECTION */}
-        <section className="px-4 sm:px-6 lg:px-10 max-w-[90rem] mx-auto animate-fade-in delay-200">
-          <div className="bg-white/80 rounded-[2.5rem] border border-pink-100/60 shadow-[0_20px_60px_-15px_rgba(244,167,187,0.15)] p-6 sm:p-10 lg:p-14 overflow-hidden">
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-10 xl:gap-16 items-start">
-              
-              {/* LEFT: Contact Information */}
-              <div className="flex flex-col space-y-12 animate-fade-in-up delay-300">
-                <div>
-                  <h3 className="font-brand text-2xl mb-8 text-zinc-900">Studio Details</h3>
-                  
-                  <div className="space-y-8">
-                    {/* Phone */}
-                    <div className="group flex items-start gap-5 transition-transform duration-300 hover:translate-x-1">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-50 text-pink-500 transition-transform duration-300 group-hover:scale-110 group-hover:bg-pink-100">
-                        <Phone size={18} strokeWidth={1.5} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-pink-400 mb-1.5">Phone</p>
-                        <p className="text-[15px] font-medium text-zinc-700">{salonInfo.phone}</p>
-                      </div>
+                <div className="space-y-5 lg:space-y-6">
+                  {/* Location */}
+                  <div className="flex items-start gap-4 group">
+                    <div className="w-9 h-9 rounded-full bg-pink-50 border border-pink-100 flex items-center justify-center shrink-0 text-pink-500 group-hover:bg-pink-500 group-hover:text-white transition-all duration-300">
+                      <MapPin className="w-4 h-4" strokeWidth={1.75} />
                     </div>
-                    
-                    {/* Email */}
-                    <div className="group flex items-start gap-5 transition-transform duration-300 hover:translate-x-1">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-50 text-pink-500 transition-transform duration-300 group-hover:scale-110 group-hover:bg-pink-100">
-                        <Mail size={18} strokeWidth={1.5} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-pink-400 mb-1.5">Email</p>
-                        <p className="text-[15px] font-medium text-zinc-700 break-all">{salonInfo.email}</p>
-                      </div>
+                    <div>
+                      <h3 className="text-[12px] font-medium uppercase tracking-wider text-zinc-400 mb-0.5">Location</h3>
+                      <p className="text-[15px] font-normal text-zinc-900 leading-snug">{salonInfo.address || 'Blk and Lot, Dasmarinas Cavite'}</p>
                     </div>
-                    
-                    {/* Location */}
-                    <div className="group flex items-start gap-5 transition-transform duration-300 hover:translate-x-1">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-50 text-pink-500 transition-transform duration-300 group-hover:scale-110 group-hover:bg-pink-100">
-                        <MapPin size={18} strokeWidth={1.5} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-pink-400 mb-1.5">Location</p>
-                        <p className="text-[15px] font-medium leading-relaxed text-zinc-700 pr-4">{salonInfo.address}</p>
+                  </div>
+
+                  {/* Email */}
+                  <div className="flex items-start gap-4 group">
+                    <div className="w-9 h-9 rounded-full bg-pink-50 border border-pink-100 flex items-center justify-center shrink-0 text-pink-500 group-hover:bg-pink-500 group-hover:text-white transition-all duration-300">
+                      <Mail className="w-4 h-4" strokeWidth={1.75} />
+                    </div>
+                    <div>
+                      <h3 className="text-[12px] font-medium uppercase tracking-wider text-zinc-400 mb-0.5">Email</h3>
+                      <p className="text-[15px] font-normal text-zinc-900 break-all">{salonInfo.email || 'candyandroses@gmail.com'}</p>
+                    </div>
+                  </div>
+
+                  {/* Phone */}
+                  <div className="flex items-start gap-4 group">
+                    <div className="w-9 h-9 rounded-full bg-pink-50 border border-pink-100 flex items-center justify-center shrink-0 text-pink-500 group-hover:bg-pink-500 group-hover:text-white transition-all duration-300">
+                      <Phone className="w-4 h-4" strokeWidth={1.75} />
+                    </div>
+                    <div>
+                      <h3 className="text-[12px] font-medium uppercase tracking-wider text-zinc-400 mb-0.5">Phone</h3>
+                      <p className="text-[15px] font-normal text-zinc-900">{salonInfo.phone || '09123456789'}</p>
+                    </div>
+                  </div>
+
+                  {/* Operating Hours */}
+                  <div className="flex items-start gap-4 group">
+                    <div className="w-9 h-9 rounded-full bg-pink-50 border border-pink-100 flex items-center justify-center shrink-0 text-pink-500 group-hover:bg-pink-500 group-hover:text-white transition-all duration-300">
+                      <Clock className="w-4 h-4" strokeWidth={1.75} />
+                    </div>
+                    <div>
+                      <h3 className="text-[12px] font-medium uppercase tracking-wider text-zinc-400 mb-0.5">Operating Hours</h3>
+                      <div className="text-[15px] font-normal text-zinc-900 space-y-0.5">
+                        <p>Mon – Fri: 08:00 AM to 09:00 PM</p>
+                        <p>Sat: 09:00 AM to 06:00 PM</p>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* CENTER: Image */}
-              <div className="h-full min-h-[400px] lg:min-h-full rounded-2xl overflow-hidden relative shadow-lg animate-fade-in-up delay-200">
-                <img 
-                  src="/images/contactpage.jpg" 
-                  alt="Candy & Rose Studio" 
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 hover:scale-105"
-                />
+              {/* SOCIAL MEDIA ICONS */}
+              <div className="pt-6 mt-6 lg:pt-8 lg:mt-8 border-t border-zinc-100 flex items-center gap-3">
+                <a 
+                  href="https://www.facebook.com/profile.php?id=61576903201744" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  aria-label="Facebook"
+                  className="w-10 h-10 rounded-full border border-zinc-300 flex items-center justify-center text-zinc-800 hover:bg-pink-500 hover:border-pink-500 hover:text-white transition-all duration-300"
+                >
+                  <Facebook className="w-4 h-4" strokeWidth={1.75} />
+                </a>
+                <a 
+                  href="https://instagram.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  aria-label="Instagram"
+                  className="w-10 h-10 rounded-full border border-zinc-300 flex items-center justify-center text-zinc-800 hover:bg-pink-500 hover:border-pink-500 hover:text-white transition-all duration-300"
+                >
+                  <Instagram className="w-4 h-4" strokeWidth={1.75} />
+                </a>
               </div>
+            </div>
 
-              {/* RIGHT: Contact Form */}
-              <div className="animate-fade-in-up delay-300">
+            {/* RIGHT: HAVE A QUESTION? FORM (~60% OPEN & MINIMAL MATCHING REFERENCE) */}
+            <div className="lg:col-span-7 flex flex-col justify-between pt-1">
+              <div>
+                <h2 className="font-sans text-2xl sm:text-[30px] text-zinc-950 font-medium mb-2 tracking-normal">
+                  Have a Question?
+                </h2>
+                
+                <div className="h-px w-full bg-zinc-200/80 my-3.5" />
+
+                {/* Business Hours Banner */}
+                <p className="text-xs sm:text-sm text-zinc-700 mb-6 font-normal">
+                  <span className="font-medium text-pink-500">Business Hours:</span>{' '}
+                  <span className="text-zinc-800"><span className="font-medium text-zinc-900">Mon – Fri:</span> 08.00 AM To 09.00 PM &nbsp;<span className="font-medium text-zinc-900">Sat:</span> 09.00 AM To 06.00 PM</span>
+                </p>
+
                 {sent ? (
-                  <div className="flex h-full min-h-[400px] flex-col items-center justify-center text-center px-4 animate-fade-in">
-                    <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-pink-50 text-pink-500 shadow-sm">
-                      <Check size={28} strokeWidth={1.5} />
+                  <div className="flex flex-col items-center justify-center text-center py-12">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-950 text-white">
+                      <Check size={20} strokeWidth={2} />
                     </div>
-                    <h2 className="font-brand text-3xl sm:text-4xl text-zinc-900 mb-4">Message Received</h2>
-                    <p className="text-[15px] leading-relaxed text-zinc-600 mb-8 max-w-xs mx-auto">
-                      Thank you for reaching out. We will get back to you shortly.
+                    <h3 className="font-sans text-2xl text-zinc-950 font-medium mb-2">Message Received</h3>
+                    <p className="text-sm text-zinc-600 mb-6 max-w-sm font-normal">
+                      Thank you for contacting Candy & Rose. We have received your inquiry and will get back to you shortly.
                     </p>
                     <button 
                       onClick={() => setSent(false)} 
-                      className="text-[11px] font-bold uppercase tracking-[0.2em] text-pink-500 hover:text-pink-600 transition-colors border-b border-pink-200 pb-1"
+                      className="text-xs font-medium uppercase tracking-widest text-zinc-950 hover:text-pink-500 transition-colors border-b border-zinc-950 hover:border-pink-500 pb-0.5"
                     >
                       Send Another Message
                     </button>
                   </div>
                 ) : (
-                  <form onSubmit={submit} className="flex flex-col h-full space-y-8 lg:space-y-10">
-                    <h3 className="font-brand text-2xl text-zinc-900 mb-2">Send a Message</h3>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                      {/* First Name */}
-                      <div className="relative group">
+                  <form onSubmit={submit} className="space-y-5">
+                    {/* Row 1: Name & Email */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                      <div>
                         <input 
+                          type="text"
                           required 
-                          id="firstName"
-                          value={firstName} 
-                          onChange={(e) => setFirstName(e.target.value)} 
-                          className="w-full bg-transparent border-b border-zinc-200 py-3 text-[15px] text-zinc-900 placeholder:text-transparent outline-none focus:border-pink-500 transition-colors peer"
-                          placeholder="First Name *" 
+                          placeholder="Your Name"
+                          value={fullName} 
+                          onChange={(e) => setFullName(e.target.value)} 
+                          className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors shadow-none"
                         />
-                        <label htmlFor="firstName" className="absolute left-0 top-3 text-[15px] text-zinc-400 cursor-text transition-all peer-focus:-top-4 peer-focus:text-[11px] peer-focus:font-bold peer-focus:uppercase peer-focus:tracking-widest peer-focus:text-pink-500 peer-not-placeholder-shown:-top-4 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:font-bold peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-widest peer-not-placeholder-shown:text-zinc-500">
-                          First Name *
-                        </label>
                       </div>
-
-                      {/* Last Name */}
-                      <div className="relative group">
+                      <div>
                         <input 
+                          type="email"
                           required 
-                          id="lastName"
-                          value={lastName} 
-                          onChange={(e) => setLastName(e.target.value)} 
-                          className="w-full bg-transparent border-b border-zinc-200 py-3 text-[15px] text-zinc-900 placeholder:text-transparent outline-none focus:border-pink-500 transition-colors peer"
-                          placeholder="Last Name *" 
+                          placeholder="Email"
+                          value={email} 
+                          onChange={(e) => setEmail(e.target.value)} 
+                          className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors shadow-none"
                         />
-                        <label htmlFor="lastName" className="absolute left-0 top-3 text-[15px] text-zinc-400 cursor-text transition-all peer-focus:-top-4 peer-focus:text-[11px] peer-focus:font-bold peer-focus:uppercase peer-focus:tracking-widest peer-focus:text-pink-500 peer-not-placeholder-shown:-top-4 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:font-bold peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-widest peer-not-placeholder-shown:text-zinc-500">
-                          Last Name *
-                        </label>
                       </div>
                     </div>
 
-                    {/* Email */}
-                    <div className="relative group">
-                      <input 
-                        required 
-                        type="email" 
-                        id="email"
-                        value={email} 
-                        onChange={(e) => setEmail(e.target.value)} 
-                        className="w-full bg-transparent border-b border-zinc-200 py-3 text-[15px] text-zinc-900 placeholder:text-transparent outline-none focus:border-pink-500 transition-colors peer"
-                        placeholder="Email *" 
-                      />
-                      <label htmlFor="email" className="absolute left-0 top-3 text-[15px] text-zinc-400 cursor-text transition-all peer-focus:-top-4 peer-focus:text-[11px] peer-focus:font-bold peer-focus:uppercase peer-focus:tracking-widest peer-focus:text-pink-500 peer-not-placeholder-shown:-top-4 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:font-bold peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-widest peer-not-placeholder-shown:text-zinc-500">
-                        Email Address *
-                      </label>
+                    {/* Row 2: Service & Phone */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                      <div>
+                        <input 
+                          type="text"
+                          placeholder="What Service You Want?"
+                          value={service} 
+                          onChange={(e) => setService(e.target.value)} 
+                          className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors shadow-none"
+                        />
+                      </div>
+                      <div>
+                        <input 
+                          type="tel"
+                          placeholder="Phone"
+                          value={phone} 
+                          onChange={(e) => setPhone(e.target.value)} 
+                          className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors shadow-none"
+                        />
+                      </div>
                     </div>
 
-                    {/* Subject */}
-                    <div className="relative group">
-                      <input 
-                        id="subject"
-                        value={subject} 
-                        onChange={(e) => setSubject(e.target.value)} 
-                        className="w-full bg-transparent border-b border-zinc-200 py-3 text-[15px] text-zinc-900 placeholder:text-transparent outline-none focus:border-pink-500 transition-colors peer"
-                        placeholder="Subject" 
-                      />
-                      <label htmlFor="subject" className="absolute left-0 top-3 text-[15px] text-zinc-400 cursor-text transition-all peer-focus:-top-4 peer-focus:text-[11px] peer-focus:font-bold peer-focus:uppercase peer-focus:tracking-widest peer-focus:text-pink-500 peer-not-placeholder-shown:-top-4 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:font-bold peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-widest peer-not-placeholder-shown:text-zinc-500">
-                        Subject
-                      </label>
-                    </div>
-
-                    {/* Message */}
-                    <div className="relative group flex-1">
+                    {/* Row 3: Message */}
+                    <div>
                       <textarea 
                         required 
-                        id="message"
+                        rows={4}
+                        placeholder="Message"
                         value={message} 
                         onChange={(e) => setMessage(e.target.value)} 
-                        rows={3} 
-                        className="w-full resize-none bg-transparent border-b border-zinc-200 py-3 text-[15px] text-zinc-900 placeholder:text-transparent outline-none focus:border-pink-500 transition-colors peer"
-                        placeholder="Message *" 
+                        className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors resize-none shadow-none"
                       />
-                      <label htmlFor="message" className="absolute left-0 top-3 text-[15px] text-zinc-400 cursor-text transition-all peer-focus:-top-4 peer-focus:text-[11px] peer-focus:font-bold peer-focus:uppercase peer-focus:tracking-widest peer-focus:text-pink-500 peer-not-placeholder-shown:-top-4 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:font-bold peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-widest peer-not-placeholder-shown:text-zinc-500">
-                        Message *
-                      </label>
                     </div>
 
-                    <button 
-                      disabled={busy} 
-                      className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-full bg-zinc-950 px-8 py-4.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white shadow-xl shadow-zinc-950/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-zinc-950/30 active:scale-95 disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-xl"
-                    >
-                      {busy ? 'Sending...' : 'Send Message'}
-                    </button>
+                    {/* Row 4: Submit Button */}
+                    <div className="pt-1">
+                      <button 
+                        type="submit"
+                        disabled={busy} 
+                        className="inline-flex items-center justify-center rounded-none bg-zinc-950 px-9 py-3 text-sm font-medium text-white transition-all duration-300 hover:bg-pink-500 disabled:opacity-60"
+                      >
+                        {busy ? 'Sending...' : 'Send'}
+                      </button>
+                    </div>
                   </form>
                 )}
               </div>
-              
+            </div>
+
+          </div>
+        </section>
+
+        {/* SECTION 2: VISIT OUR SALON */}
+        <section className="max-w-6xl mx-auto">
+          {/* Centered Heading with subtle pink accent line */}
+          <div className="text-center mb-6 lg:mb-8">
+            <h2 className="font-sans text-2xl sm:text-3xl text-zinc-950 font-medium tracking-normal">
+              Visit Our Salon
+            </h2>
+            <div className="w-10 h-0.5 bg-pink-400 mx-auto mt-2.5 rounded-full" />
+          </div>
+
+          {/* Side-by-side Images on Desktop */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+            <div className="w-full h-[280px] sm:h-[340px] lg:h-[380px] border border-zinc-200/80 rounded-sm overflow-hidden shadow-sm">
+              <img 
+                src="/images/contactpage-pic.jpg" 
+                alt="Candy & Rose Salon Interior 1" 
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="w-full h-[280px] sm:h-[340px] lg:h-[380px] border border-zinc-200/80 rounded-sm overflow-hidden shadow-sm">
+              <img 
+                src="/images/contact2.jpg" 
+                alt="Candy & Rose Salon Interior 2" 
+                className="w-full h-full object-cover"
+              />
             </div>
           </div>
         </section>
-        
+
       </main>
     </SalonLayout>
   );
