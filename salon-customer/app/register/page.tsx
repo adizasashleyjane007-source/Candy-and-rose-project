@@ -41,7 +41,7 @@ export default function RegisterPage() {
 
   return (
     <main className="min-h-screen bg-[#181818] font-sans flex flex-col items-center justify-center p-4 sm:p-6 md:p-10">
-      <div className="w-full max-w-[1100px] mx-auto">
+      <div className="w-full max-w-[1080px] mx-auto">
         {/* Top Header Label outside container */}
         <h1 className="text-zinc-400 text-xl sm:text-2xl font-light tracking-wide mb-3 pl-1">
           Registration
@@ -68,28 +68,28 @@ export default function RegisterPage() {
                 alt="Candy & Rose Beauty Experience"
                 className="absolute inset-0 w-full h-full object-cover object-center"
               />
-              <div className="absolute inset-0 bg-black/40" />
+              <div className="absolute inset-0 bg-black/35" />
 
-              <div className="relative z-10 text-white max-w-md">
-                <h2 className="font-sans text-2xl sm:text-3xl lg:text-[2.1rem] font-medium leading-[1.35] tracking-tight text-white drop-shadow-md">
+              <div className="relative z-10 text-white max-w-sm">
+                <h2 className="font-sans text-2xl sm:text-3xl lg:text-[2rem] font-medium leading-[1.2] tracking-tight text-white drop-shadow-md">
                   We show your skin,<br />
                   hair, and body the<br />
                   care and attention<br />
                   they deserve.
                 </h2>
-                <p className="mt-6 text-xs sm:text-sm font-light tracking-wide text-zinc-200 drop-shadow">
+                <p className="mt-5 text-xs sm:text-sm font-light tracking-wide text-zinc-200/90 drop-shadow">
                   Where Tranquility Meets Transformation.
                 </p>
               </div>
             </div>
 
-            {/* Right Column: White Form Panel */}
-            <div className="bg-white p-8 sm:p-12 md:p-14 flex flex-col justify-center text-zinc-900">
-              <div className="max-w-md w-full mx-auto">
-                <h2 className="font-sans text-2xl sm:text-3xl font-medium text-zinc-950 mb-2">
+            {/* Right Column: Refined White Form Panel */}
+            <div className="bg-[#FCFBF9] p-8 sm:p-12 md:p-14 lg:p-16 flex flex-col justify-center text-zinc-900">
+              <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col justify-center">
+                <h2 className="font-sans text-2xl sm:text-3xl lg:text-[2rem] font-medium text-[#231F20] tracking-tight mb-2">
                   Register
                 </h2>
-                <p className="text-xs sm:text-[13.5px] text-zinc-500 font-normal leading-relaxed mb-8">
+                <p className="text-xs sm:text-[14px] text-[#77727A] font-normal leading-relaxed mb-7">
                   Welcome to Candy &amp; Rose Beauty Salon, we hope your stay with us feel as bright as the morning sun.
                 </p>
 
@@ -113,7 +113,7 @@ export default function RegisterPage() {
                       placeholder="Your Name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-200/90 bg-zinc-50/50 px-4 py-3.5 text-xs sm:text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-all focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-500/20"
+                      className="w-full h-13 rounded-xl border border-[#E2E0E3] bg-[#FAFAFA] px-4.5 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/20"
                     />
                   </div>
 
@@ -124,7 +124,7 @@ export default function RegisterPage() {
                       placeholder="Email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-200/90 bg-zinc-50/50 px-4 py-3.5 text-xs sm:text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-all focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-500/20"
+                      className="w-full h-13 rounded-xl border border-[#E2E0E3] bg-[#FAFAFA] px-4.5 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/20"
                     />
                   </div>
 
@@ -135,7 +135,7 @@ export default function RegisterPage() {
                       placeholder="Password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-200/90 bg-zinc-50/50 px-4 py-3.5 text-xs sm:text-sm text-zinc-900 placeholder-zinc-400 outline-none transition-all focus:border-pink-500 focus:bg-white focus:ring-2 focus:ring-pink-500/20"
+                      className="w-full h-13 rounded-xl border border-[#E2E0E3] bg-[#FAFAFA] px-4.5 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/20"
                     />
                   </div>
 
@@ -143,16 +143,16 @@ export default function RegisterPage() {
                     <button
                       type="submit"
                       disabled={busy}
-                      className="w-full rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold py-3.5 px-6 text-xs sm:text-sm uppercase tracking-wider transition-all shadow-md shadow-pink-600/20 disabled:opacity-60 cursor-pointer text-center"
+                      className="w-full h-13 rounded-xl bg-[#E2A0B8] hover:bg-[#d48ea6] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all hover:-translate-y-0.5 active:translate-y-0 shadow-sm disabled:opacity-60 cursor-pointer text-center flex items-center justify-center"
                     >
-                      {busy ? 'Registering...' : 'Register'}
+                      {busy ? 'REGISTERING...' : 'REGISTER'}
                     </button>
                   </div>
                 </form>
 
-                <div className="mt-8 text-center text-xs text-zinc-500">
+                <div className="mt-7 text-center text-xs sm:text-[13.5px] text-[#77727A]">
                   Already have an account?{' '}
-                  <Link href="/login" className="text-pink-600 hover:text-pink-700 font-semibold transition-colors">
+                  <Link href="/login" className="text-[#E2A0B8] hover:text-[#d48ea6] font-semibold transition-colors">
                     Login
                   </Link>
                 </div>
