@@ -1,0 +1,29 @@
+Created At: 2026-09-26T07:25:19+08:00
+Completed At: 2026-09-26T07:25:19+08:00
+File Path: `file:///c:/Users/xianr/OneDrive/Desktop/Salon%20System/salon-customer/app/services/page.tsx`
+Total Lines: 327
+Total Bytes: 15647
+Showing lines 120 to 140
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+120:   const [openCategory, setOpenCategory] = useState<string | null>('HAIRCUT & STYLING');
+121: 
+122:   const toggleCategory = (cat: string) => {
+123:     setOpenCategory(prev => prev === cat ? null : cat);
+124:   };
+125: 
+126:   return (
+127:     <SalonLayout>
+128:       <main className="bg-[#FAF8F8] min-h-screen pb-32 box-border w-full overflow-x-hidden">
+129:         <div className="max-w-[1400px] mx-auto px-4 sm:px-12 py-16 sm:py-32 box-border w-full">
+130:           
+131:           <div className="flex flex-col lg:flex-row lg:items-start gap-12 sm:gap-16 xl:gap-24">
+132:             
+133:             {/* LEFT SIDE: Intro Panel (40%) */}
+134:             <div className="w-full lg:w-2/5 flex flex-col justify-start box-border sticky top-32">
+135:               <div>
+136:                 <div className="inline-flex items-center gap-2 mb-6">
+137:                   <span className="h-px w-8 bg-[#D97998]" />
+138:                   <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#D97998]">
+139:                     OUR SERVICES
+140:                   </span>
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

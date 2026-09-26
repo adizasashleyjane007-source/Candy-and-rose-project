@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useMemo } from 'react';
 import { 
   Sparkles, Check, Clock3, ArrowRight, Scissors, Flower, Star 
 } from 'lucide-react';
@@ -204,13 +203,6 @@ const NAIL_PACKAGES = [
 
 export default function PackagesPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'all' | 'hair' | 'nails'>('all');
-
-  const shownPackages = useMemo(() => {
-    if (activeTab === 'hair') return { hair: HAIR_PACKAGES, anyLength: ANY_LENGTH_HAIR_PACKAGES, nails: [] };
-    if (activeTab === 'nails') return { hair: [], anyLength: [], nails: NAIL_PACKAGES };
-    return { hair: HAIR_PACKAGES, anyLength: ANY_LENGTH_HAIR_PACKAGES, nails: NAIL_PACKAGES };
-  }, [activeTab]);
 
   const handleBookPackage = (pkg: any) => {
     if (!user) {
@@ -238,55 +230,12 @@ export default function PackagesPage() {
   return (
     <SalonLayout>
       <main className="bg-white min-h-screen">
-        {/* HERO HEADER */}
-        <section className="bg-gradient-to-b from-pink-50/70 to-white px-6 py-20 lg:px-10 border-b border-zinc-100 relative overflow-hidden">
-          <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-pink-200/20 rounded-full blur-3xl -translate-y-1/2 pointer-events-none" />
-          <div className="absolute bottom-10 right-10 w-80 h-80 bg-rose-200/10 rounded-full blur-3xl pointer-events-none" />
-          
-          <div className="mx-auto max-w-7xl relative z-10 text-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-100 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-pink-700 border border-pink-200/60 mb-6">
-              <Sparkles size={11} className="text-pink-600 animate-pulse" /> EXCLUSIVE COMBOS
-            </span>
-            
-            <h1 className="font-serif text-4xl leading-tight sm:text-6xl text-zinc-950 font-medium tracking-tight">
-              Our Signature <br />
-              <span className="font-serif italic text-4xl sm:text-6xl text-pink-600 font-normal">Pampering Packages</span>
-            </h1>
-            
-            <p className="mt-6 mx-auto max-w-2xl text-xs sm:text-sm leading-relaxed text-zinc-600">
-              Indulge in our carefully tailored beauty packages combining high-end hair design and artisan nail treatments. Enjoy premium services curated for your absolute radiance at exceptional values.
-            </p>
-
-            {/* Navigation Tab Switchers */}
-            <div className="mt-12 flex justify-center gap-2 sm:gap-3">
-              {[
-                { key: 'all', label: 'All Packages' },
-                { key: 'hair', label: 'Hair Packages' },
-                { key: 'nails', label: 'Nails Packages' }
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key as any)}
-                  className={`rounded-full px-6 py-3.5 text-xs font-bold uppercase tracking-widest transition-all duration-300 ${
-                    activeTab === tab.key
-                      ? 'bg-zinc-950 text-white shadow-xl shadow-zinc-950/20'
-                      : 'bg-white text-zinc-600 border border-zinc-200/80 hover:border-pink-300 hover:text-pink-600 shadow-sm'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
         {/* HAIR SERVICES SECTION */}
-        {shownPackages.hair.length > 0 && (
-          <section className="px-6 py-20 lg:px-10 max-w-7xl mx-auto">
+        {HAIR_PACKAGES.length > 0 && (
+          <section className="px-6 pt-12 pb-20 lg:pt-16 lg:px-10 max-w-7xl mx-auto">
             <div className="mb-14 text-center sm:text-left flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 border-b border-zinc-100 pb-8">
               <div>
-                <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
-                  <Scissors size={16} className="text-pink-500" />
+                <div className="mb-2">
                   <span className="font-serif italic text-2xl text-pink-600 font-medium">Hair Service</span>
                 </div>
                 <h2 className="font-serif text-3xl sm:text-4xl font-medium text-zinc-900">Shoulder Level Specials</h2>
@@ -297,19 +246,16 @@ export default function PackagesPage() {
             </div>
 
             <div className="grid gap-8 md:grid-cols-2">
-              {shownPackages.hair.map((pkg) => (
+              {HAIR_PACKAGES.map((pkg) => (
                 <div 
                   key={pkg.id} 
                   className="group relative overflow-hidden rounded-3xl bg-white border border-zinc-200/80 p-6 sm:p-8 transition-all duration-500 hover:shadow-2xl hover:shadow-pink-100/50 hover:-translate-y-1.5 flex flex-col justify-between"
                 >
                   <div>
-                    {/* Header: Package Code Badge & Tagline */}
-                    <div className="flex items-center gap-3 mb-2">
+                    {/* Header: Package Code Badge */}
+                    <div className="mb-2">
                       <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-pink-600 bg-pink-50 px-3 py-1 rounded-full border border-pink-200/50 whitespace-nowrap">
                         {pkg.code}
-                      </span>
-                      <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
-                        {pkg.tagline}
                       </span>
                     </div>
 
@@ -317,14 +263,6 @@ export default function PackagesPage() {
                     <h3 className="font-serif text-xl sm:text-2xl font-medium text-zinc-900 group-hover:text-pink-600 transition-colors mt-2">
                       {pkg.code} Special
                     </h3>
-                    <p className="text-[11px] font-serif italic text-zinc-400 mt-0.5">
-                      {pkg.subtitle}
-                    </p>
-
-                    {/* Description */}
-                    <p className="mt-3.5 text-xs text-zinc-500 leading-relaxed">
-                      {pkg.description}
-                    </p>
 
                     {/* Inclusions Check List */}
                     <div className="mt-5 space-y-2 border-t border-zinc-50 pt-4">
@@ -364,12 +302,11 @@ export default function PackagesPage() {
         )}
 
         {/* HAIR SERVICES: ANY LENGTH SECTION */}
-        {shownPackages.anyLength.length > 0 && (
+        {ANY_LENGTH_HAIR_PACKAGES.length > 0 && (
           <section className="px-6 py-20 lg:px-10 max-w-7xl mx-auto border-t border-zinc-100">
             <div className="mb-14 text-center sm:text-left flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 border-b border-zinc-100 pb-8">
               <div>
-                <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
-                  <Scissors size={16} className="text-pink-500" />
+                <div className="mb-2">
                   <span className="font-serif italic text-2xl text-pink-600 font-medium">Hair Services</span>
                 </div>
                 <h2 className="font-serif text-3xl sm:text-4xl font-medium text-zinc-900">Any Length</h2>
@@ -380,19 +317,16 @@ export default function PackagesPage() {
             </div>
 
             <div className="grid gap-8 max-w-4xl mx-auto">
-              {shownPackages.anyLength.map((pkg) => (
+              {ANY_LENGTH_HAIR_PACKAGES.map((pkg) => (
                 <div 
                   key={pkg.id} 
                   className="group relative overflow-hidden rounded-3xl bg-white border border-zinc-200/80 p-6 sm:p-8 transition-all duration-500 hover:shadow-2xl hover:shadow-pink-100/50 flex flex-col justify-between"
                 >
                   <div>
-                    {/* Header: Package Code Badge & Tagline */}
-                    <div className="flex items-center gap-3 mb-4">
+                    {/* Header: Package Code Badge */}
+                    <div className="mb-4">
                       <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-pink-600 bg-pink-50 px-3 py-1 rounded-full border border-pink-200/50 whitespace-nowrap">
                         {pkg.code}
-                      </span>
-                      <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
-                        {pkg.tagline}
                       </span>
                     </div>
 
@@ -400,14 +334,6 @@ export default function PackagesPage() {
                     <h3 className="font-serif text-xl sm:text-2xl font-medium text-zinc-900 group-hover:text-pink-600 transition-colors">
                       {pkg.code}
                     </h3>
-                    <p className="text-[11px] font-serif italic text-zinc-400 mt-0.5">
-                      {pkg.subtitle}
-                    </p>
-
-                    {/* Description */}
-                    <p className="mt-3.5 text-xs text-zinc-500 leading-relaxed">
-                      {pkg.description}
-                    </p>
 
                     {/* Sessions Breakdown */}
                     <div className="mt-6 space-y-3 border-t border-zinc-50 pt-4">
@@ -458,12 +384,11 @@ export default function PackagesPage() {
         )}
 
         {/* NAILS SERVICES SECTION */}
-        {shownPackages.nails.length > 0 && (
-          <section className={`px-6 py-20 lg:px-10 max-w-7xl mx-auto border-t border-zinc-100 ${activeTab === 'nails' ? 'border-t-0' : ''}`}>
+        {NAIL_PACKAGES.length > 0 && (
+          <section className="px-6 py-20 lg:px-10 max-w-7xl mx-auto border-t border-zinc-100">
             <div className="mb-14 text-center sm:text-left flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 border-b border-zinc-100 pb-8">
               <div>
-                <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
-                  <Flower size={16} className="text-pink-500" />
+                <div className="mb-2">
                   <span className="font-serif italic text-2xl text-pink-600 font-medium">Nails Package</span>
                 </div>
                 <h2 className="font-serif text-3xl sm:text-4xl font-medium text-zinc-900">Nails Package</h2>
@@ -474,19 +399,16 @@ export default function PackagesPage() {
             </div>
 
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {shownPackages.nails.map((pkg) => (
+              {NAIL_PACKAGES.map((pkg) => (
                 <div 
                   key={pkg.id} 
                   className="group relative overflow-hidden rounded-3xl bg-white border border-zinc-200/80 p-7 sm:p-8 transition-all duration-500 hover:shadow-xl hover:shadow-pink-100/40 hover:-translate-y-1.5 flex flex-col justify-between"
                 >
                   <div>
                     {/* Header */}
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="mb-4">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-pink-600 bg-pink-50 px-3 py-1 rounded-full border border-pink-200/50 whitespace-nowrap">
                         {pkg.code}
-                      </span>
-                      <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">
-                        {pkg.tagline}
                       </span>
                     </div>
 
@@ -494,14 +416,6 @@ export default function PackagesPage() {
                     <h3 className="font-serif text-xl font-medium text-zinc-900 group-hover:text-pink-600 transition-colors mt-2">
                       Nail Spa {pkg.code}
                     </h3>
-                    <p className="text-[10px] font-serif italic text-zinc-400 mt-0.5">
-                      {pkg.subtitle}
-                    </p>
-
-                    {/* Description */}
-                    <p className="mt-3.5 text-xs text-zinc-500 leading-relaxed min-h-[48px]">
-                      {pkg.description}
-                    </p>
 
                     {/* Inclusions Check List */}
                     <div className="mt-6 space-y-2 border-t border-zinc-50 pt-5">

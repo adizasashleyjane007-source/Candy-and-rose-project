@@ -13,10 +13,18 @@ import { useAuth } from '@/lib/auth-context';
 
 export const headerNavItems: { label: string; href: string }[] = [
   { label: 'Home', href: '/' },
-  { label: 'About Us', href: '/about' },
+  { label: 'Services', href: '/services' },
+  { label: 'Promo', href: '/packages' },
+  { label: 'Gallery', href: '/gallery' },
+  { label: 'Testimonials', href: '/#testimonials' },
+  { label: 'Contact', href: '/contact' },
+];
+
+export const footerNavItems: { label: string; href: string }[] = [
+  { label: 'Home', href: '/' },
+  { label: 'About', href: '/about' },
   { label: 'Services', href: '/services' },
   { label: 'Gallery', href: '/gallery' },
-  { label: 'Packages', href: '/packages' },
   { label: 'Testimonials', href: '/#testimonials' },
   { label: 'Contact', href: '/contact' },
 ];
@@ -78,11 +86,13 @@ export function Header({ onBook }: { onBook: () => void }) {
   
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [servicesOpen, setServicesOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const servicesDropdownRef = useRef<HTMLDivElement>(null);
   const { user, profile, signOut } = useAuth();
 
   useEffect(() => {
@@ -100,24 +110,24 @@ export function Header({ onBook }: { onBook: () => void }) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setProfileOpen(false);
       }
+      if (servicesDropdownRef.current && !servicesDropdownRef.current.contains(event.target as Node)) {
+        setServicesOpen(false);
+      }
     };
-    if (profileOpen) {
+    if (profileOpen || servicesOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [profileOpen]);
+  }, [profileOpen, servicesOpen]);
 
   useEffect(() => {
     setMenuOpen(false);
     setProfileOpen(false);
+    setServicesOpen(false);
     setIsSearchOpen(false);
   }, [pathname]);
-
-  const visibleNavItems = user
-    ? headerNavItems.filter((item) => item.label !== 'About Us' && item.label !== 'Gallery')
-    : headerNavItems;
 
   return (
     <header className={`z-50 fixed top-0 left-0 right-0 w-full transition-all duration-300 ${isHome && !isScrolled ? 'bg-transparent border-transparent' : 'shadow-sm bg-white/95 backdrop-blur-md border-b border-zinc-100'}`}>
@@ -127,23 +137,98 @@ export function Header({ onBook }: { onBook: () => void }) {
         
         {/* Main Desktop Navigation */}
         <nav className="hidden items-center gap-7 xl:gap-9 lg:flex">
-          {visibleNavItems.map((item) => {
-            const isActive = pathname === item.href;
-            
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
-                  isActive 
-                    ? (isHome && !isScrolled ? 'text-white font-extrabold border-b-2 border-white' : 'text-pink-600 font-extrabold border-b-2 border-pink-600')
-                    : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
+          {/* HOME */}
+          <Link
+            href="/"
+            className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+              pathname === '/'
+                ? (isHome && !isScrolled ? 'text-white font-extrabold border-b-2 border-white' : 'text-pink-600 font-extrabold border-b-2 border-pink-600')
+                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
+            }`}
+          >
+            Home
+          </Link>
+
+          {/* SERVICES DROPDOWN */}
+          <div ref={servicesDropdownRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setServicesOpen((prev) => !prev)}
+              className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 inline-flex items-center gap-1.5 cursor-pointer ${
+                pathname === '/services' || pathname === '/packages'
+                  ? (isHome && !isScrolled ? 'text-white font-extrabold border-b-2 border-white' : 'text-pink-600 font-extrabold border-b-2 border-pink-600')
+                  : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
+              }`}
+            >
+              Services
+              <ChevronDown size={14} className={`transition-transform duration-200 ${servicesOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {servicesOpen && (
+              <div className="absolute left-0 top-full mt-2 w-44 rounded-2xl border border-zinc-100 bg-white p-2 shadow-2xl shadow-black/10 z-50 animate-scale-in">
+                <Link
+                  href="/services"
+                  onClick={() => setServicesOpen(false)}
+                  className="flex w-full items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
+                >
+                  Services
+                </Link>
+                <Link
+                  href="/packages"
+                  onClick={() => setServicesOpen(false)}
+                  className="flex w-full items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
+                >
+                  Packages
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* PROMO */}
+          <Link
+            href="/packages"
+            className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+              pathname === '/packages'
+                ? (isHome && !isScrolled ? 'text-white font-extrabold border-b-2 border-white' : 'text-pink-600 font-extrabold border-b-2 border-pink-600')
+                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
+            }`}
+          >
+            Promo
+          </Link>
+
+          {/* GALLERY */}
+          <Link
+            href="/gallery"
+            className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+              pathname === '/gallery'
+                ? (isHome && !isScrolled ? 'text-white font-extrabold border-b-2 border-white' : 'text-pink-600 font-extrabold border-b-2 border-pink-600')
+                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
+            }`}
+          >
+            Gallery
+          </Link>
+
+          {/* TESTIMONIALS */}
+          <Link
+            href="/#testimonials"
+            className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+              isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600'
+            }`}
+          >
+            Testimonials
+          </Link>
+
+          {/* CONTACT */}
+          <Link
+            href="/contact"
+            className={`font-sans text-[13px] font-bold uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+              pathname === '/contact'
+                ? (isHome && !isScrolled ? 'text-white font-extrabold border-b-2 border-white' : 'text-pink-600 font-extrabold border-b-2 border-pink-600')
+                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
+            }`}
+          >
+            Contact
+          </Link>
         </nav>
 
         {/* Right Action Section */}
@@ -274,7 +359,7 @@ export function Header({ onBook }: { onBook: () => void }) {
       {menuOpen && (
         <div className="border-t border-zinc-100 bg-white p-6 shadow-xl lg:hidden animate-in slide-in-from-top-4 duration-200">
           <nav className="flex flex-col gap-4">
-            {visibleNavItems.map((item) => (
+            {headerNavItems.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
@@ -485,11 +570,11 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Quick Links */}
+        {/* Explore */}
         <div>
-          <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-pink-400">Quick Links</p>
+          <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-pink-400">Explore</p>
           <ul className="space-y-3 text-xs text-zinc-400 font-medium">
-            {headerNavItems.map((item) => (
+            {footerNavItems.map((item) => (
               <li key={item.label}>
                 <Link href={item.href} className="hover:text-pink-400 transition-colors">
                   {item.label}
@@ -549,7 +634,7 @@ export function PageShell({ children, onBook }: { children: ReactNode; onBook: (
   const pathname = usePathname();
   const isHome = pathname === '/';
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-transparent">
       <Header onBook={onBook} />
       <div className={`${isHome ? '' : 'pt-[116px]'} flex-1`}>{children}</div>
       <Footer />

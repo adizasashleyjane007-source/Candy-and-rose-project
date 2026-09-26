@@ -1,50 +1,60 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { Check, Clock3, Mail, MapPin, Phone, Send } from 'lucide-react';
+import { Check, Mail, MapPin, Phone, Send, Sparkles } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
-import { SectionHeading } from '@/components/salon-ui';
 import { supabase, getSalonInfo, defaultSalonInfo, type SalonInfo } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 
 export default function ContactPage() {
   const { user, profile } = useAuth();
   const [salonInfo, setSalonInfo] = useState<SalonInfo>(defaultSalonInfo);
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [subject, setSubject] = useState('General question');
+  const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
     getSalonInfo().then(setSalonInfo);
-  }, []);
+    // Pre-fill if logged in
+    if (profile?.full_name || profile?.name) {
+      const names = (profile.full_name || profile.name || '').split(' ');
+      setFirstName(names[0] || '');
+      setLastName(names.slice(1).join(' ') || '');
+    }
+    if (user?.email) {
+      setEmail(user.email);
+    }
+  }, [user, profile]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
 
+    const fullName = `${firstName} ${lastName}`.trim() || 'Guest';
+
     try {
-      // 1. Insert message
       await supabase.from('messages').insert({
-        name: name || profile?.full_name || profile?.name || 'Guest',
-        email: email || user?.email || '',
-        subject: subject,
+        name: fullName,
+        email: email,
+        subject: subject || 'General Inquiry',
         message: message,
       });
 
-      // 2. Insert notification for Dashboard
       await supabase.from('notifications').insert({
-        title: `New Message: ${subject} from ${name || profile?.full_name || 'Guest'}`,
+        title: `New Message: ${subject || 'General Inquiry'} from ${fullName}`,
         message: message,
         type: 'customer',
         is_read: false,
       });
 
       setSent(true);
-      setName('');
-      setEmail('');
+      setFirstName('');
+      setLastName('');
+      setSubject('');
       setMessage('');
     } catch (err) {
       console.error('Failed to send contact message:', err);
@@ -55,95 +65,197 @@ export default function ContactPage() {
 
   return (
     <SalonLayout>
-      <main>
-        <section className="bg-pink-50 px-6 py-20 lg:px-10 lg:py-28">
-          <div className="mx-auto max-w-7xl">
-            <div className="mb-4 text-xs font-bold uppercase tracking-[0.25em] text-[#f43f8e]">
-              CONTACT US
+      <main className="bg-[#FAF8F8] min-h-screen pb-32 overflow-x-hidden font-sans">
+        
+        {/* HERO SECTION */}
+        <section className="relative px-6 pt-24 pb-16 lg:pt-36 lg:pb-20 text-center animate-fade-in-up">
+          <div className="mx-auto max-w-4xl relative">
+            <h1 className="font-brand text-5xl sm:text-6xl lg:text-7xl font-medium text-zinc-900 tracking-tight leading-[1.1]">
+              Get in <span className="font-brand italic font-normal text-pink-500">Touch</span>
+            </h1>
+            
+            {/* Subtle decorative elements */}
+            <div className="absolute top-0 right-10 sm:right-20 text-pink-300 animate-pulse hidden sm:block">
+              <Sparkles size={24} strokeWidth={1.5} />
             </div>
-            <SectionHeading eyebrow="We would love to hear from you" title="Let's make a little time for you."
-              description="Questions about a treatment, need help choosing, or just want to say hello? Our team is here." />
+            
+            <svg className="mx-auto mt-8 w-24 text-pink-300" viewBox="0 0 100 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 10C25 2 75 2 99 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
           </div>
         </section>
 
-        <section className="px-6 py-20 lg:px-10">
-          <div className="mx-auto grid max-w-7xl gap-16 lg:grid-cols-[0.7fr_1.3fr]">
-            <div className="space-y-8">
-              <div className="flex gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pink-50 text-primary"><MapPin size={18} /></div>
+        {/* MAIN CONTACT SECTION */}
+        <section className="px-4 sm:px-6 lg:px-10 max-w-[90rem] mx-auto animate-fade-in delay-200">
+          <div className="bg-white/80 rounded-[2.5rem] border border-pink-100/60 shadow-[0_20px_60px_-15px_rgba(244,167,187,0.15)] p-6 sm:p-10 lg:p-14 overflow-hidden">
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-10 xl:gap-16 items-start">
+              
+              {/* LEFT: Contact Information */}
+              <div className="flex flex-col space-y-12 animate-fade-in-up delay-300">
                 <div>
-                  <h3 className="font-semibold">Come by</h3>
-                  <p className="mt-1 text-sm leading-6 text-neutral-500">{salonInfo.address}</p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pink-50 text-primary"><Clock3 size={18} /></div>
-                <div>
-                  <h3 className="font-semibold">Opening hours</h3>
-                  <p className="mt-1 text-sm leading-6 text-neutral-500">Mon–Sat · 9:00am–8:00pm<br />Sunday · 10:00am–5:00pm</p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pink-50 text-primary"><Mail size={18} /></div>
-                <div>
-                  <h3 className="font-semibold">Email us</h3>
-                  <p className="mt-1 text-sm leading-6 text-neutral-500">{salonInfo.email}</p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pink-50 text-primary"><Phone size={18} /></div>
-                <div>
-                  <h3 className="font-semibold">Call us</h3>
-                  <p className="mt-1 text-sm leading-6 text-neutral-500">{salonInfo.phone}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-3xl bg-neutral-50 p-7 sm:p-10">
-              {sent ? (
-                <div className="flex min-h-[360px] flex-col items-center justify-center text-center">
-                  <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-600"><Check size={28} /></div>
-                  <h2 className="font-serif text-3xl">Message received.</h2>
-                  <p className="mt-3 max-w-sm text-sm leading-6 text-neutral-500">
-                    Thank you for reaching out. Our team has received your inquiry and will get back to you shortly.
-                  </p>
-                  <button onClick={() => setSent(false)} className="mt-7 text-xs font-bold uppercase tracking-widest text-primary">
-                    Send another message
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={submit}>
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <label>
-                      <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-neutral-500">Your name</span>
-                      <input required value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-primary" placeholder="Jane Smith" />
-                    </label>
-                    <label>
-                      <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-neutral-500">Email address</span>
-                      <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-primary" placeholder="jane@example.com" />
-                    </label>
+                  <h3 className="font-brand text-2xl mb-8 text-zinc-900">Studio Details</h3>
+                  
+                  <div className="space-y-8">
+                    {/* Phone */}
+                    <div className="group flex items-start gap-5 transition-transform duration-300 hover:translate-x-1">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-50 text-pink-500 transition-transform duration-300 group-hover:scale-110 group-hover:bg-pink-100">
+                        <Phone size={18} strokeWidth={1.5} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-pink-400 mb-1.5">Phone</p>
+                        <p className="text-[15px] font-medium text-zinc-700">{salonInfo.phone}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Email */}
+                    <div className="group flex items-start gap-5 transition-transform duration-300 hover:translate-x-1">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-50 text-pink-500 transition-transform duration-300 group-hover:scale-110 group-hover:bg-pink-100">
+                        <Mail size={18} strokeWidth={1.5} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-pink-400 mb-1.5">Email</p>
+                        <p className="text-[15px] font-medium text-zinc-700 break-all">{salonInfo.email}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Location */}
+                    <div className="group flex items-start gap-5 transition-transform duration-300 hover:translate-x-1">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-50 text-pink-500 transition-transform duration-300 group-hover:scale-110 group-hover:bg-pink-100">
+                        <MapPin size={18} strokeWidth={1.5} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-pink-400 mb-1.5">Location</p>
+                        <p className="text-[15px] font-medium leading-relaxed text-zinc-700 pr-4">{salonInfo.address}</p>
+                      </div>
+                    </div>
                   </div>
-                  <label className="mt-5 block">
-                    <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-neutral-500">How can we help?</span>
-                    <select value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-primary">
-                      <option>General question</option>
-                      <option>Booking help</option>
-                      <option>Services & pricing</option>
-                      <option>Partnerships</option>
-                    </select>
-                  </label>
-                  <label className="mt-5 block">
-                    <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-neutral-500">Your message</span>
-                    <textarea required value={message} onChange={(e) => setMessage(e.target.value)} rows={5} className="w-full resize-none rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-primary" placeholder="Tell us a little more..." />
-                  </label>
-                  <button disabled={busy} className="mt-6 flex items-center gap-2 rounded-full bg-foreground px-7 py-4 text-xs font-bold uppercase tracking-widest text-white hover:bg-primary disabled:opacity-60">
-                    {busy ? 'Sending...' : 'Send message'} <Send size={15} />
-                  </button>
-                </form>
-              )}
+                </div>
+              </div>
+
+              {/* CENTER: Image */}
+              <div className="h-full min-h-[400px] lg:min-h-full rounded-2xl overflow-hidden relative shadow-lg animate-fade-in-up delay-200">
+                <img 
+                  src="/images/contactpage.jpg" 
+                  alt="Candy & Rose Studio" 
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 hover:scale-105"
+                />
+              </div>
+
+              {/* RIGHT: Contact Form */}
+              <div className="animate-fade-in-up delay-300">
+                {sent ? (
+                  <div className="flex h-full min-h-[400px] flex-col items-center justify-center text-center px-4 animate-fade-in">
+                    <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-pink-50 text-pink-500 shadow-sm">
+                      <Check size={28} strokeWidth={1.5} />
+                    </div>
+                    <h2 className="font-brand text-3xl sm:text-4xl text-zinc-900 mb-4">Message Received</h2>
+                    <p className="text-[15px] leading-relaxed text-zinc-600 mb-8 max-w-xs mx-auto">
+                      Thank you for reaching out. We will get back to you shortly.
+                    </p>
+                    <button 
+                      onClick={() => setSent(false)} 
+                      className="text-[11px] font-bold uppercase tracking-[0.2em] text-pink-500 hover:text-pink-600 transition-colors border-b border-pink-200 pb-1"
+                    >
+                      Send Another Message
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={submit} className="flex flex-col h-full space-y-8 lg:space-y-10">
+                    <h3 className="font-brand text-2xl text-zinc-900 mb-2">Send a Message</h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                      {/* First Name */}
+                      <div className="relative group">
+                        <input 
+                          required 
+                          id="firstName"
+                          value={firstName} 
+                          onChange={(e) => setFirstName(e.target.value)} 
+                          className="w-full bg-transparent border-b border-zinc-200 py-3 text-[15px] text-zinc-900 placeholder:text-transparent outline-none focus:border-pink-500 transition-colors peer"
+                          placeholder="First Name *" 
+                        />
+                        <label htmlFor="firstName" className="absolute left-0 top-3 text-[15px] text-zinc-400 cursor-text transition-all peer-focus:-top-4 peer-focus:text-[11px] peer-focus:font-bold peer-focus:uppercase peer-focus:tracking-widest peer-focus:text-pink-500 peer-not-placeholder-shown:-top-4 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:font-bold peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-widest peer-not-placeholder-shown:text-zinc-500">
+                          First Name *
+                        </label>
+                      </div>
+
+                      {/* Last Name */}
+                      <div className="relative group">
+                        <input 
+                          required 
+                          id="lastName"
+                          value={lastName} 
+                          onChange={(e) => setLastName(e.target.value)} 
+                          className="w-full bg-transparent border-b border-zinc-200 py-3 text-[15px] text-zinc-900 placeholder:text-transparent outline-none focus:border-pink-500 transition-colors peer"
+                          placeholder="Last Name *" 
+                        />
+                        <label htmlFor="lastName" className="absolute left-0 top-3 text-[15px] text-zinc-400 cursor-text transition-all peer-focus:-top-4 peer-focus:text-[11px] peer-focus:font-bold peer-focus:uppercase peer-focus:tracking-widest peer-focus:text-pink-500 peer-not-placeholder-shown:-top-4 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:font-bold peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-widest peer-not-placeholder-shown:text-zinc-500">
+                          Last Name *
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Email */}
+                    <div className="relative group">
+                      <input 
+                        required 
+                        type="email" 
+                        id="email"
+                        value={email} 
+                        onChange={(e) => setEmail(e.target.value)} 
+                        className="w-full bg-transparent border-b border-zinc-200 py-3 text-[15px] text-zinc-900 placeholder:text-transparent outline-none focus:border-pink-500 transition-colors peer"
+                        placeholder="Email *" 
+                      />
+                      <label htmlFor="email" className="absolute left-0 top-3 text-[15px] text-zinc-400 cursor-text transition-all peer-focus:-top-4 peer-focus:text-[11px] peer-focus:font-bold peer-focus:uppercase peer-focus:tracking-widest peer-focus:text-pink-500 peer-not-placeholder-shown:-top-4 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:font-bold peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-widest peer-not-placeholder-shown:text-zinc-500">
+                        Email Address *
+                      </label>
+                    </div>
+
+                    {/* Subject */}
+                    <div className="relative group">
+                      <input 
+                        id="subject"
+                        value={subject} 
+                        onChange={(e) => setSubject(e.target.value)} 
+                        className="w-full bg-transparent border-b border-zinc-200 py-3 text-[15px] text-zinc-900 placeholder:text-transparent outline-none focus:border-pink-500 transition-colors peer"
+                        placeholder="Subject" 
+                      />
+                      <label htmlFor="subject" className="absolute left-0 top-3 text-[15px] text-zinc-400 cursor-text transition-all peer-focus:-top-4 peer-focus:text-[11px] peer-focus:font-bold peer-focus:uppercase peer-focus:tracking-widest peer-focus:text-pink-500 peer-not-placeholder-shown:-top-4 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:font-bold peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-widest peer-not-placeholder-shown:text-zinc-500">
+                        Subject
+                      </label>
+                    </div>
+
+                    {/* Message */}
+                    <div className="relative group flex-1">
+                      <textarea 
+                        required 
+                        id="message"
+                        value={message} 
+                        onChange={(e) => setMessage(e.target.value)} 
+                        rows={3} 
+                        className="w-full resize-none bg-transparent border-b border-zinc-200 py-3 text-[15px] text-zinc-900 placeholder:text-transparent outline-none focus:border-pink-500 transition-colors peer"
+                        placeholder="Message *" 
+                      />
+                      <label htmlFor="message" className="absolute left-0 top-3 text-[15px] text-zinc-400 cursor-text transition-all peer-focus:-top-4 peer-focus:text-[11px] peer-focus:font-bold peer-focus:uppercase peer-focus:tracking-widest peer-focus:text-pink-500 peer-not-placeholder-shown:-top-4 peer-not-placeholder-shown:text-[11px] peer-not-placeholder-shown:font-bold peer-not-placeholder-shown:uppercase peer-not-placeholder-shown:tracking-widest peer-not-placeholder-shown:text-zinc-500">
+                        Message *
+                      </label>
+                    </div>
+
+                    <button 
+                      disabled={busy} 
+                      className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-full bg-zinc-950 px-8 py-4.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white shadow-xl shadow-zinc-950/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-zinc-950/30 active:scale-95 disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-xl"
+                    >
+                      {busy ? 'Sending...' : 'Send Message'}
+                    </button>
+                  </form>
+                )}
+              </div>
+              
             </div>
           </div>
         </section>
+        
       </main>
     </SalonLayout>
   );

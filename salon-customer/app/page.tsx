@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { 
   ArrowRight, CalendarDays, CheckCircle2, Heart, ShieldCheck, 
-  Sparkles, Star, UserCheck, Play, Award, Leaf, Scissors
+  Sparkles, Star, UserCheck, Play, Award, Leaf, Scissors,
+  Pipette, Flower2
 } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { SectionHeading } from '@/components/salon-ui';
@@ -13,71 +14,83 @@ import { supabase } from '@/lib/supabase';
 
 const servicesData = [
   {
-    title: 'Hair Styling',
-    description: 'Cut, style, blow-dry & more for a stunning you.',
-    image: '/images/hairstyle.png',
-    href: '/services',
-  },
-  {
-    title: 'Makeup Artistry',
-    description: 'Bridal, party & editorial makeup by experts.',
-    image: '/images/makeup.png',
-    href: '/services',
-  },
-  {
-    title: 'Skin Care & Facials',
-    description: 'Facials, cleanups & treatments for glowing skin.',
-    image: '/images/hero-radiant.jpg',
-    href: '/services',
-  },
-  {
+    num: '01',
     title: 'Nail Care',
-    description: 'Manicure, pedicure & artisan nail extensions.',
-    image: '/images/nails.png',
+    tagline: 'Healthy nails, happy you.',
+    description: 'Artisan manicures, soft gel extensions, and therapeutic spa treatments for your hands and feet.',
+    image: '/images/NAIL2.jpg',
     href: '/services',
   },
   {
-    title: 'Hair Color & Balayage',
-    description: 'Global color, highlights, balayage & glossing.',
-    image: '/images/color.png',
+    num: '02',
+    title: 'Hair Cuts & Styling',
+    tagline: 'Style that fits your vibe.',
+    description: 'Precision cuts, signature blowouts, and bespoke styling tailored to enhance your natural beauty.',
+    image: '/images/CUT.jpg',
     href: '/services',
   },
   {
-    title: 'Bridal Packages',
-    description: 'Complete bridal makeover for your special day.',
-    image: '/images/makeup 1.png',
+    num: '03',
+    title: 'Hair Treatments',
+    tagline: 'Stronger, healthier, shinier.',
+    description: 'Deep nourishing hair spas, organic scalp therapy, and botox treatments for ultimate hair repair.',
+    image: '/images/HAIR1.jpg',
+    href: '/services',
+  },
+  {
+    num: '04',
+    title: 'Brazilian Care',
+    tagline: 'Smooth skin, lasting confidence.',
+    description: 'Ultra-smoothing organic Brazilian blowouts and keratin treatments that leave your hair flawlessly silky.',
+    image: '/images/haircut.jpeg',
     href: '/services',
   },
 ];
 
 const highlights = [
   {
-    icon: UserCheck,
-    title: 'Expert Stylists',
-    subtitle: 'Trained & Certified',
+    icon: Pipette,
+    title: 'Premium Products',
+    subtitle: 'Safe & Effective',
   },
   {
-    icon: Award,
-    title: 'Premium Products',
-    subtitle: 'Top Quality Brands',
+    icon: UserCheck,
+    title: 'Professional Stylists',
+    subtitle: 'Trained & Experienced',
   },
   {
     icon: ShieldCheck,
-    title: 'Hygiene First',
-    subtitle: 'Clean & Safe',
+    title: 'Hygienic & Relaxing',
+    subtitle: 'Clean & Comfortable',
   },
   {
-    icon: Heart,
-    title: 'Personalized Care',
-    subtitle: 'Just for You',
+    icon: Flower2,
+    title: 'Your Beauty, Our Priority',
+    subtitle: 'Personalized Care',
   },
 ];
 
 const testimonials: any[] = [];
 
+const HOMEPAGE_GALLERY_IMAGES = [
+  { id: 'gal1', src: '/images/gal1.jpg', title: 'Signature Transformation', category: 'Total Beauty' },
+  { id: 'hair1', src: '/images/HAIR1.jpg', title: 'Sunlit Balayage', category: 'Hair Artistry' },
+  { id: 'makeup1', src: '/images/MAKEUP1.jpg', title: 'Bridal Glamour', category: 'Makeup Artistry' },
+  { id: 'nail1', src: '/images/Nail1.jpg', title: 'Rose Gold Sculpt', category: 'Artisan Nails' },
+  { id: 'makeup2', src: '/images/MAKEUP2.jpg', title: 'Blossom Flush', category: 'Makeup Artistry' },
+  { id: 'nail2', src: '/images/NAIL2.jpg', title: 'Fine-Line French', category: 'Artisan Nails' },
+  { id: 'hair2', src: '/images/HAIR2.jpg', title: 'Silky Brunette Gloss', category: 'Hair Artistry' },
+  { id: 'makeup3', src: '/images/MAKEUP3.jpg', title: 'Smoldering Eye', category: 'Makeup Artistry' },
+  { id: 'nail3', src: '/images/NAIL3.jpg', title: 'Botanical Hand-Art', category: 'Artisan Nails' },
+  { id: 'nail4', src: '/images/NAIL4.jpg', title: 'Velvet Rose Cat-Eye', category: 'Artisan Nails' },
+  { id: 'cut', src: '/images/CUT.jpg', title: 'Precision Hair Cut', category: 'Hair Styling' },
+  { id: 'haircut', src: '/images/haircut.jpeg', title: 'Artisan Texture & Blowout', category: 'Hair Styling' },
+];
+
 const carouselImages = [
-  '/images/salon-header-1.jpg',
-  '/images/salon-header-2.jpg',
+  '/images/package-img.jpg',
+  '/images/salon-header 1.jpg',
+  '/images/salon-header 2.jpg',
 ];
 
 const rotatingWords = [
@@ -88,12 +101,47 @@ const rotatingWords = [
   'Your Glow',
 ];
 
+function AnimatedLetters({ 
+  text, 
+  baseDelay = 0, 
+  stagger = 25, 
+  className = "" 
+}: { 
+  text: string; 
+  baseDelay?: number; 
+  stagger?: number; 
+  className?: string; 
+}) {
+  return (
+    <span className={`inline-block ${className}`}>
+      {text.split('').map((char, index) => (
+        <span
+          key={`${index}-${char}`}
+          className="inline-block animate-letter-reveal"
+          style={{
+            animationDelay: `${baseDelay + index * stagger}ms`,
+            whiteSpace: char === ' ' ? 'pre' : 'normal',
+          }}
+        >
+          {char === ' ' ? '\u00A0' : char}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export default function Home() {
   const { user } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isExiting, setIsExiting] = useState(false);
+  const [timerKey, setTimerKey] = useState(0);
   const [currentWordIdx, setCurrentWordIdx] = useState(0);
   const [fetchedReviews, setFetchedReviews] = useState<any[]>([]);
-  const [scrollY, setScrollY] = useState(0);
+
+  const heroBgRef = useRef<HTMLDivElement>(null);
+  const heroHeadlineRef = useRef<HTMLHeadingElement>(null);
+  const heroDescRef = useRef<HTMLParagraphElement>(null);
+  const heroBtnsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase
@@ -107,17 +155,52 @@ export default function Home() {
       });
   }, []);
 
+  const handleTransition = useCallback((nextIdx: number) => {
+    if (nextIdx === currentSlide) return;
+    setIsExiting(true);
+    setTimeout(() => {
+      setCurrentSlide(nextIdx);
+      setIsExiting(false);
+      setTimerKey((prev) => prev + 1);
+    }, 320);
+  }, [currentSlide]);
+
+  // 7-second automatic slide transition (resets cleanly when user clicks a dot)
   useEffect(() => {
     const slideTimer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % carouselImages.length);
-    }, 4500);
+      handleTransition((currentSlide + 1) % carouselImages.length);
+    }, 7000);
 
     const wordTimer = setInterval(() => {
       setCurrentWordIdx((prev) => (prev + 1) % rotatingWords.length);
     }, 3000);
 
+    let ticking = false;
     const handleScroll = () => {
-      setScrollY(window.scrollY);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scroll = window.scrollY;
+          
+          if (heroBgRef.current) {
+            heroBgRef.current.style.transform = `translateY(${scroll * 0.5}px) scale(${Math.max(0.95, 1 - scroll * 0.0005)})`;
+          }
+          if (heroHeadlineRef.current) {
+            heroHeadlineRef.current.style.transform = `translateY(${scroll * 0.3}px)`;
+            heroHeadlineRef.current.style.opacity = `${Math.max(0, 1 - scroll * 0.003)}`;
+          }
+          if (heroDescRef.current) {
+            heroDescRef.current.style.transform = `translateY(${scroll * 0.2}px)`;
+            heroDescRef.current.style.opacity = `${Math.max(0, 1 - scroll * 0.0025)}`;
+          }
+          if (heroBtnsRef.current) {
+            heroBtnsRef.current.style.transform = `translateY(${scroll * 0.1}px)`;
+            heroBtnsRef.current.style.opacity = `${Math.max(0, 1 - scroll * 0.002)}`;
+          }
+          
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
 
@@ -126,7 +209,11 @@ export default function Home() {
       clearInterval(wordTimer);
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [currentSlide, handleTransition, timerKey]);
+
+  const handleDotClick = (idx: number) => {
+    handleTransition(idx);
+  };
 
   const triggerBooking = () => {
     window.dispatchEvent(new CustomEvent(user ? 'open-book' : 'open-auth'));
@@ -134,101 +221,113 @@ export default function Home() {
 
   return (
     <SalonLayout>
-      <main className="relative">
-        {/* HERO SECTION */}
-        <section 
-          className="sticky top-0 h-[88vh] w-full flex items-center justify-center bg-zinc-950 overflow-hidden z-0"
-          style={{ transform: `translateY(-${scrollY * 0.4}px)` }}
-        >
-          {/* Background Image Carousel with High Clarity */}
-          <div className="absolute inset-0 z-0">
-            {carouselImages.map((src, idx) => (
+      <main className="relative bg-transparent">
+        {/* GLOBAL BACKGROUND CAROUSEL */}
+        <div ref={heroBgRef} className="fixed inset-0 z-0 origin-center will-change-transform pointer-events-none">
+          {carouselImages.map((src, idx) => {
+            const isActive = idx === currentSlide;
+            return (
               <img
                 key={src}
                 src={src}
                 alt="Candy & Rose Salon"
-                className={`absolute inset-0 w-full h-full object-cover object-center transition-all duration-1000 ease-in-out ${
-                  idx === currentSlide
-                    ? 'opacity-85 scale-100 z-10'
-                    : 'opacity-0 scale-105 pointer-events-none z-0'
+                className={`absolute inset-0 w-full h-full object-cover object-center transition-all duration-1200 ease-in-out ${
+                  isActive
+                    ? 'opacity-95 scale-105 sm:scale-108 z-10 transition-transform duration-[7000ms] ease-out'
+                    : 'opacity-0 scale-100 pointer-events-none z-0'
                 }`}
               />
-            ))}
-            {/* Clearer, subtle gradient overlays */}
-            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/60 to-transparent z-15" />
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-black/30 z-15" />
-          </div>
+            );
+          })}
+          {/* Soft, non-intrusive gradient overlays for maximum image detail and contrast */}
+          <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/80 via-zinc-950/45 to-transparent z-15" />
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/85 via-transparent to-black/20 z-15" />
+        </div>
 
-          {/* Hero Content */}
+        {/* HERO SECTION */}
+        <section 
+          className="relative h-[88vh] w-full flex items-center justify-center bg-transparent z-10 group"
+        >
+
+          {/* Hero Content (Sequential Letter-by-Letter Animation per Slide) */}
           <div className="relative z-20 max-w-7xl mx-auto px-6 pt-36 pb-20 lg:px-10 w-full">
-            <div className="max-w-2xl">
-              <span className="font-serif italic text-pink-300 text-2xl sm:text-3xl font-normal tracking-wide block mb-3 drop-shadow">
-                Look Good, Feel Beautiful
-              </span>
-
-              <h1 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-medium leading-[1.1] text-white tracking-tight drop-shadow-md">
-                Beauty that Reflects <br className="hidden sm:block" />
-                <span key={currentWordIdx} className="italic font-serif text-pink-400 inline-block animate-fade-in transition-all duration-500">
-                  {rotatingWords[currentWordIdx]}
+            <div 
+              key={currentSlide} 
+              className={`max-w-2xl transition-all duration-300 ease-in ${
+                isExiting ? 'opacity-0 -translate-y-3 pointer-events-none' : 'opacity-100 translate-y-0'
+              }`}
+            >
+              <h1 ref={heroHeadlineRef} className="font-serif text-5xl sm:text-6xl lg:text-7xl font-medium leading-[1.15] text-white tracking-tight drop-shadow-md will-change-transform">
+                <AnimatedLetters 
+                  text="Confidence" 
+                  baseDelay={80} 
+                  stagger={25} 
+                />
+                <br />
+                <span className="italic font-serif text-pink-300 inline-block">
+                  <AnimatedLetters 
+                    text="Looks Good On You" 
+                    baseDelay={380} 
+                    stagger={25} 
+                  />
                 </span>
               </h1>
 
-              <p className="mt-6 text-sm sm:text-base text-zinc-200 leading-relaxed max-w-xl drop-shadow">
-                Experience premium salon & beauty services crafted to bring out the best in you. Personal consultation, bespoke treatments, and unmatched radiance.
+              <p ref={heroDescRef} className="mt-6 text-xs sm:text-sm md:text-base text-zinc-200 leading-relaxed max-w-xl drop-shadow animate-hero-desc will-change-transform">
+                At Candy &amp; Rose, we bring out your natural beauty with professional care, premium products, and personalized services — because you deserve to feel your best every day.
               </p>
 
-              <div className="mt-9 flex flex-wrap items-center gap-4">
+              <div ref={heroBtnsRef} className="mt-9 flex flex-wrap items-center gap-4 will-change-transform">
                 <button
                   onClick={triggerBooking}
-                  className="inline-flex items-center gap-2.5 rounded-full bg-pink-600 px-8 py-4 text-xs font-bold uppercase tracking-widest text-white shadow-xl shadow-pink-600/40 transition-all duration-300 hover:bg-pink-500 hover:scale-105 active:scale-95 cursor-pointer"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#f4a7bb] hover:bg-[#f291aa] text-zinc-950 px-8 py-3.5 text-xs font-bold uppercase tracking-wider shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer animate-hero-btn-1"
                 >
-                  <CalendarDays size={16} />
-                  Book Appointment
+                  BOOK YOUR APPOINTMENT <ArrowRight size={14} />
                 </button>
-
-                <Link
-                  href="/services"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-black/40 backdrop-blur-md px-8 py-4 text-xs font-bold uppercase tracking-widest text-white transition-all duration-300 hover:bg-white hover:text-zinc-950 hover:border-white cursor-pointer"
-                >
-                  Explore Services
-                  <ArrowRight size={15} />
-                </Link>
               </div>
             </div>
           </div>
 
-          {/* Carousel Slide Dots */}
-          <div className="absolute bottom-16 right-8 sm:right-16 z-20 flex items-center gap-2">
+          {/* Minimal 3-Dot Carousel Indicator (Positioned Lower Middle-Right) */}
+          <div className="absolute top-1/2 -translate-y-1/2 right-6 sm:right-8 lg:right-12 z-20 flex flex-col items-center gap-2.5">
             {carouselImages.map((_, idx) => (
               <button
                 key={idx}
-                onClick={() => setCurrentSlide(idx)}
+                onClick={() => handleDotClick(idx)}
                 aria-label={`Go to slide ${idx + 1}`}
-                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                className={`w-2.5 rounded-full transition-all duration-500 cursor-pointer ${
                   idx === currentSlide
-                    ? 'w-8 bg-pink-500 shadow-md shadow-pink-500/50'
-                    : 'w-2 bg-white/40 hover:bg-white/70'
+                    ? 'h-7 bg-[#f4a7bb] shadow-md shadow-pink-500/50 scale-105'
+                    : 'h-2.5 bg-white/40 hover:bg-white/80 scale-95'
                 }`}
               />
             ))}
           </div>
         </section>
 
-        {/* STATS HIGHLIGHTS */}
-        <section className="relative z-20 w-full bg-[#A98F78] py-16 sm:py-20">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-0">
-            {[
-              { number: '1300+', label: 'CUSTOMER' },
-              { number: '30+', label: 'OUR TRAINER' },
-              { number: '2013', label: 'BEGIN ON' }
-            ].map((stat) => (
-              <div key={stat.label} className="flex flex-col items-center justify-center text-center">
-                <h4 className="font-serif text-6xl sm:text-7xl font-light text-white tracking-tight mb-4 leading-none">{stat.number}</h4>
-                <p className="text-sm font-medium tracking-[0.2em] uppercase text-white/90">
-                   {stat.label}
-                </p>
-              </div>
-            ))}
+        {/* BENEFITS HIGHLIGHTS */}
+        <section className="relative z-20 w-full bg-gradient-to-b from-zinc-950 to-black py-16 sm:py-20 border-y border-white/5 shadow-2xl">
+          <div className="mx-auto max-w-[88rem] px-6 lg:px-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 sm:gap-y-12 lg:gap-0 lg:divide-x divide-white/5">
+              {highlights.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.title} className="flex flex-row items-center sm:items-start lg:items-center gap-5 lg:px-8 xl:px-10 group cursor-default transition-all duration-500">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-pink-950/20 text-[#f4a7bb] border border-[#f4a7bb]/25 shadow-[0_0_20px_rgba(244,167,187,0.05)] transition-all duration-400 ease-out group-hover:scale-105 group-hover:shadow-[0_0_25px_rgba(244,167,187,0.2)] group-hover:bg-pink-950/40 group-hover:text-pink-300 group-hover:border-[#f4a7bb]/40">
+                      <Icon size={28} strokeWidth={1.25} className="transition-all duration-400" />
+                    </div>
+                    <div className="flex flex-col justify-center">
+                      <h4 className="font-serif text-base sm:text-[17px] font-semibold text-white tracking-wide">
+                        {item.title}
+                      </h4>
+                      <p className="mt-1.5 text-[13px] sm:text-sm text-zinc-400/90 leading-relaxed font-sans font-light">
+                        {item.subtitle}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
 
@@ -242,34 +341,33 @@ export default function Home() {
               centered
             />
 
-            <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
               {servicesData.map((service) => (
                 <Link
-                  key={service.title}
+                  key={service.num}
                   href={service.href}
-                  className="group overflow-hidden rounded-3xl border border-zinc-100 bg-white transition-all duration-500 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-pink-100/80 block"
+                  className="group flex flex-col overflow-hidden rounded-2xl sm:rounded-[1.5rem] bg-white border border-pink-50 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_-15px_rgba(244,167,187,0.3)] hover:border-pink-200/60"
                 >
-                  <div className="relative h-64 overflow-hidden bg-pink-50">
+                  <div className="relative h-72 sm:h-80 w-full overflow-hidden bg-pink-50/50">
                     <img
                       src={service.image}
                       alt={service.title}
-                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                    <span className="absolute bottom-4 left-4 rounded-full bg-white/90 backdrop-blur-md px-3.5 py-1 text-[10px] font-bold uppercase tracking-widest text-pink-600">
-                      Popular
-                    </span>
                   </div>
-                  <div className="p-6">
-                    <h3 className="font-serif text-2xl font-medium text-zinc-900 leading-tight group-hover:text-pink-600 transition-colors">
+                  <div className="p-6 sm:p-8 flex flex-col grow bg-white">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-pink-400 mb-3 block">
+                      {service.num}
+                    </span>
+                    <h3 className="font-serif text-[22px] sm:text-2xl font-medium text-zinc-900 leading-tight group-hover:text-pink-600 transition-colors">
                       {service.title}
                     </h3>
-                    <p className="mt-2 text-xs leading-6 text-zinc-500">
+                    <p className="font-serif italic text-[13px] sm:text-sm text-pink-500/90 mt-1.5 mb-4">
+                      {service.tagline}
+                    </p>
+                    <p className="text-xs sm:text-[13px] leading-relaxed text-zinc-500">
                       {service.description}
                     </p>
-                    <div className="mt-5 flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-pink-600 group-hover:translate-x-1 transition-transform">
-                      View Options <ArrowRight size={14} />
-                    </div>
                   </div>
                 </Link>
               ))}
@@ -287,164 +385,117 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ABOUT US SECTION */}
-        <section className="relative z-20 bg-pink-50/50 px-6 py-24 lg:px-10 border-y border-pink-100/60">
-          <div className="mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-2">
-            {/* Left Image with Play Icon */}
-            <div className="relative group overflow-hidden rounded-3xl border border-pink-200/60 shadow-xl">
-              <img
-                src="/images/background.jpg"
-                alt="Salon Interior Experience"
-                className="aspect-[4/3] w-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
-                <button
-                  onClick={() => alert('Video tour preview coming soon!')}
-                  aria-label="Play salon tour video"
-                  className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-pink-600 shadow-2xl transition-all duration-300 hover:scale-110 hover:bg-pink-600 hover:text-white"
-                >
-                  <Play size={24} className="fill-current ml-1" />
-                </button>
-              </div>
-            </div>
 
-            {/* Right Text Content */}
+        {/* OUR GALLERY SECTION (INFINITE HORIZONTAL MARQUEE CAROUSEL) */}
+        <section className="relative z-20 py-24 bg-white overflow-hidden border-t border-zinc-100">
+          {/* Section Header */}
+          <div className="mx-auto max-w-7xl px-6 lg:px-10 mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div>
-              <SectionHeading
-                eyebrow="ABOUT US"
-                title="Where Beauty Meets Expertise"
-                description="At Candy & Rose, we believe beauty is personal. Our mission is to enhance your natural beauty with premium services, expert care, and a relaxing salon experience."
-              />
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-50 px-3.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-pink-600 border border-pink-200/80 mb-3">
+                <Sparkles size={12} className="text-pink-500 animate-pulse" /> OUR GALLERY
+              </span>
+              <h2 className="font-serif text-3xl sm:text-5xl font-medium text-zinc-950 tracking-tight">
+                Visual Inspiration
+              </h2>
+              <p className="mt-3 text-xs sm:text-sm text-zinc-500 max-w-lg font-sans">
+                Explore a live showcase of our signature hair transformations, makeup artistry, and artisan nail creations.
+              </p>
+            </div>
 
-              <div className="mt-8 space-y-4">
-                {[
-                  'Professional & Friendly Team',
-                  'Advanced Techniques & Trends',
-                  '100% Satisfaction Guarantee',
-                  'Hygienic & Comfortable Environment',
-                ].map((item) => (
-                  <div key={item} className="flex items-center gap-3">
-                    <CheckCircle2 size={18} className="text-pink-600 shrink-0" />
-                    <span className="text-xs sm:text-sm font-semibold text-zinc-800">{item}</span>
-                  </div>
-                ))}
-              </div>
+            {/* Section Navigation Action Control */}
+            <Link
+              href="/gallery"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-zinc-950 text-white shadow-md transition-all duration-300 hover:bg-pink-600 hover:scale-105 cursor-pointer self-start sm:self-auto"
+              aria-label="View Full Gallery"
+            >
+              <ArrowRight size={18} />
+            </Link>
+          </div>
 
-              <div className="mt-10">
+          {/* Marquee Carousel Track Container */}
+          <div className="gallery-marquee-container w-full overflow-hidden relative group">
+            {/* Gradient side fades */}
+            <div className="absolute top-0 bottom-0 left-0 w-16 sm:w-28 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+            <div className="absolute top-0 bottom-0 right-0 w-16 sm:w-28 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+
+            {/* Moving Marquee Track */}
+            <div className="animate-gallery-marquee flex gap-6 px-3">
+              {[...HOMEPAGE_GALLERY_IMAGES, ...HOMEPAGE_GALLERY_IMAGES].map((item, idx) => (
                 <Link
-                  href="/about"
-                  className="inline-flex items-center gap-2.5 rounded-full bg-zinc-950 px-8 py-4 text-xs font-bold uppercase tracking-widest text-white transition-all duration-300 hover:bg-pink-600 shadow-md"
+                  key={`${item.id}-${idx}`}
+                  href="/gallery"
+                  className="group/card relative shrink-0 w-64 sm:w-72 md:w-80 aspect-[3/4] overflow-hidden rounded-3xl bg-zinc-100 shadow-sm transition-all duration-500 hover:shadow-2xl hover:-translate-y-1.5 border border-zinc-200/60 block"
                 >
-                  Know More About Us
-                  <ArrowRight size={15} />
+                  {/* Image */}
+                  <img
+                    src={item.src}
+                    alt={item.title}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover/card:scale-105"
+                  />
+
+                  {/* Dark Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/85 via-zinc-950/20 to-transparent" />
+
+                  {/* Card Content Overlay */}
+                  <div className="absolute bottom-6 left-6 right-6 text-white z-10">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-pink-400 bg-pink-950/50 border border-pink-400/20 px-2.5 py-1 rounded-full inline-block mb-2 backdrop-blur-xs">
+                      {item.category}
+                    </span>
+                    <h3 className="font-serif text-lg sm:text-xl font-medium text-white leading-tight group-hover/card:text-pink-300 transition-colors">
+                      {item.title}
+                    </h3>
+                  </div>
                 </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* CUSTOMER EXPERIENCE (PLACEHOLDER TESTIMONIALS) */}
+        <section id="testimonials" className="relative z-20 px-6 py-24 lg:px-10 bg-zinc-950 border-t border-zinc-900">
+          <div className="mx-auto max-w-5xl text-center">
+            <div className="rounded-3xl border border-zinc-800/80 bg-zinc-900/40 p-12 sm:p-24 shadow-2xl flex flex-col items-center justify-center">
+              <h2 className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.3em] text-pink-500 mb-6">
+                Your Experience Matters
+              </h2>
+              <p className="font-serif text-2xl sm:text-4xl text-white font-light leading-snug sm:leading-tight mb-12 max-w-2xl mx-auto">
+                We'd love to hear about your experience at Candy & Rose.
+              </p>
+              
+              <div className="flex justify-center items-center">
+                <span className="h-1.5 w-8 rounded-full bg-pink-500"></span>
               </div>
             </div>
           </div>
         </section>
 
-        {/* SPECIAL OFFER BANNER */}
-        <section className="relative z-20 px-6 py-20 lg:px-10 bg-white">
-          <div className="mx-auto max-w-7xl">
-            <div className="rounded-3xl bg-gradient-to-r from-zinc-950 via-zinc-900 to-pink-950 p-8 sm:p-14 text-white shadow-2xl flex flex-col md:flex-row items-center justify-between gap-10 border border-zinc-800 relative overflow-hidden">
-              <div className="max-w-xl z-10">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-600/30 px-3.5 py-1 text-[10px] font-bold uppercase tracking-widest text-pink-300 border border-pink-500/30 mb-4">
-                  <Sparkles size={12} /> SPECIAL OFFER
-                </span>
-                <h3 className="font-serif text-3xl sm:text-5xl font-medium leading-tight">
-                  Get 20% Off On Your First Visit
-                </h3>
-                <p className="mt-4 text-xs sm:text-sm text-zinc-300 leading-relaxed">
-                  Treat yourself to our top-tier hair treatments, facials, or bridal makeover packages at an exclusive discounted rate today.
-                </p>
-                <div className="mt-8">
-                  <button
-                    onClick={triggerBooking}
-                    className="inline-flex items-center gap-2 rounded-full bg-pink-600 px-8 py-4 text-xs font-bold uppercase tracking-widest text-white shadow-xl shadow-pink-600/40 transition-all duration-300 hover:bg-pink-500 hover:scale-105 active:scale-95 cursor-pointer"
-                  >
-                    Book Now
-                    <ArrowRight size={15} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Model Image */}
-              <div className="relative shrink-0 w-full max-w-xs md:max-w-sm rounded-2xl overflow-hidden shadow-2xl border border-white/10 z-10">
-                <img
-                  src="/images/login-customer.jpg"
-                  alt="Special Offer Salon Customer"
-                  className="w-full h-64 sm:h-72 object-cover"
-                />
-              </div>
+        {/* BOTTOM CTA SECTION */}
+        <section className="relative z-20 px-6 py-24 lg:py-32 bg-transparent text-center">
+          <div className="mx-auto max-w-4xl">
+            <div className="flex flex-col items-center rounded-[2.5rem] bg-transparent border border-pink-200/60 shadow-[0_30px_60px_-15px_rgba(244,167,187,0.1)] p-12 sm:p-20 relative overflow-hidden">
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.3em] text-pink-500 mb-6 relative z-10">
+                Your Transformation Awaits
+              </span>
+              
+              <h2 className="font-serif text-4xl sm:text-[54px] lg:text-6xl font-medium text-zinc-900 leading-[1.1] mb-1 relative z-10">
+                Ready for Your
+              </h2>
+              <h2 className="font-serif text-4xl sm:text-[54px] lg:text-6xl font-light italic text-pink-500 leading-[1.1] mb-8 relative z-10">
+                Next Beauty Day?
+              </h2>
+              
+              <p className="text-sm sm:text-[15px] text-zinc-700 font-medium leading-relaxed max-w-lg mx-auto mb-10 relative z-10">
+                Book now and let us take care of you. Step into Candy & Rose for bespoke care, artisan styling, and ultimate radiance.
+              </p>
+              
+              <button
+                onClick={triggerBooking}
+                className="relative z-10 inline-flex items-center justify-center gap-2.5 rounded-full bg-zinc-950 px-8 py-4 sm:px-10 sm:py-4 text-[11px] font-bold uppercase tracking-[0.2em] text-white shadow-xl shadow-zinc-950/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-zinc-950/30 active:scale-95"
+              >
+                Book Your Appointment <ArrowRight size={14} className="ml-1" />
+              </button>
             </div>
-          </div>
-        </section>
-
-        {/* CLIENT LOVE (TESTIMONIALS) */}
-        <section id="testimonials" className="relative z-20 px-6 py-24 lg:px-10 bg-zinc-50 border-t border-zinc-200/60">
-          <div className="mx-auto max-w-7xl">
-            <SectionHeading
-              eyebrow="CLIENT LOVE"
-              title="What Our Clients Say"
-              description="Read glowing feedback from our wonderful clients who trust us with their personal beauty rituals."
-              centered
-            />
-
-            {fetchedReviews.length > 0 ? (
-              <>
-                <div className="mt-14 grid gap-8 md:grid-cols-3">
-                  {fetchedReviews.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-3xl border border-zinc-200/80 bg-white p-8 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between"
-                    >
-                      <div>
-                        {/* Stars */}
-                        <div className="flex text-amber-400 mb-6">
-                          {[...Array(item.rating || 5)].map((_, i) => (
-                            <Star key={i} size={16} fill="currentColor" />
-                          ))}
-                        </div>
-                        <p className="text-xs sm:text-sm leading-7 text-zinc-600 font-medium italic">
-                          &ldquo;{item.comment || 'Wonderful experience!'}&rdquo;
-                        </p>
-                      </div>
-
-                      {/* Customer Info */}
-                      <div className="mt-8 flex items-center gap-4 border-t border-zinc-100 pt-6">
-                        <div className="h-12 w-12 rounded-full bg-pink-100 text-pink-600 font-bold flex items-center justify-center border-2 border-pink-200 text-base font-serif">
-                          {(item.user_name || 'G').slice(0, 1).toUpperCase()}
-                        </div>
-                        <div>
-                          <h4 className="font-serif text-base font-semibold text-zinc-900">{item.user_name || 'Candy & Rose Guest'}</h4>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Pagination Dots */}
-                <div className="mt-10 flex justify-center items-center gap-2">
-                  <span className="h-2.5 w-7 rounded-full bg-pink-600"></span>
-                  <span className="h-2.5 w-2.5 rounded-full bg-zinc-300"></span>
-                  <span className="h-2.5 w-2.5 rounded-full bg-zinc-300"></span>
-                </div>
-              </>
-            ) : (
-              <div className="mt-14 max-w-xl mx-auto rounded-3xl border border-zinc-200/80 bg-white p-8 sm:p-10 text-center shadow-sm">
-                <p className="text-zinc-500 text-xs sm:text-sm leading-relaxed">
-                  We are currently gathering feedback from our guests. If you have recently visited us, we would love to hear about your experience!
-                </p>
-                <div className="mt-6">
-                  <Link
-                    href="/feedback"
-                    className="inline-flex items-center gap-2.5 rounded-full bg-pink-600 hover:bg-pink-700 text-white px-6 py-3.5 text-xs font-bold uppercase tracking-widest transition-all duration-300 shadow-md"
-                  >
-                    Share Your Feedback <ArrowRight size={14} />
-                  </Link>
-                </div>
-              </div>
-            )}
           </div>
         </section>
       </main>
