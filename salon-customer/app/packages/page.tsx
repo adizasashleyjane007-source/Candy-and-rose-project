@@ -205,11 +205,6 @@ export default function PackagesPage() {
   const { user } = useAuth();
 
   const handleBookPackage = (pkg: any) => {
-    if (!user) {
-      window.dispatchEvent(new CustomEvent('open-auth'));
-      return;
-    }
-
     const service: Service = {
       id: pkg.id,
       name: `${pkg.code}: ${pkg.name}`,
@@ -472,11 +467,7 @@ export default function PackagesPage() {
             <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
               <button
                 onClick={() => {
-                  if (!user) {
-                    window.dispatchEvent(new CustomEvent('open-auth'));
-                  } else {
-                    window.dispatchEvent(new CustomEvent('open-book'));
-                  }
+                  window.dispatchEvent(new CustomEvent('open-book'));
                 }}
                 className="inline-flex items-center justify-center gap-2.5 rounded-full bg-zinc-950 px-8 py-3.5 text-xs font-bold uppercase tracking-widest text-white transition-all duration-300 hover:bg-pink-600 shadow-lg"
               >

@@ -218,7 +218,7 @@ export default function Home() {
   };
 
   const triggerBooking = () => {
-    window.dispatchEvent(new CustomEvent(user ? 'open-book' : 'open-auth'));
+    window.dispatchEvent(new CustomEvent('open-book'));
   };
 
   const currentReview = fetchedReviews[activeReviewIdx] || null;
