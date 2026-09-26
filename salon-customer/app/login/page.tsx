@@ -3,7 +3,7 @@
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
 export default function LoginPage() {
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [welcomeStep, setWelcomeStep] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -27,13 +28,20 @@ export default function LoginPage() {
       if (result.error) {
         setError(result.error);
       } else {
-        router.push('/');
+        setWelcomeStep(true);
       }
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleContinue = () => {
+    router.push('/services');
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('open-book'));
+    }, 100);
   };
 
   return (
@@ -82,95 +90,113 @@ export default function LoginPage() {
 
             {/* Right Column: Refined White Form Panel */}
             <div className="bg-[#FCFBF9] p-8 sm:p-12 md:p-14 lg:p-16 flex flex-col justify-center text-zinc-900">
-              <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col justify-center">
-                <h2 className="font-sans text-2xl sm:text-3xl lg:text-[2rem] font-medium text-[#231F20] tracking-tight mb-2">
-                  Login
-                </h2>
-                <p className="text-xs sm:text-[14px] text-[#77727A] font-normal leading-relaxed mb-7">
-                  Welcome back, we are glad you&apos;re feeling beautiful today. Login to continue
-                </p>
-
-                {error && (
-                  <div className="mb-5 rounded-xl bg-red-50 border border-red-200 p-3.5 text-xs text-red-600 font-medium">
-                    {error}
+              {welcomeStep ? (
+                <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col items-center justify-center text-center animate-scale-in py-6">
+                  <div className="h-16 w-16 rounded-full bg-pink-50 border border-pink-200 flex items-center justify-center mb-6 shadow-sm">
+                    <Sparkles size={30} className="text-[#E61E73]" />
                   </div>
-                )}
+                  <h2 className="font-sans text-2xl sm:text-3xl font-medium text-[#231F20] tracking-tight mb-8 leading-snug">
+                    Welcome to Candy and Rose Salon,<br />
+                    continue your booking
+                  </h2>
+                  <button
+                    onClick={handleContinue}
+                    className="w-full h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 cursor-pointer flex items-center justify-center shadow-sm"
+                  >
+                    CONTINUE
+                  </button>
+                </div>
+              ) : (
+                <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col justify-center">
+                  <h2 className="font-sans text-2xl sm:text-3xl lg:text-[2rem] font-medium text-[#231F20] tracking-tight mb-2">
+                    Login
+                  </h2>
+                  <p className="text-xs sm:text-[14px] text-[#77727A] font-normal leading-relaxed mb-7">
+                    Welcome back, we are glad you&apos;re feeling beautiful today. Login to continue
+                  </p>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label htmlFor="login-email" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
-                      Email
-                    </label>
-                    <div className="relative group">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                      <input
-                        id="login-email"
-                        type="email"
-                        required
-                        placeholder="Enter your email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                      />
+                  {error && (
+                    <div className="mb-5 rounded-xl bg-red-50 border border-red-200 p-3.5 text-xs text-red-600 font-medium">
+                      {error}
                     </div>
-                  </div>
+                  )}
 
-                  <div className="space-y-1.5">
-                    <label htmlFor="login-password" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
-                      Password
-                    </label>
-                    <div className="relative group">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                      <input
-                        id="login-password"
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        placeholder="Enter your password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                      />
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label htmlFor="login-email" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
+                        Email
+                      </label>
+                      <div className="relative group">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                        <input
+                          id="login-email"
+                          type="email"
+                          required
+                          placeholder="Enter your email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label htmlFor="login-password" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
+                        Password
+                      </label>
+                      <div className="relative group">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                        <input
+                          id="login-password"
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          placeholder="Enter your password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center pt-0.5">
+                      <label className="flex items-center gap-2.5 text-xs text-[#77727A] cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="h-4 w-4 rounded border-zinc-300 accent-[#E61E73] cursor-pointer"
+                        />
+                        <span>Remember me</span>
+                      </label>
+                    </div>
+
+                    <div className="pt-2">
                       <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
+                        type="submit"
+                        disabled={busy}
+                        className="w-full h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
                       >
-                        {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                        {busy ? 'LOGGING IN...' : 'LOGIN'}
                       </button>
                     </div>
-                  </div>
+                  </form>
 
-                  <div className="flex items-center pt-0.5">
-                    <label className="flex items-center gap-2.5 text-xs text-[#77727A] cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        className="h-4 w-4 rounded border-zinc-300 accent-[#E61E73] cursor-pointer"
-                      />
-                      <span>Remember me</span>
-                    </label>
+                  <div className="mt-7 text-center text-xs sm:text-[13.5px] text-[#77727A]">
+                    Don&apos;t have an account?{' '}
+                    <Link href="/register" className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors">
+                      Register
+                    </Link>
                   </div>
-
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={busy}
-                      className="w-full h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
-                    >
-                      {busy ? 'LOGGING IN...' : 'LOGIN'}
-                    </button>
-                  </div>
-                </form>
-
-                <div className="mt-7 text-center text-xs sm:text-[13.5px] text-[#77727A]">
-                  Don&apos;t have an account?{' '}
-                  <Link href="/register" className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors">
-                    Register
-                  </Link>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

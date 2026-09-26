@@ -44,13 +44,7 @@ export default function SalonLayout({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  useEffect(() => {
-    if (user && pendingBookingAttempt) {
-      setAuthOpen(false);
-      setBookingModalOpen(true);
-      setPendingBookingAttempt(false);
-    }
-  }, [user, pendingBookingAttempt]);
+
 
   const openBookModal = (services?: Service[]) => {
     if (services && services.length > 0) {

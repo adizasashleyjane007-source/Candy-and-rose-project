@@ -597,40 +597,67 @@ function Modal({ children, onClose, maxWidth = 'max-w-2xl' }: { children: ReactN
 export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess: () => void }) {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [step, setStep] = useState<'form' | 'regSuccess' | 'welcome'>('form');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setStep('form');
+      setError('');
+      setBusy(false);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    }
+  }, [open]);
 
   if (!open) return null;
+
+  const handleClose = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setStep('form');
+    onClose();
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
-    setSuccessMessage('');
     setBusy(true);
 
     try {
-      const result = mode === 'login'
-        ? await signIn(email, password)
-        : await signUp(email, password, name);
-
-      if (result.error) {
-        setError(result.error);
-      } else {
-        if (mode === 'register') {
+      if (mode === 'register') {
+        const result = await signUp(email, password, name);
+        if (result.error) {
+          setError(result.error);
+        } else {
           setName('');
           setPassword('');
-          setMode('login');
-          setSuccessMessage('Account created successfully! Please log in with your credentials.');
+          setStep('regSuccess');
+
+          timerRef.current = setTimeout(() => {
+            setStep('form');
+            setMode('login');
+          }, 1000);
+        }
+      } else {
+        const result = await signIn(email, password);
+        if (result.error) {
+          setError(result.error);
         } else {
-          setName(''); setEmail(''); setPassword('');
-          onClose();
-          onSuccess();
+          setName('');
+          setPassword('');
+          setStep('welcome');
         }
       }
     } catch (err: any) {
@@ -671,150 +698,174 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
           <div className="relative bg-[#FCFBF9] p-8 sm:p-12 md:p-14 lg:p-16 flex flex-col justify-center text-zinc-900">
             {/* Minimal X Close Button inside top-right corner */}
             <button 
-              onClick={onClose} 
-              className="absolute top-6 right-7 text-[#77727A] hover:text-[#E2A0B8] transition-colors p-1 cursor-pointer z-20"
+              onClick={handleClose} 
+              className="absolute top-6 right-7 text-[#77727A] hover:text-[#E61E73] transition-colors p-1 cursor-pointer z-20"
               aria-label="Close modal"
             >
               <X size={21} />
             </button>
 
-            <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col justify-center">
-              <h2 className="font-sans text-2xl sm:text-3xl lg:text-[2rem] font-medium text-[#231F20] tracking-tight mb-2">
-                {mode === 'login' ? 'Login' : 'Register'}
-              </h2>
-              <p className="text-xs sm:text-[14px] text-[#77727A] font-normal leading-relaxed mb-7">
-                {mode === 'login'
-                  ? "Welcome back, we are glad you're feeling beautiful today. Login to continue"
-                  : "Welcome to Candy & Rose Beauty Salon, we hope your stay with us feel as bright as the morning sun."
-                }
-              </p>
-
-              {error && (
-                <div className="mb-5 rounded-xl bg-red-50 border border-red-200 p-3.5 text-xs text-red-600 font-medium">
-                  {error}
+            {step === 'regSuccess' ? (
+              <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col items-center justify-center text-center animate-scale-in py-8">
+                <div className="h-16 w-16 rounded-full bg-pink-50 border border-pink-200 flex items-center justify-center mb-5 shadow-sm">
+                  <Check size={32} className="text-[#E61E73]" />
                 </div>
-              )}
-
-              {successMessage && (
-                <div className="mb-5 rounded-xl bg-green-50 border border-green-200 p-3.5 text-xs text-green-700 font-medium">
-                  {successMessage}
+                <h3 className="font-sans text-xl sm:text-2xl font-medium text-[#231F20] tracking-tight">
+                  Your registration was successful.
+                </h3>
+              </div>
+            ) : step === 'welcome' ? (
+              <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col items-center justify-center text-center animate-scale-in py-6">
+                <div className="h-16 w-16 rounded-full bg-pink-50 border border-pink-200 flex items-center justify-center mb-6 shadow-sm">
+                  <Sparkles size={30} className="text-[#E61E73]" />
                 </div>
-              )}
+                <h2 className="font-sans text-2xl sm:text-3xl font-medium text-[#231F20] tracking-tight mb-8 leading-snug">
+                  Welcome to Candy and Rose Salon,<br />
+                  continue your booking
+                </h2>
+                <button
+                  onClick={() => {
+                    handleClose();
+                    onSuccess();
+                  }}
+                  className="w-full h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 cursor-pointer flex items-center justify-center shadow-sm"
+                >
+                  CONTINUE
+                </button>
+              </div>
+            ) : (
+              <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col justify-center">
+                <h2 className="font-sans text-2xl sm:text-3xl lg:text-[2rem] font-medium text-[#231F20] tracking-tight mb-2">
+                  {mode === 'login' ? 'Login' : 'Register'}
+                </h2>
+                <p className="text-xs sm:text-[14px] text-[#77727A] font-normal leading-relaxed mb-7">
+                  {mode === 'login'
+                    ? "Welcome back, we are glad you're feeling beautiful today. Login to continue"
+                    : "Welcome to Candy & Rose Beauty Salon, we hope your stay with us feel as bright as the morning sun."
+                  }
+                </p>
 
-              <form onSubmit={submit} className="space-y-4">
-                {mode === 'register' && (
+                {error && (
+                  <div className="mb-5 rounded-xl bg-red-50 border border-red-200 p-3.5 text-xs text-red-600 font-medium">
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={submit} className="space-y-4">
+                  {mode === 'register' && (
+                    <div className="space-y-1.5">
+                      <label htmlFor="auth-modal-name" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
+                        Your Name
+                      </label>
+                      <div className="relative group">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                        <input
+                          id="auth-modal-name"
+                          type="text"
+                          required
+                          placeholder="Enter your name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-1.5">
-                    <label htmlFor="auth-modal-name" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
-                      Your Name
+                    <label htmlFor="auth-modal-email" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
+                      Email
                     </label>
                     <div className="relative group">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
                       <input
-                        id="auth-modal-name"
-                        type="text"
+                        id="auth-modal-email"
+                        type="email"
                         required
-                        placeholder="Enter your name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Enter your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
                       />
                     </div>
                   </div>
-                )}
 
-                <div className="space-y-1.5">
-                  <label htmlFor="auth-modal-email" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
-                    Email
-                  </label>
-                  <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                    <input
-                      id="auth-modal-email"
-                      type="email"
-                      required
-                      placeholder="Enter your email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label htmlFor="auth-modal-password" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
-                    Password
-                  </label>
-                  <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                    <input
-                      id="auth-modal-password"
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
-                    </button>
-                  </div>
-                </div>
-
-                {mode === 'login' && (
-                  <div className="flex items-center pt-0.5">
-                    <label className="flex items-center gap-2.5 text-xs text-[#77727A] cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        className="h-4 w-4 rounded border-zinc-300 accent-[#E61E73] cursor-pointer"
-                      />
-                      <span>Remember me</span>
+                  <div className="space-y-1.5">
+                    <label htmlFor="auth-modal-password" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
+                      Password
                     </label>
+                    <div className="relative group">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                      <input
+                        id="auth-modal-password"
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                      </button>
+                    </div>
                   </div>
-                )}
 
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="w-full h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
-                  >
-                    {busy ? (mode === 'login' ? 'LOGGING IN...' : 'REGISTERING...') : (mode === 'login' ? 'LOGIN' : 'REGISTER')}
-                  </button>
+                  {mode === 'login' && (
+                    <div className="flex items-center pt-0.5">
+                      <label className="flex items-center gap-2.5 text-xs text-[#77727A] cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="h-4 w-4 rounded border-zinc-300 accent-[#E61E73] cursor-pointer"
+                        />
+                        <span>Remember me</span>
+                      </label>
+                    </div>
+                  )}
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className="w-full h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
+                    >
+                      {busy ? (mode === 'login' ? 'LOGGING IN...' : 'REGISTERING...') : (mode === 'login' ? 'LOGIN' : 'REGISTER')}
+                    </button>
+                  </div>
+                </form>
+
+                <div className="mt-7 text-center text-xs sm:text-[13.5px] text-[#77727A]">
+                  {mode === 'login' ? (
+                    <>
+                      Don&apos;t have an account?{' '}
+                      <button
+                        onClick={() => { setMode('register'); setError(''); }}
+                        className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors cursor-pointer"
+                      >
+                        Register
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      Already have an account?{' '}
+                      <button
+                        onClick={() => { setMode('login'); setError(''); }}
+                        className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors cursor-pointer"
+                      >
+                        Login
+                      </button>
+                    </>
+                  )}
                 </div>
-              </form>
-
-              <div className="mt-7 text-center text-xs sm:text-[13.5px] text-[#77727A]">
-                {mode === 'login' ? (
-                  <>
-                    Don&apos;t have an account?{' '}
-                    <button
-                      onClick={() => { setMode('register'); setError(''); setSuccessMessage(''); }}
-                      className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors cursor-pointer"
-                    >
-                      Register
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    Already have an account?{' '}
-                    <button
-                      onClick={() => { setMode('login'); setError(''); setSuccessMessage(''); }}
-                      className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors cursor-pointer"
-                    >
-                      Login
-                    </button>
-                  </>
-                )}
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
