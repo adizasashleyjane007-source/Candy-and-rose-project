@@ -88,10 +88,10 @@ export default function NailsDesignPage() {
 
   return (
     <SalonLayout>
-      <main className="nails-design-page bg-[#FAF8F5] text-zinc-900 font-sans min-h-screen pt-24 sm:pt-28 pb-20 overflow-x-hidden">
+      <main className="nails-design-page bg-[#FAF8F5] text-zinc-900 font-sans min-h-screen pt-16 sm:pt-20 pb-20 overflow-x-hidden">
         
         {/* Header Section */}
-        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 mb-8 sm:mb-10 text-center">
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 mb-6 sm:mb-8 text-center">
           <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl text-zinc-950 font-medium mb-3 animate-slide-up">
             Nails <span className="italic text-pink-600 font-normal">Design</span>
           </h1>

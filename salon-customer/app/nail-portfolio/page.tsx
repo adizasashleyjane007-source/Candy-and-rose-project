@@ -88,11 +88,11 @@ export default function NailPortfolioPage() {
 
   return (
     <SalonLayout>
-      <main className="bg-[#FAF8F8] min-h-screen w-full pb-28 pt-24 sm:pt-28">
+      <main className="bg-[#FAF8F8] min-h-screen w-full pb-28 pt-16 sm:pt-20">
         <div className="max-w-7xl xl:max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
           
           {/* HEADER SECTION */}
-          <div className="text-center max-w-3xl mx-auto mb-10">
+          <div className="text-center max-w-3xl mx-auto mb-6 sm:mb-8">
             <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-light text-zinc-900 tracking-tight leading-tight uppercase">
               NAIL ARTS PORTFOLIO
             </h1>
