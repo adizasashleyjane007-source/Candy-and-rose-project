@@ -54,6 +54,9 @@ export interface Appointment {
   service_name?: string | null;
   staff_id?: string | null;
   staff_name?: string | null;
+  design_id?: string | null;
+  design_name?: string | null;
+  design_image?: string | null;
   appointment_date: string;
   appointment_time: string;
   source: string;

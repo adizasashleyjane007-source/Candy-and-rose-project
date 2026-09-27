@@ -64,6 +64,9 @@ CREATE TABLE IF NOT EXISTS public.appointments (
     payment_method text DEFAULT 'Cash',
     source text DEFAULT 'Walk-in',
     notes text,
+    design_id text,
+    design_name text,
+    design_image text,
     created_at timestamptz DEFAULT now()
 );
 

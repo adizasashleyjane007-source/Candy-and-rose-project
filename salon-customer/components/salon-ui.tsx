@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/auth-context';
 export const headerNavItems: { label: string; href: string }[] = [
   { label: 'Home', href: '/' },
   { label: 'Services', href: '/services' },
+  { label: 'Nails Design', href: '/nails-design' },
   { label: 'Promo', href: '/packages' },
   { label: 'Gallery', href: '/gallery' },
   { label: 'Testimonials', href: '/testimonials' },
@@ -69,23 +70,30 @@ export function Header({ onBook }: { onBook: () => void }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
+  const servicesDropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setProfileOpen(false);
       }
+      if (servicesDropdownRef.current && !servicesDropdownRef.current.contains(event.target as Node)) {
+        setServicesDropdownOpen(false);
+      }
     };
-    if (profileOpen) {
+    if (profileOpen || servicesDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [profileOpen]);
+  }, [profileOpen, servicesDropdownOpen]);
 
   useEffect(() => {
     setMenuOpen(false);
     setProfileOpen(false);
+    setServicesDropdownOpen(false);
     setIsSearchOpen(false);
   }, [pathname]);
 
@@ -118,6 +126,18 @@ export function Header({ onBook }: { onBook: () => void }) {
             }`}
           >
             Services
+          </Link>
+
+          {/* NAILS DESIGN */}
+          <Link
+            href="/nails-design"
+            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+              pathname === '/nails-design'
+                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
+                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
+            }`}
+          >
+            Nails Design
           </Link>
 
           {/* PROMO */}
@@ -356,15 +376,19 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
   const loadAppointments = async () => {
     if (!user) return;
     try {
-      const { data: cust } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('email', user.email)
-        .maybeSingle();
+      let custId: string | null = null;
+      if (user.email) {
+        const { data: cust } = await supabase
+          .from('customers')
+          .select('id')
+          .or(`user_id.eq.${user.id},email.ilike.${user.email.trim().toLowerCase()}`)
+          .maybeSingle();
+        custId = cust?.id || null;
+      }
 
       let query = supabase.from('appointments').select('*');
-      if (cust?.id) {
-        query = query.or(`customer_id.eq.${cust.id},customer_name.eq.${profile?.full_name || user.email?.split('@')[0]}`);
+      if (custId) {
+        query = query.or(`customer_id.eq.${custId},customer_name.eq.${profile?.full_name || user.email?.split('@')[0]}`);
       } else {
         query = query.eq('customer_name', profile?.full_name || user.email?.split('@')[0]);
       }

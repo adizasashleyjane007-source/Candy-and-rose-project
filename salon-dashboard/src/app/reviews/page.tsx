@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { supabase } from "@/lib/db";
+import { createClient } from "@/lib/supabase/client";
 import { Star, Check, X, Search, Image as ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
-import { useGlobalNotification } from "@/components/GlobalNotificationProvider";
+import { addNotification } from "@/lib/notifications";
 
 type Review = {
   id: string;
@@ -16,12 +16,12 @@ type Review = {
 };
 
 export default function ReviewsPage() {
+  const supabase = createClient();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-  const { showNotification } = useGlobalNotification();
 
   useEffect(() => {
     fetchReviews();
@@ -38,7 +38,7 @@ export default function ReviewsPage() {
       setReviews(data || []);
     } catch (e: any) {
       console.error(e);
-      showNotification("Failed to fetch reviews: " + e.message, "error");
+      addNotification("Review Fetch Error", "Failed to fetch reviews: " + e.message, "system");
     } finally {
       setLoading(false);
     }
@@ -52,11 +52,11 @@ export default function ReviewsPage() {
         .eq('id', id);
 
       if (error) throw error;
-      showNotification(`Review ${newStatus} successfully!`, "success");
+      addNotification("Review Updated", `Review ${newStatus} successfully!`, "system");
       setReviews(reviews.map(r => r.id === id ? { ...r, status: newStatus } : r));
     } catch (e: any) {
       console.error(e);
-      showNotification("Failed to update review status", "error");
+      addNotification("Review Error", "Failed to update review status", "system");
     }
   };
 

@@ -27,16 +27,20 @@ export default function HistoryPage() {
     }
     setLoading(true);
     try {
-      // Find customer record by email
-      const { data: cust } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('email', user.email)
-        .maybeSingle();
+      // Find customer record by user_id or email
+      let custId = customer?.id;
+      if (!custId && user.email) {
+        const { data: cust } = await supabase
+          .from('customers')
+          .select('id')
+          .or(`user_id.eq.${user.id},email.ilike.${user.email.trim().toLowerCase()}`)
+          .maybeSingle();
+        custId = cust?.id;
+      }
 
       let query = supabase.from('appointments').select('*');
-      if (cust?.id) {
-        query = query.or(`customer_id.eq.${cust.id},customer_name.eq.${profile?.full_name || user.email?.split('@')[0]}`);
+      if (custId) {
+        query = query.or(`customer_id.eq.${custId},customer_name.eq.${profile?.full_name || user.email?.split('@')[0]}`);
       } else {
         query = query.eq('customer_name', profile?.full_name || user.email?.split('@')[0]);
       }

@@ -47,15 +47,20 @@
     --input: 0 0% 18%;
     --ring: 330 81% 65%;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-poppins), system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-poppins), system-ui, sans-serif;
+    font-weight: 400;
+    letter-spacing: -0.01em;
   }
 }
 
@@ -68,6 +73,16 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  .font-brand,
+  .font-serif {
+    font-family: var(--font-serif), "Playfair Display", "Cormorant Garamond", Georgia, serif;
+  }
+
+  .font-sans,
+  .font-script {
+    font-family: var(--font-poppins), system-ui, sans-serif;
+  }
 }
 
 @keyframes fade-in-up {
@@ -75,7 +90,6 @@
     opacity: 0;
     transform: translateY(18px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
@@ -87,7 +101,6 @@
     opacity: 0;
     transform: translateY(14px);
   }
-
   100% {
     opacity: 1;
     transform: translateY(0);
@@ -99,7 +112,6 @@
     opacity: 0;
     transform: translateY(14px);
   }
-
   100% {
     opacity: 1;
     transform: translateY(0);
@@ -126,7 +138,6 @@
   from {
     opacity: 0;
   }
-
   to {
     opacity: 1;
   }
@@ -137,7 +148,6 @@
     opacity: 0;
     transform: scale(0.95);
   }
-
   to {
     opacity: 1;
     transform: scale(1);
@@ -145,12 +155,10 @@
 }
 
 @keyframes float {
-
   0%,
   100% {
     transform: translateY(0);
   }
-
   50% {
     transform: translateY(-12px);
   }
@@ -160,7 +168,6 @@
   from {
     transform: translateX(0);
   }
-
   to {
     transform: translateX(-50%);
   }
@@ -170,7 +177,6 @@
   0% {
     transform: translateX(0%);
   }
-
   100% {
     transform: translateX(-50%);
   }
@@ -192,13 +198,21 @@
 }
 
 @keyframes marquee-left {
-  0% { transform: translateX(0%); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 @keyframes marquee-right {
-  0% { transform: translateX(-50%); }
-  100% { transform: translateX(0%); }
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
 }
 
 .animate-marquee-left {
@@ -265,40 +279,13 @@
     inset 0 0 20px rgba(244, 63, 142, 0.5);
 }
 
-.font-brand {
-  font-family: var(--font-poppins), system-ui, sans-serif;
-  font-weight: 400;
+.about-page {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
-.font-serif {
-  font-family: var(--font-poppins), system-ui, sans-serif;
-  font-weight: 400;
-}
-
-.font-sans {
-  font-family: var(--font-poppins), system-ui, sans-serif;
-}
-
-.font-script {
-  font-family: var(--font-poppins), system-ui, sans-serif;
-}
-
-/* Site-wide light & clean font weight hierarchy matching reference */
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-poppins), system-ui, sans-serif;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-}
-
-/* Lighten heavy font-weights globally for smooth, elegant, approachable appearance */
-.font-extrabold {
-  font-weight: 500 !important;
-}
-
-.font-bold {
-  font-weight: 500 !important;
-}
-
-.font-semibold {
-  font-weight: 500 !important;
+.about-page img {
+  display: block;
+  max-width: 100%;
 }

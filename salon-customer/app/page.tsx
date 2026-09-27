@@ -227,32 +227,31 @@ export default function Home() {
     <SalonLayout>
       <main className="relative bg-transparent font-sans text-zinc-900">
         
-        {/* GLOBAL BACKGROUND CAROUSEL */}
-        <div ref={heroBgRef} className="fixed inset-0 z-0 origin-center will-change-transform pointer-events-none">
-          {carouselImages.map((src, idx) => {
-            const isActive = idx === currentSlide;
-            return (
-              <img
-                key={src}
-                src={src}
-                alt="Candy & Rose Salon"
-                className={`absolute inset-0 w-full h-full object-cover object-center transition-all duration-1200 ease-in-out ${
-                  isActive
-                    ? 'opacity-95 scale-105 sm:scale-108 z-10 transition-transform duration-[7000ms] ease-out'
-                    : 'opacity-0 scale-100 pointer-events-none z-0'
-                }`}
-              />
-            );
-          })}
-          {/* Soft gradient overlays for contrast */}
-          <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/80 via-zinc-950/45 to-transparent z-15" />
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/85 via-transparent to-black/20 z-15" />
-        </div>
-
         {/* 1. HERO SECTION */}
         <section 
-          className="relative h-[88vh] w-full flex items-center justify-center bg-transparent z-10 group"
+          className="relative h-[88vh] min-h-[600px] w-full flex items-center justify-center bg-zinc-950 z-10 overflow-hidden group"
         >
+          {/* HERO BACKGROUND CAROUSEL (Constrained to Hero Container) */}
+          <div ref={heroBgRef} className="absolute inset-0 z-0 origin-center will-change-transform pointer-events-none">
+            {carouselImages.map((src, idx) => {
+              const isActive = idx === currentSlide;
+              return (
+                <img
+                  key={src}
+                  src={src}
+                  alt="Candy & Rose Salon"
+                  className={`absolute inset-0 w-full h-full object-cover object-center transition-all duration-1200 ease-in-out ${
+                    isActive
+                      ? 'opacity-95 scale-105 sm:scale-108 z-10 transition-transform [transition-duration:7000ms] ease-out'
+                      : 'opacity-0 scale-100 pointer-events-none z-0'
+                  }`}
+                />
+              );
+            })}
+            {/* Soft gradient overlays for contrast */}
+            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/85 via-zinc-950/50 to-transparent z-15" />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-transparent to-black/30 z-15" />
+          </div>
           {/* Hero Content */}
           <div className="relative z-20 max-w-7xl mx-auto px-6 pt-36 pb-20 lg:px-10 w-full">
             <div 
@@ -398,32 +397,57 @@ export default function Home() {
         {/* 3. FEATURED SECTION — ARTISAN NAIL PORTFOLIO */}
         <section className="relative z-20 py-12 sm:py-16 px-6 lg:px-10 bg-[#FAF8F8] border-t border-zinc-100">
           <div className="mx-auto max-w-6xl">
-            <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10">
-              <span className="text-xs font-medium uppercase tracking-widest text-pink-500 mb-2 block">
-                FEATURED WORK
-              </span>
-              <h2 className="font-sans text-3xl sm:text-4xl text-zinc-950 font-medium tracking-tight">
-                Nail Arts Portfolio
-              </h2>
-              <p className="mt-3 text-sm text-zinc-600 font-normal leading-relaxed">
-                Explore our signature artisan nail designs crafted with precision, care, and long-lasting quality.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-8 sm:mb-10">
+              <div className="max-w-2xl">
+                <span className="text-xs font-medium uppercase tracking-widest text-pink-500 mb-2 block">
+                  FEATURED WORK
+                </span>
+                <h2 className="font-sans text-3xl sm:text-4xl text-zinc-950 font-medium tracking-tight">
+                  Nail Arts Portfolio
+                </h2>
+                <p className="mt-3 text-sm text-zinc-600 font-normal leading-relaxed">
+                  Explore our signature artisan nail designs crafted with precision, care, and long-lasting quality.
+                </p>
+              </div>
+              <div className="shrink-0">
+                <Link
+                  href="/nail-portfolio"
+                  className="inline-flex items-center gap-2 rounded-full bg-zinc-950 hover:bg-pink-500 px-6 py-3 text-xs font-medium uppercase tracking-widest text-white transition-all duration-300 shadow-sm hover:scale-105 cursor-pointer"
+                >
+                  VIEW ALL &rarr;
+                </Link>
+              </div>
             </div>
 
             {/* Editorial 3x2 Nail Portfolio Grid (Desktop: 3 cols, Tablet: 2 cols, Mobile: 1 col) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
               {FEATURED_NAIL_IMAGES.map((nail) => (
-                <div 
+                <Link 
                   key={nail.id} 
-                  className="group relative aspect-[4/3] sm:aspect-[4/3] rounded-xl overflow-hidden bg-white border border-zinc-200/80 shadow-sm transition-shadow duration-300 hover:shadow-md"
+                  href="/nail-portfolio"
+                  className="group relative aspect-[4/3] sm:aspect-[4/3] rounded-xl overflow-hidden bg-white border border-zinc-200/80 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1 block"
                 >
                   <img 
                     src={nail.src} 
                     alt={nail.title} 
                     className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
                   />
-                </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
+                    <span className="text-xs font-semibold text-white uppercase tracking-wider flex items-center gap-1">
+                      {nail.title} &bull; Browse Portfolio &rarr;
+                    </span>
+                  </div>
+                </Link>
               ))}
+            </div>
+
+            <div className="mt-10 text-center sm:hidden">
+              <Link
+                href="/nail-portfolio"
+                className="inline-flex items-center gap-2 rounded-full bg-zinc-950 hover:bg-pink-500 px-8 py-3.5 text-xs font-medium uppercase tracking-widest text-white transition-all duration-300 cursor-pointer"
+              >
+                VIEW ALL &rarr;
+              </Link>
             </div>
           </div>
         </section>
@@ -484,105 +508,102 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 5. "OUR STORY" / TESTIMONIAL SECTION (Editorial 2-Column Composition) */}
+        {/* 5. TESTIMONIALS SECTION (Two Moving Marquee Rows) */}
         <section id="testimonials" className="relative z-20 py-24 bg-zinc-950 text-white overflow-hidden border-t border-zinc-900">
-          <div className="mx-auto max-w-7xl px-6 lg:px-10">
-            
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-              
-              {/* Left Side: Large Visual Feature Area */}
-              <div className="lg:col-span-5 relative">
-                <div className="relative aspect-[4/5] rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl">
-                  {currentReview && currentReview.review_images && currentReview.review_images.length > 0 ? (
-                    <img 
-                      src={currentReview.review_images[0].image_url} 
-                      alt={currentReview.customer_name} 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <img 
-                      src="/images/contactpage-pic.jpg" 
-                      alt="Candy & Rose Salon Experience" 
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent" />
-                  <div className="absolute bottom-6 left-6 right-6">
-                    <span className="text-xs font-medium uppercase tracking-widest text-pink-400 mb-1 block">
-                      Client Experience
-                    </span>
-                    <p className="text-lg font-medium text-white">
-                      {currentReview ? currentReview.customer_name : 'Candy & Rose Client'}
+          <div className="mx-auto max-w-7xl px-6 lg:px-10 mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+            <div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-500/10 px-3.5 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-pink-400 border border-pink-500/20 mb-3">
+                TESTIMONIALS
+              </span>
+              <h2 className="font-sans text-3xl sm:text-5xl font-medium text-white tracking-tight">
+                What Our Clients Are Saying
+              </h2>
+              <p className="mt-3 text-xs sm:text-sm text-zinc-400 max-w-lg font-normal">
+                Real experiences and transformations from our valued CANDY &amp; ROSE clients.
+              </p>
+            </div>
+
+            <Link
+              href="/testimonials"
+              className="text-xs font-medium uppercase tracking-widest text-pink-400 hover:text-white transition-colors self-start sm:self-auto"
+            >
+              See All Reviews &rarr;
+            </Link>
+          </div>
+
+          {/* TWO MOVING MARQUEE ROWS */}
+          <div className="space-y-6 overflow-hidden relative group">
+            <div className="absolute top-0 bottom-0 left-0 w-16 sm:w-28 bg-gradient-to-r from-zinc-950 to-transparent z-10 pointer-events-none" />
+            <div className="absolute top-0 bottom-0 right-0 w-16 sm:w-28 bg-gradient-to-l from-zinc-950 to-transparent z-10 pointer-events-none" />
+
+            {/* ROW 1: Right to Left */}
+            <div className="animate-marquee-left flex gap-6 px-4">
+              {[...(fetchedReviews.length > 0 ? fetchedReviews : [
+                { id: 't1', customer_name: 'Sophia M.', rating: 5, comment: 'Candy & Rose is hands-down the best salon experience I have ever had! The nail art is breathtaking.', created_at: '2026-09-15' },
+                { id: 't2', customer_name: 'Elena R.', rating: 5, comment: 'The stylists here are true artisans. My hair transformation was flawless and so relaxing.', created_at: '2026-09-18' },
+                { id: 't3', customer_name: 'Maria C.', rating: 5, comment: 'Impeccable hygiene, luxurious atmosphere, and extremely polite staff. Highly recommended!', created_at: '2026-09-20' },
+              ]), ...(fetchedReviews.length > 0 ? fetchedReviews : [
+                { id: 't1', customer_name: 'Sophia M.', rating: 5, comment: 'Candy & Rose is hands-down the best salon experience I have ever had! The nail art is breathtaking.', created_at: '2026-09-15' },
+                { id: 't2', customer_name: 'Elena R.', rating: 5, comment: 'The stylists here are true artisans. My hair transformation was flawless and so relaxing.', created_at: '2026-09-18' },
+                { id: 't3', customer_name: 'Maria C.', rating: 5, comment: 'Impeccable hygiene, luxurious atmosphere, and extremely polite staff. Highly recommended!', created_at: '2026-09-20' },
+              ])].map((item, idx) => (
+                <div
+                  key={`r1-${item.id}-${idx}`}
+                  className="shrink-0 w-80 sm:w-96 rounded-2xl bg-zinc-900/90 border border-zinc-800 p-6 shadow-md flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex gap-1 text-pink-500 mb-3">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={15} className={i < (item.rating || 5) ? "fill-pink-500 text-pink-500" : "fill-transparent text-zinc-700"} />
+                      ))}
+                    </div>
+                    <p className="text-xs sm:text-sm text-zinc-200 leading-relaxed font-normal italic mb-4">
+                      "{item.comment}"
                     </p>
                   </div>
+                  <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between">
+                    <span className="text-xs font-medium text-white">{item.customer_name}</span>
+                    <span className="text-[10px] text-zinc-500">
+                      {new Date(item.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              ))}
+            </div>
 
-              {/* Right Side: Editorial Testimonial Content & Controls */}
-              <div className="lg:col-span-7 flex flex-col justify-between py-2">
-                <div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-500/10 px-3.5 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-pink-400 border border-pink-500/20 mb-6">
-                    TESTIMONIALS
-                  </span>
-                  
-                  <h2 className="font-sans text-3xl sm:text-4xl lg:text-5xl font-medium text-white tracking-tight mb-8 leading-tight">
-                    What Our Clients Are Saying
-                  </h2>
-
-                  {currentReview ? (
-                    <div className="space-y-6">
-                      <div className="flex gap-1 text-pink-500">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} size={18} className={i < currentReview.rating ? "fill-pink-500 text-pink-500" : "fill-transparent text-pink-900"} />
-                        ))}
-                      </div>
-
-                      <blockquote className="text-lg sm:text-xl text-zinc-200 leading-relaxed font-normal italic">
-                        "{currentReview.comment}"
-                      </blockquote>
-
-                      <div>
-                        <h4 className="font-medium text-white text-base">{currentReview.customer_name}</h4>
-                        <p className="text-xs text-zinc-400 font-normal mt-0.5">
-                          {new Date(currentReview.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                        </p>
-                      </div>
+            {/* ROW 2: Left to Right */}
+            <div className="animate-marquee-right flex gap-6 px-4">
+              {[...(fetchedReviews.length > 0 ? fetchedReviews : [
+                { id: 't4', customer_name: 'Isabella G.', rating: 5, comment: 'I booked the Velvet Rose Cat-Eye design from the portfolio and it exceeded all expectations!', created_at: '2026-09-22' },
+                { id: 't5', customer_name: 'Camilla T.', rating: 5, comment: 'Bespoke treatments and incredible attention to detail. CANDY & ROSE is my forever go-to salon.', created_at: '2026-09-24' },
+                { id: 't6', customer_name: 'Hannah B.', rating: 5, comment: 'The Brazilian care treatment left my hair silky smooth for weeks. Absolutely wonderful experience!', created_at: '2026-09-25' },
+              ]), ...(fetchedReviews.length > 0 ? fetchedReviews : [
+                { id: 't4', customer_name: 'Isabella G.', rating: 5, comment: 'I booked the Velvet Rose Cat-Eye design from the portfolio and it exceeded all expectations!', created_at: '2026-09-22' },
+                { id: 't5', customer_name: 'Camilla T.', rating: 5, comment: 'Bespoke treatments and incredible attention to detail. CANDY & ROSE is my forever go-to salon.', created_at: '2026-09-24' },
+                { id: 't6', customer_name: 'Hannah B.', rating: 5, comment: 'The Brazilian care treatment left my hair silky smooth for weeks. Absolutely wonderful experience!', created_at: '2026-09-25' },
+              ])].map((item, idx) => (
+                <div
+                  key={`r2-${item.id}-${idx}`}
+                  className="shrink-0 w-80 sm:w-96 rounded-2xl bg-zinc-900/90 border border-zinc-800 p-6 shadow-md flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex gap-1 text-pink-500 mb-3">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={15} className={i < (item.rating || 5) ? "fill-pink-500 text-pink-500" : "fill-transparent text-zinc-700"} />
+                      ))}
                     </div>
-                  ) : (
-                    <p className="text-zinc-400 font-normal">Real experiences from our CANDY &amp; ROSE clients.</p>
-                  )}
+                    <p className="text-xs sm:text-sm text-zinc-200 leading-relaxed font-normal italic mb-4">
+                      "{item.comment}"
+                    </p>
+                  </div>
+                  <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between">
+                    <span className="text-xs font-medium text-white">{item.customer_name}</span>
+                    <span className="text-[10px] text-zinc-500">
+                      {new Date(item.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
                 </div>
-
-                {/* Testimonial Controls */}
-                <div className="pt-10 mt-10 border-t border-zinc-800 flex items-center justify-between">
-                  <Link
-                    href="/testimonials"
-                    className="text-xs font-medium uppercase tracking-widest text-pink-400 hover:text-white transition-colors"
-                  >
-                    See All Reviews &rarr;
-                  </Link>
-
-                  {fetchedReviews.length > 1 && (
-                    <div className="flex items-center gap-3">
-                      <button 
-                        onClick={() => setActiveReviewIdx((prev) => (prev === 0 ? fetchedReviews.length - 1 : prev - 1))}
-                        className="w-10 h-10 rounded-full border border-zinc-700 flex items-center justify-center text-white hover:bg-pink-500 hover:border-pink-500 transition-colors"
-                        aria-label="Previous review"
-                      >
-                        <ChevronLeft size={18} />
-                      </button>
-                      <button 
-                        onClick={() => setActiveReviewIdx((prev) => (prev + 1) % fetchedReviews.length)}
-                        className="w-10 h-10 rounded-full border border-zinc-700 flex items-center justify-center text-white hover:bg-pink-500 hover:border-pink-500 transition-colors"
-                        aria-label="Next review"
-                      >
-                        <ChevronRight size={18} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
+              ))}
             </div>
           </div>
         </section>

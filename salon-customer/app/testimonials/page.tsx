@@ -123,7 +123,7 @@ export default function TestimonialsPage() {
       const { data: custData } = await supabase
         .from('customers')
         .select('id')
-        .eq('email', user?.email)
+        .or(`user_id.eq.${user?.id},email.ilike.${user?.email?.trim().toLowerCase()}`)
         .maybeSingle();
 
       const { data: newReviewData, error } = await supabase.from('feedback').insert([

@@ -13,9 +13,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 export type Customer = {
   id?: string;
+  user_id?: string | null;
   name: string;
+  full_name?: string | null;
   email?: string | null;
   phone?: string | null;
+  address?: string | null;
   visits?: number;
   last_visit?: string | null;
   total_spent?: number;
@@ -99,6 +102,7 @@ export type Profile = {
   full_name?: string | null;
   email?: string | null;
   phone?: string | null;
+  address?: string | null;
   image_url?: string | null;
   avatar_url?: string | null;
   role?: string | null;

@@ -6,13 +6,14 @@ const config: Config = {
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './lib/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
       fontFamily: {
         sans: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
-        serif: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
-        brand: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-serif)', 'Playfair Display', 'Georgia', 'serif'],
+        brand: ['var(--font-serif)', 'Playfair Display', 'Georgia', 'serif'],
         script: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
       },
       backgroundImage: {

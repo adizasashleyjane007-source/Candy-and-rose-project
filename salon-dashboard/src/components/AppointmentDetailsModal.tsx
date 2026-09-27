@@ -128,6 +128,36 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointment }
               </div>
             </div>
 
+            {/* Selected Nail Design Section (if present) */}
+            {(appointment.design_name || appointment.design_id || appointment.design_image) && (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-pink-50 to-pink-100/50 border border-pink-200/80 mb-6 flex items-center gap-4 shadow-sm">
+                {appointment.design_image ? (
+                  <img
+                    src={appointment.design_image}
+                    alt={appointment.design_name || "Selected Design"}
+                    className="w-16 h-16 rounded-xl object-cover border border-pink-200 shadow-sm shrink-0 bg-white"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-xl bg-pink-100 flex items-center justify-center font-bold text-pink-600 text-xs shrink-0">
+                    {appointment.design_id || "NAIL"}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-pink-600 block mb-0.5">
+                    Selected Nail Design
+                  </span>
+                  <h4 className="text-base font-bold text-slate-900 truncate">
+                    {appointment.design_name || appointment.design_id}
+                  </h4>
+                  {appointment.design_id && (
+                    <span className="inline-block text-[11px] font-mono font-semibold text-pink-700 bg-white/80 px-2 py-0.5 rounded-full border border-pink-200/60 mt-1">
+                      ID: {appointment.design_id}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Customer Note Section */}
             <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 mt-auto">
               <span className="text-[9px] font-medium text-slate-400 uppercase tracking-[0.2em] block mb-3">Customer Note</span>

@@ -88,20 +88,26 @@ export default function ProfilePage() {
       if (profileErr) throw new Error(profileErr.message);
 
       // Update customers table if exists
-      const { data: cust } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('email', user.email)
-        .maybeSingle();
+      let custId = customer?.id;
+      if (!custId && user.email) {
+        const { data: cust } = await supabase
+          .from('customers')
+          .select('id')
+          .or(`user_id.eq.${user.id},email.ilike.${user.email.trim().toLowerCase()}`)
+          .maybeSingle();
+        custId = cust?.id;
+      }
 
-      if (cust?.id) {
+      if (custId) {
         await supabase
           .from('customers')
           .update({
             name: editName.trim(),
-            phone: editPhone.trim() || null
+            full_name: editName.trim(),
+            phone: editPhone.trim() || null,
+            user_id: user.id
           })
-          .eq('id', cust.id);
+          .eq('id', custId);
       }
 
       await refreshProfile();

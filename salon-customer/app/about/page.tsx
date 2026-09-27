@@ -1,124 +1,252 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Heart, Sparkles, Award, ShieldCheck, Users } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
-import { SectionHeading } from '@/components/salon-ui';
+
+const teamMembers = [
+  {
+    name: 'Sheryl Octaviano',
+    role: 'Senior Hairstylist',
+    image: '/images/contact2.jpg',
+    bio: 'Sheryl brings years of extensive hairstyling experience, previously honing her craft with INDEX salon. She specializes in precision haircuts, custom color transformations, and restorative hair care.',
+  },
+  {
+    name: 'Jairus',
+    role: 'Senior Stylist & Nail Technician',
+    image: '/images/gal1.jpg',
+    bio: 'With valuable international experience working in top beauty salons in Dubai, Jairus offers master expertise in both high-end hair styling and intricate, detailed nail artistry.',
+  },
+  {
+    name: 'Ana',
+    role: 'Nail Technician',
+    image: '/images/MAKEUP1.jpg',
+    bio: 'Ana is our nail care specialist, renowned for her meticulous artisan manicures, detailed nail health knowledge, and expertise in luxurious scalp and hair treatment rituals.',
+  },
+  {
+    name: 'Reynalyn',
+    role: 'Nail Technician & Assistant',
+    image: '/images/MAKEUP2.jpg',
+    bio: 'Reynalyn brings warmth and precision to every appointment, assisting with luxury spa care, specialized hair treatments, and exquisite nail art finishing touches.',
+  },
+];
 
 export default function AboutPage() {
   return (
     <SalonLayout>
-      <main className="bg-white">
-        {/* HERO SECTION */}
-        <section className="bg-zinc-950 px-6 py-24 text-white lg:px-10 lg:py-32 relative overflow-hidden">
-          <div className="absolute inset-0 z-0">
+      <main className="about-page bg-[#FAF8F5] text-zinc-900 font-sans min-h-screen pt-24 pb-20">
+        
+        {/* 1. TOP HERO IMAGE SECTION (No video player, clean rectangular container) */}
+        <section className="mx-auto max-w-6xl px-6 lg:px-10 mb-16">
+          <div className="relative w-full h-[380px] sm:h-[480px] md:h-[540px] overflow-hidden rounded-2xl sm:rounded-3xl shadow-md border border-zinc-200/60 bg-zinc-900">
             <img
-              src="/images/background.jpg"
-              alt="Salon ambiance"
-              className="w-full h-full object-cover opacity-20"
+              src="/images/about-img.jpg"
+              alt="CANDY & ROSE Salon Interior"
+              className="w-full h-full object-cover object-center"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent" />
           </div>
+        </section>
 
-          <div className="relative z-10 mx-auto grid max-w-7xl items-end gap-12 lg:grid-cols-2">
-            <div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-600/30 px-3.5 py-1 text-[10px] font-bold uppercase tracking-widest text-pink-300 border border-pink-500/30 mb-4">
-                <Sparkles size={12} /> ABOUT CANDY & ROSE
+        {/* 2. THREE-COLUMN EDITORIAL INTRODUCTION SECTION */}
+        <section className="mx-auto max-w-6xl px-6 lg:px-10 mb-24">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10 items-start border-b border-zinc-200/80 pb-16">
+            
+            {/* Column 1: CANDY & ROSE Logo / Wordmark */}
+            <div className="md:col-span-3">
+              <span className="font-brand text-2xl sm:text-3xl font-medium tracking-tight text-zinc-950">
+                Candy <span className="italic text-pink-500 font-normal mx-0.5">&amp;</span> Rose
               </span>
-              <h1 className="font-serif text-5xl leading-tight sm:text-7xl font-medium tracking-tight">
-                Crafted for <br />
-                <em className="font-serif italic font-normal text-pink-400">Your Inner Glow.</em>
-              </h1>
             </div>
-            <p className="max-w-md text-sm sm:text-base leading-relaxed text-zinc-300">
-              Candy & Rose is a sanctuary created for individuals who view beauty treatments as a ritual of self-care, confidence, and personal empowerment.
+
+            {/* Column 2: Brand Statement with Pink Accent */}
+            <div className="md:col-span-4">
+              <h2 className="font-sans text-xl sm:text-2xl font-medium leading-snug text-zinc-950">
+                <span className="text-pink-500 font-medium">Beauty, care, and confidence</span> — all in one place.
+              </h2>
+            </div>
+
+            {/* Column 3: Salon Philosophy */}
+            <div className="md:col-span-5">
+              <p className="text-xs sm:text-sm leading-relaxed text-zinc-600 font-normal">
+                At CANDY &amp; ROSE, beauty is more than a service. It is a moment to feel confident, cared for, and truly yourself. Our goal is to create a welcoming salon experience where every client leaves feeling beautiful and refreshed.
+              </p>
+            </div>
+
+          </div>
+        </section>
+
+        {/* 3. OUR STORY SECTION */}
+        <section className="mx-auto max-w-4xl px-6 lg:px-10 text-center mb-16">
+          <h2 className="font-sans text-3xl sm:text-4xl md:text-[42px] font-medium text-zinc-950 tracking-tight mb-8">
+            Our <span className="text-pink-500 italic font-normal">Story</span>
+          </h2>
+          <div className="space-y-6 text-xs sm:text-sm md:text-[15px] leading-relaxed text-zinc-600 font-normal max-w-3xl mx-auto">
+            <p>
+              CANDY &amp; ROSE was established with a passionate vision to create a beautiful, welcoming, and serene workspace where every client feels genuinely cared for and valued. Inspired by the high standards, meticulous care, and peaceful atmosphere of beauty salons in Japan, we set out to redefine the salon experience.
+            </p>
+            <p>
+              Our mission is simple: to help you look and feel your absolute best. Through carefully selected product lines, technical precision, and dedicated artistry, we bring out your natural beauty and confidence — providing a comforting sanctuary for our clients across the Philippines.
             </p>
           </div>
         </section>
 
-        {/* STORY SECTION */}
-        <section className="px-6 py-24 lg:px-10">
-          <div className="mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-2">
-            <div className="relative group overflow-hidden rounded-3xl border border-zinc-200/80 shadow-xl">
+        {/* 4. THREE IMAGE STORY GRID */}
+        <section className="mx-auto max-w-6xl px-6 lg:px-10 mb-28">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-sm border border-zinc-200/80 bg-zinc-100">
               <img
-                src="https://images.pexels.com/photos/3738348/pexels-photo-3738348.jpeg"
-                alt="Candy and Rose Salon interior"
-                className="aspect-[4/5] w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                src="/images/pic1.jpg"
+                alt="CANDY & ROSE Service Artistry"
+                className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
               />
             </div>
-            <div>
-              <SectionHeading
-                eyebrow="OUR JOURNEY"
-                title="A Salon with a Bespoke Point of View"
-                description="Founded in 2012, Candy & Rose began with a simple philosophy: beauty appointments should feel less like routine errands and more like transformative luxury rituals."
+            <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-sm border border-zinc-200/80 bg-zinc-100">
+              <img
+                src="/images/pic2.jpg"
+                alt="CANDY & ROSE Attention to Detail"
+                className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
               />
-              <p className="mt-6 text-xs sm:text-sm leading-7 text-zinc-500">
-                Today, our team of master stylists, skin specialists, and nail artists share a space where technical precision meets peaceful calm. We use top-tier brands, deliver tailored consultations, and measure our success by the radiant confidence you carry when walking out our doors.
-              </p>
-              <div className="mt-10 grid grid-cols-2 gap-6 border-t border-zinc-100 pt-8">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-pink-50 text-pink-600 font-bold font-serif text-xl border border-pink-100">
-                    12
-                  </div>
-                  <div>
-                    <h4 className="font-serif text-lg font-bold text-zinc-900">Years of Craft</h4>
-                    <p className="text-[11px] text-zinc-500">Excellence & Styling</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-pink-50 text-pink-600 font-bold font-serif text-xl border border-pink-100">
-                    5k+
-                  </div>
-                  <div>
-                    <h4 className="font-serif text-lg font-bold text-zinc-900">Glowing Guests</h4>
-                    <p className="text-[11px] text-zinc-500">Satisfied Clients</p>
-                  </div>
-                </div>
-              </div>
+            </div>
+            <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-sm border border-zinc-200/80 bg-zinc-100 sm:col-span-2 lg:col-span-1">
+              <img
+                src="/images/pic3.jpg"
+                alt="CANDY & ROSE Client Relaxation"
+                className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+              />
             </div>
           </div>
         </section>
 
-        {/* VALUES SECTION */}
-        <section className="bg-pink-50/50 px-6 py-24 lg:px-10 border-t border-pink-100/60">
-          <div className="mx-auto max-w-7xl text-center">
-            <SectionHeading
-              centered
-              eyebrow="OUR PILLARS"
-              title="Care in Every Single Detail"
-              description="Our commitment to quality, hygiene, and individualized care defines every moment of your visit."
-            />
-            <div className="mt-14 grid gap-8 text-left md:grid-cols-3">
-              {[
-                { title: 'Listen & Consult', icon: Users, text: 'We take the time to understand your vision, lifestyle, and hair or skin needs before starting.' },
-                { title: 'Master Craftsmanship', icon: Award, text: 'Our certified professionals continuously train in the latest international techniques and trends.' },
-                { title: 'Hygienic Haven', icon: ShieldCheck, text: 'We uphold strict sanitization standards, single-use tools where needed, and a pristine atmosphere.' },
-              ].map((pillar, i) => {
-                const Icon = pillar.icon;
-                return (
-                  <div key={pillar.title} className="rounded-3xl bg-white p-8 border border-zinc-100 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-pink-50 text-pink-600 mb-6">
-                      <Icon size={24} />
-                    </div>
-                    <span className="font-serif text-sm font-bold text-pink-600">0{i + 1}</span>
-                    <h3 className="mt-2 font-serif text-2xl font-medium text-zinc-900">{pillar.title}</h3>
-                    <p className="mt-3 text-xs sm:text-sm leading-6 text-zinc-500">{pillar.text}</p>
+        {/* 5. OWNER / FOUNDER SECTION */}
+        <section className="mx-auto max-w-6xl px-6 lg:px-10 mb-32">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+            
+            {/* Left: Owner Image */}
+            <div className="lg:col-span-5">
+              <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-md border border-zinc-200/80 bg-zinc-100">
+                <img
+                  src="/images/owner.jpg"
+                  alt="Roselyn Nishimura - Founder & Owner"
+                  className="w-full h-full object-cover object-center"
+                />
+              </div>
+            </div>
+
+            {/* Right: Owner Information & Highlights */}
+            <div className="lg:col-span-7 flex flex-col justify-center">
+              <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-2">
+                FOUNDER &amp; OWNER
+              </span>
+              <h2 className="font-sans text-3xl sm:text-4xl lg:text-5xl font-medium text-zinc-950 tracking-tight mb-6">
+                Roselyn Nishimura
+              </h2>
+              
+              <p className="text-xs sm:text-sm leading-relaxed text-zinc-600 font-normal mb-10">
+                Roselyn founded CANDY &amp; ROSE with a heart full of dedication and a clear vision: to build an inviting beauty space where women can relax, feel pampered, and leave with radiant confidence. Drawing deep inspiration from the artful techniques and warm hospitality of Japanese beauty sanctuaries, she curates every product line and service with meticulous attention to detail and creative passion.
+              </p>
+
+              {/* Owner Highlights (01, 02, 03 Number Blocks) */}
+              <div className="space-y-6">
+                
+                {/* Highlight 01 */}
+                <div className="flex items-start gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-950 text-white font-mono text-xs font-bold shadow-sm mt-0.5">
+                    01
                   </div>
-                );
-              })}
+                  <div>
+                    <h4 className="text-sm font-semibold text-zinc-950 tracking-wide">
+                      Personalized Beauty
+                    </h4>
+                    <p className="text-xs text-zinc-600 font-normal mt-1 leading-relaxed">
+                      Tailoring every hair, nail, and skin ritual to highlight each client's unique features and personal style.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Highlight 02 */}
+                <div className="flex items-start gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-950 text-white font-mono text-xs font-bold shadow-sm mt-0.5">
+                    02
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-zinc-950 tracking-wide">
+                      Quality &amp; Care
+                    </h4>
+                    <p className="text-xs text-zinc-600 font-normal mt-1 leading-relaxed">
+                      Utilizing carefully selected organic products and upholding strict sanitization for a safe, pampering experience.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Highlight 03 */}
+                <div className="flex items-start gap-4">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-950 text-white font-mono text-xs font-bold shadow-sm mt-0.5">
+                    03
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-zinc-950 tracking-wide">
+                      Creative Expression
+                    </h4>
+                    <p className="text-xs text-zinc-600 font-normal mt-1 leading-relaxed">
+                      Infusing artistic design and technical mastery into hair coloring, precision styling, and artisan nail art.
+                    </p>
+                  </div>
+                </div>
+
+              </div>
             </div>
-            <div className="mt-14">
-              <Link
-                href="/services"
-                className="inline-flex items-center gap-2.5 rounded-full bg-zinc-950 px-9 py-4 text-xs font-bold uppercase tracking-widest text-white transition-all duration-300 hover:bg-pink-600 shadow-lg"
-              >
-                Start Your Ritual
-                <ArrowRight size={15} />
-              </Link>
-            </div>
+
           </div>
         </section>
+
+        {/* 6. MEET OUR TEAM SECTION */}
+        <section className="mx-auto max-w-6xl px-6 lg:px-10 mb-16">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+            <div>
+              <h2 className="font-sans text-3xl sm:text-4xl lg:text-5xl font-medium text-zinc-950 tracking-tight">
+                Meet <span className="text-pink-500 font-medium">Our Team</span>
+              </h2>
+              <p className="mt-3 text-xs sm:text-sm text-zinc-600 max-w-xl font-normal leading-relaxed">
+                Meet the talented individuals behind CANDY &amp; ROSE, dedicated to creating beautiful experiences and helping every client feel confident and cared for.
+              </p>
+            </div>
+          </div>
+
+          {/* Team Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {teamMembers.map((member) => (
+              <div
+                key={member.name}
+                className="group flex flex-col rounded-2xl bg-white border border-zinc-200/80 overflow-hidden shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1"
+              >
+                <div className="aspect-[3/4] w-full overflow-hidden bg-zinc-100">
+                  <img
+                    src={member.image}
+                    alt={member.name}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                </div>
+                <div className="p-6 flex flex-col grow">
+                  <h3 className="font-sans text-lg font-semibold text-zinc-950 leading-snug">
+                    {member.name}
+                  </h3>
+                  <p className="text-xs font-medium text-pink-600 mt-0.5 mb-3">
+                    {member.role}
+                  </p>
+                  <p className="text-xs text-zinc-600 font-normal leading-relaxed grow">
+                    {member.bio}
+                  </p>
+                  <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center gap-1 text-xs font-semibold text-pink-600 group-hover:text-pink-700">
+                    <span>Read More</span> <ArrowRight size={13} className="transition-transform group-hover:translate-x-1" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
       </main>
     </SalonLayout>
   );
 }
+

@@ -5,34 +5,33 @@ import { PageShell, BookingLauncher, AuthModal } from './salon-ui';
 import { BookingModal } from './booking-modal';
 import { useAuth } from '@/lib/auth-context';
 import type { Service } from '@/lib/supabase';
+import type { NailDesignItem } from '@/lib/nail-designs';
 
 export default function SalonLayout({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [preselectedServices, setPreselectedServices] = useState<Service[]>([]);
+  const [selectedDesign, setSelectedDesign] = useState<NailDesignItem | null>(null);
   const [pendingBookingAttempt, setPendingBookingAttempt] = useState(false);
 
   useEffect(() => {
     const handleOpenBook = (event?: Event) => {
-      const customEvent = event as CustomEvent<{ services?: Service[] }>;
+      const customEvent = event as CustomEvent<{ services?: Service[]; design?: NailDesignItem | null }>;
       const services = customEvent?.detail?.services || [];
+      const design = customEvent?.detail?.design || null;
+
       if (services.length > 0) {
         setPreselectedServices(services);
       } else {
         setPreselectedServices([]);
       }
 
-      if (!user) {
-        setPendingBookingAttempt(true);
-        setAuthOpen(true);
-      } else {
-        setBookingModalOpen(true);
-      }
+      setSelectedDesign(design);
+      setBookingModalOpen(true);
     };
 
     const handleOpenAuth = () => {
-      setPendingBookingAttempt(false);
       setAuthOpen(true);
     };
 
@@ -44,16 +43,16 @@ export default function SalonLayout({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-
-
-  const openBookModal = (services?: Service[]) => {
+  const openBookModal = (services?: Service[], design?: NailDesignItem | null) => {
     if (services && services.length > 0) {
       setPreselectedServices(services);
+    } else {
+      setPreselectedServices([]);
     }
-    if (!user) {
-      setPendingBookingAttempt(true);
-      setAuthOpen(true);
-      return;
+    if (design) {
+      setSelectedDesign(design);
+    } else {
+      setSelectedDesign(null);
     }
     setBookingModalOpen(true);
   };
@@ -65,10 +64,7 @@ export default function SalonLayout({ children }: { children: ReactNode }) {
 
   const handleAuthSuccess = () => {
     setAuthOpen(false);
-    if (pendingBookingAttempt || preselectedServices.length > 0) {
-      setBookingModalOpen(true);
-      setPendingBookingAttempt(false);
-    }
+    setBookingModalOpen(true);
   };
 
   return (
@@ -85,9 +81,11 @@ export default function SalonLayout({ children }: { children: ReactNode }) {
         onClose={() => {
           setBookingModalOpen(false);
           setPreselectedServices([]);
+          setSelectedDesign(null);
           setPendingBookingAttempt(false);
         }}
         initialServices={preselectedServices}
+        selectedDesign={selectedDesign}
       />
     </>
   );
