@@ -92,16 +92,16 @@ export default function LoginPage() {
             <div className="bg-[#FCFBF9] p-8 sm:p-12 md:p-14 lg:p-16 flex flex-col justify-center text-zinc-900">
               {welcomeStep ? (
                 <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col items-center justify-center text-center animate-scale-in py-6">
-                  <div className="h-16 w-16 rounded-full bg-pink-50 border border-pink-200 flex items-center justify-center mb-6 shadow-sm">
-                    <Sparkles size={30} className="text-[#E61E73]" />
-                  </div>
-                  <h2 className="font-sans text-2xl sm:text-3xl font-medium text-[#231F20] tracking-tight mb-8 leading-snug">
-                    Welcome to Candy and Rose Salon,<br />
-                    continue your booking
+                  <h2 className="font-sans text-2xl sm:text-3xl font-medium text-[#231F20] tracking-tight leading-[1.25]">
+                    Welcome to Candy and<br />
+                    Rose Salon
                   </h2>
+                  <p className="mt-3 mb-8 text-sm text-[#77727A] font-normal">
+                    Continue your booking
+                  </p>
                   <button
                     onClick={handleContinue}
-                    className="w-full h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 cursor-pointer flex items-center justify-center shadow-sm"
+                    className="w-full h-[54px] rounded-full bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 ease-out hover:scale-[1.02] active:scale-[0.99] cursor-pointer flex items-center justify-center shadow-md"
                   >
                     CONTINUE
                   </button>
