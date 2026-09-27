@@ -33,11 +33,7 @@ export const footerNavItems: { label: string; href: string }[] = [
 export function Logo({ light = false }: { light?: boolean }) {
   return (
     <Link href="/" aria-label="Candy and Rose Salon home" className="flex items-center shrink-0 group py-1">
-      <span className={`font-brand text-2xl sm:text-3xl lg:text-[2.25rem] font-medium tracking-tight transition-all duration-300 ${
-        light 
-          ? 'text-white group-hover:text-pink-300' 
-          : 'text-zinc-950 group-hover:text-pink-600'
-      }`}>
+      <span className="font-brand text-2xl sm:text-3xl lg:text-[2.25rem] font-medium tracking-tight text-zinc-950 group-hover:text-pink-600 transition-all duration-300">
         Candy <span className="font-brand italic font-normal text-pink-500 text-2xl sm:text-3xl lg:text-[2.35rem] mx-0.5">&amp;</span> Rose
       </span>
     </Link>
@@ -62,13 +58,12 @@ export function Header({ onBook }: { onBook: () => void }) {
 
   useEffect(() => {
     const handleScroll = () => {
-      // Keep navbar transparent while over the hero section
       const threshold = isHome ? window.innerHeight * 0.8 : 20;
       setIsScrolled(window.scrollY > threshold);
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [isHome]);
 
   const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
   const servicesDropdownRef = useRef<HTMLDivElement>(null);
@@ -98,95 +93,28 @@ export function Header({ onBook }: { onBook: () => void }) {
   }, [pathname]);
 
   return (
-    <header className={`z-50 fixed top-0 left-0 right-0 w-full transition-all duration-300 ${isHome && !isScrolled ? 'bg-transparent border-transparent' : 'shadow-sm bg-white/95 backdrop-blur-md border-b border-zinc-100'}`}>
+    <header className="z-50 fixed top-0 left-0 right-0 w-full transition-all duration-300 shadow-xs bg-white/95 backdrop-blur-md border-b border-zinc-100">
       <div className="mx-auto flex h-20 max-w-[90rem] w-full items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Logo light={isHome && !isScrolled} />
+        <Logo />
         
         {/* Main Desktop Navigation */}
         <nav className="hidden items-center gap-7 xl:gap-9 lg:flex">
-          {/* HOME */}
-          <Link
-            href="/"
-            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
-              pathname === '/'
-                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
-                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
-            }`}
-          >
-            Home
-          </Link>
-
-          {/* SERVICES */}
-          <Link
-            href="/services"
-            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
-              pathname === '/services'
-                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
-                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
-            }`}
-          >
-            Services
-          </Link>
-
-          {/* NAILS DESIGN */}
-          <Link
-            href="/nails-design"
-            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
-              pathname === '/nails-design'
-                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
-                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
-            }`}
-          >
-            Nails Design
-          </Link>
-
-          {/* PROMO */}
-          <Link
-            href="/packages"
-            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
-              pathname === '/packages'
-                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
-                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
-            }`}
-          >
-            Promo
-          </Link>
-
-          {/* GALLERY */}
-          <Link
-            href="/gallery"
-            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
-              pathname === '/gallery'
-                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
-                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
-            }`}
-          >
-            Gallery
-          </Link>
-
-          {/* TESTIMONIALS */}
-          <Link
-            href="/testimonials"
-            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
-              pathname === '/testimonials'
-                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
-                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
-            }`}
-          >
-            Testimonials
-          </Link>
-
-          {/* CONTACT */}
-          <Link
-            href="/contact"
-            className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
-              pathname === '/contact'
-                ? (isHome && !isScrolled ? 'text-white font-semibold border-b-2 border-white' : 'text-pink-600 font-semibold border-b-2 border-pink-600')
-                : (isHome && !isScrolled ? 'text-white/80 hover:text-white' : 'text-zinc-600 hover:text-pink-600')
-            }`}
-          >
-            Contact
-          </Link>
+          {headerNavItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+                  isActive
+                    ? 'text-pink-600 font-semibold border-b-2 border-pink-600'
+                    : 'text-zinc-800 hover:text-pink-600'
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* Right Action Section */}
@@ -194,8 +122,8 @@ export function Header({ onBook }: { onBook: () => void }) {
           {/* Search Action */}
           <div className="relative flex items-center">
             {isSearchOpen ? (
-              <div className={`flex items-center rounded-full px-3 py-1.5 backdrop-blur-md border transition-all ${isHome && !isScrolled ? 'bg-white/10 border-white/30 text-white' : 'bg-zinc-100 border-zinc-200 text-zinc-800'}`}>
-                <Search size={14} className={isHome && !isScrolled ? 'text-white/70' : 'text-zinc-500'} />
+              <div className="flex items-center rounded-full px-3 py-1.5 bg-zinc-100 border border-zinc-200 text-zinc-900 shadow-xs">
+                <Search size={14} className="text-zinc-600" />
                 <input
                   type="text"
                   value={searchQuery}
@@ -209,16 +137,16 @@ export function Header({ onBook }: { onBook: () => void }) {
                   placeholder="Search..."
                   autoFocus
                   onBlur={() => !searchQuery && setIsSearchOpen(false)}
-                  className={`ml-2 bg-transparent text-[13px] font-medium outline-none w-24 sm:w-32 md:w-48 transition-all ${isHome && !isScrolled ? 'text-white placeholder:text-white/60' : 'text-zinc-900 placeholder:text-zinc-400'}`}
+                  className="ml-2 bg-transparent text-[13px] font-medium outline-none w-24 sm:w-32 md:w-48 text-zinc-900 placeholder:text-zinc-400"
                 />
-                <button onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }} className={`ml-1 p-0.5 rounded-full ${isHome && !isScrolled ? 'hover:bg-white/20' : 'hover:bg-zinc-200'}`}>
+                <button onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }} className="ml-1 p-0.5 rounded-full hover:bg-zinc-200 text-zinc-600">
                   <X size={12} />
                 </button>
               </div>
             ) : (
               <button
                 onClick={() => setIsSearchOpen(true)}
-                className={`p-2 rounded-full transition-colors ${isHome && !isScrolled ? 'text-white hover:bg-white/20' : 'text-zinc-700 hover:bg-zinc-100'}`}
+                className="p-2 rounded-full transition-colors text-zinc-800 hover:bg-zinc-100"
                 aria-label="Search"
               >
                 <Search size={18} />
@@ -228,32 +156,26 @@ export function Header({ onBook }: { onBook: () => void }) {
 
           {user && (
             <div ref={dropdownRef} className="relative flex items-center gap-2">
-              {/* Circular User Icon - Clicking directs to profile */}
+              {/* Circular User Icon */}
               <Link
                 href="/profile"
-                className={`flex h-10 w-10 items-center justify-center rounded-full transition-all shadow-sm group ${
-                  isHome && !isScrolled
-                    ? 'bg-white/10 border border-white/20 text-white hover:bg-white/20 hover:scale-105'
-                    : 'bg-pink-100 border border-pink-200 text-black hover:bg-pink-200 hover:scale-105'
-                }`}
+                className="flex h-10 w-10 items-center justify-center rounded-full transition-all shadow-xs group bg-pink-100 border border-pink-200 text-zinc-900 hover:bg-pink-200 hover:scale-105"
                 title="View Dashboard"
                 aria-label="View Dashboard"
               >
-                <User size={18} className={isHome && !isScrolled ? 'text-white' : 'text-black group-hover:text-pink-700 transition-colors'} />
+                <User size={18} className="text-zinc-900 group-hover:text-pink-700 transition-colors" />
               </Link>
 
               {/* Dropdown Toggle for Email and Chevron */}
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
-                className={`flex items-center gap-2 rounded-full py-1.5 px-2 transition-all duration-200 ${isHome && !isScrolled ? 'hover:bg-white/10' : 'hover:bg-zinc-50'}`}
+                className="flex items-center gap-2 rounded-full py-1.5 px-2 transition-all duration-200 hover:bg-zinc-100"
                 aria-label="Toggle user menu"
               >
-                {/* Username */}
-                <span className={`text-xs font-bold transition-colors ${isHome && !isScrolled ? 'text-white hover:text-pink-300' : 'text-zinc-700 hover:text-pink-600'}`}>
+                <span className="text-xs font-bold transition-colors text-zinc-800 hover:text-pink-600">
                   {user.email}
                 </span>
-                {/* Dropdown Arrow */}
-                <ChevronDown size={14} className={`transition-transform duration-200 ${profileOpen ? 'rotate-180' : ''} ${isHome && !isScrolled ? 'text-white/80' : 'text-zinc-500'}`} />
+                <ChevronDown size={14} className={`transition-transform duration-200 ${profileOpen ? 'rotate-180' : ''} text-zinc-600`} />
               </button>
 
               {/* Dropdown Menu */}
@@ -305,11 +227,7 @@ export function Header({ onBook }: { onBook: () => void }) {
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
-                className={`text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full transition-all cursor-pointer ${
-                  isHome && !isScrolled
-                    ? 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
-                    : 'bg-pink-500 hover:bg-pink-600 text-white shadow-sm'
-                }`}
+                className="text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full transition-all cursor-pointer bg-zinc-100 hover:bg-pink-50 text-zinc-900 hover:text-pink-600 border border-zinc-200 shadow-xs"
               >
                 Login
               </Link>
@@ -318,7 +236,7 @@ export function Header({ onBook }: { onBook: () => void }) {
 
           {/* Mobile Menu Toggle */}
           <button
-            className={`p-2 lg:hidden transition-colors ${isHome && !isScrolled ? 'text-white hover:text-pink-300' : 'text-zinc-700 hover:text-pink-600'}`}
+            className="p-2 lg:hidden transition-colors text-zinc-800 hover:text-pink-600"
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="Menu"
           >
