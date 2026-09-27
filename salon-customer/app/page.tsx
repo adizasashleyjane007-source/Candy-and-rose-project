@@ -228,83 +228,74 @@ export default function Home() {
       <main className="relative bg-transparent font-sans text-zinc-900">
         
         {/* 1. HERO SECTION */}
-        <section 
-          className="relative h-[88vh] min-h-[600px] w-full flex items-center justify-center bg-zinc-950 z-10 overflow-hidden group"
-        >
-          {/* HERO BACKGROUND CAROUSEL (Constrained to Hero Container) */}
-          <div ref={heroBgRef} className="absolute inset-0 z-0 origin-center will-change-transform pointer-events-none">
-            {carouselImages.map((src, idx) => {
-              const isActive = idx === currentSlide;
-              return (
-                <img
-                  key={src}
-                  src={src}
-                  alt="Candy & Rose Salon"
-                  className={`absolute inset-0 w-full h-full object-cover object-center transition-all duration-1200 ease-in-out ${
-                    isActive
-                      ? 'opacity-95 scale-105 sm:scale-108 z-10 transition-transform [transition-duration:7000ms] ease-out'
-                      : 'opacity-0 scale-100 pointer-events-none z-0'
-                  }`}
-                />
-              );
-            })}
-            {/* Soft gradient overlays for contrast */}
-            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/85 via-zinc-950/50 to-transparent z-15" />
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-transparent to-black/30 z-15" />
-          </div>
-          {/* Hero Content */}
-          <div className="relative z-20 max-w-7xl mx-auto px-6 pt-36 pb-20 lg:px-10 w-full">
-            <div 
-              key={currentSlide} 
-              className={`max-w-2xl transition-all duration-300 ease-in ${
-                isExiting ? 'opacity-0 -translate-y-3 pointer-events-none' : 'opacity-100 translate-y-0'
-              }`}
-            >
-              <h1 ref={heroHeadlineRef} className="font-sans text-5xl sm:text-6xl lg:text-7xl font-medium leading-[1.15] text-white tracking-tight drop-shadow-md will-change-transform">
-                <AnimatedLetters 
-                  text="Confidence" 
-                  baseDelay={80} 
-                  stagger={25} 
-                />
-                <br />
-                <span className="italic font-sans text-pink-300 inline-block font-light">
-                  <AnimatedLetters 
-                    text="Looks Good On You" 
-                    baseDelay={380} 
-                    stagger={25} 
-                  />
-                </span>
-              </h1>
+        <section className="relative w-full bg-[#FAF8F5] pt-28 sm:pt-36 pb-16 sm:pb-24 z-10 overflow-hidden">
+          <div className="max-w-7xl mx-auto px-6 lg:px-10">
+            
+            {/* Small centered eyebrow text */}
+            <div className="text-center mb-3 sm:mb-4">
+              <span className="text-xs sm:text-sm font-medium uppercase tracking-[0.22em] text-zinc-500">
+                Where Beauty Meets Confidence.
+              </span>
+            </div>
 
-              <p ref={heroDescRef} className="mt-6 text-xs sm:text-sm md:text-base text-zinc-200 leading-relaxed max-w-xl drop-shadow animate-hero-desc will-change-transform font-normal">
-                At Candy &amp; Rose, we bring out your natural beauty with professional care, premium products, and personalized services — because you deserve to feel your best every day.
-              </p>
+            {/* Large centered headline */}
+            <h1 ref={heroHeadlineRef} className="text-center font-serif text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-medium tracking-tight text-zinc-950 leading-[1.15] max-w-4xl mx-auto">
+              Be your own kind of{' '}
+              <span className="italic text-pink-600 font-normal">beautiful.</span>
+            </h1>
 
-              <div ref={heroBtnsRef} className="mt-9 flex flex-wrap items-center gap-4 will-change-transform">
-                <button
-                  onClick={triggerBooking}
-                  className="inline-flex items-center gap-2 rounded-full bg-[#f4a7bb] hover:bg-[#f291aa] text-zinc-950 px-8 py-3.5 text-xs font-medium uppercase tracking-wider shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
-                >
-                  BOOK YOUR APPOINTMENT <ArrowRight size={14} />
-                </button>
+            {/* Short supporting caption underneath */}
+            <p ref={heroDescRef} className="mt-4 sm:mt-5 text-center text-sm sm:text-base md:text-lg text-zinc-600 font-sans font-light max-w-xl mx-auto leading-relaxed">
+              Beauty, care, and confidence — all in one place.
+            </p>
+
+            {/* Centered BOOK NOW button */}
+            <div ref={heroBtnsRef} className="mt-7 sm:mt-9 flex justify-center">
+              <button
+                onClick={triggerBooking}
+                className="inline-flex items-center justify-center rounded-xl bg-pink-600 hover:bg-pink-700 text-white px-8 py-3.5 text-xs sm:text-sm font-bold uppercase tracking-[0.18em] shadow-lg shadow-pink-200/60 transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] cursor-pointer"
+              >
+                BOOK NOW
+              </button>
+            </div>
+
+            {/* Existing Hero Image Carousel placed underneath the button */}
+            <div className="mt-10 sm:mt-14 max-w-5xl lg:max-w-6xl mx-auto">
+              <div className="relative aspect-[16/9] sm:aspect-[21/9] w-full overflow-hidden rounded-2xl sm:rounded-3xl shadow-2xl border border-pink-100/70 bg-zinc-100">
+                {carouselImages.map((src, idx) => {
+                  const isActive = idx === currentSlide;
+                  return (
+                    <img
+                      key={src}
+                      src={src}
+                      alt="Candy & Rose Salon"
+                      className={`absolute inset-0 w-full h-full object-cover object-center transition-all duration-1000 ease-in-out ${
+                        isActive
+                          ? 'opacity-100 scale-100 z-10'
+                          : 'opacity-0 scale-105 pointer-events-none z-0'
+                      }`}
+                    />
+                  );
+                })}
+
+                {/* Carousel Dots at the bottom of the image frame */}
+                <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/20">
+                  {carouselImages.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleDotClick(idx)}
+                      aria-label={`Go to slide ${idx + 1}`}
+                      className={`rounded-full transition-all duration-300 cursor-pointer ${
+                        idx === currentSlide
+                          ? 'w-7 h-2 bg-pink-500 shadow-sm'
+                          : 'w-2 h-2 bg-white/60 hover:bg-white'
+                      }`}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* 3-Dot Carousel Indicator */}
-          <div className="absolute top-1/2 -translate-y-1/2 right-6 sm:right-8 lg:right-12 z-20 flex flex-col items-center gap-2.5">
-            {carouselImages.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleDotClick(idx)}
-                aria-label={`Go to slide ${idx + 1}`}
-                className={`w-2.5 rounded-full transition-all duration-500 cursor-pointer ${
-                  idx === currentSlide
-                    ? 'h-7 bg-[#f4a7bb] shadow-md shadow-pink-500/50 scale-105'
-                    : 'h-2.5 bg-white/40 hover:bg-white/80 scale-95'
-                }`}
-              />
-            ))}
           </div>
         </section>
 
