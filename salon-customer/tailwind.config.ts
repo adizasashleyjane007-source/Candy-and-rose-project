@@ -14,6 +14,7 @@ const config: Config = {
         sans: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
         serif: ['var(--font-serif)', 'Playfair Display', 'Georgia', 'serif'],
         brand: ['var(--font-serif)', 'Playfair Display', 'Georgia', 'serif'],
+        cursive: ['var(--font-cursive)', 'Great Vibes', 'cursive'],
         script: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
       },
       backgroundImage: {

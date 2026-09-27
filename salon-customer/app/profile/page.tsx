@@ -4,11 +4,18 @@ import { useEffect, useState } from 'react';
 import { 
   User, Mail, Phone, Calendar, Clock, Scissors, 
   Sparkles, CheckCircle2, XCircle, AlertCircle, Plus, 
-  ArrowRight, Trash2, ShieldCheck, Heart, Camera 
+  ArrowRight, Trash2, ShieldCheck, Heart, Camera, X
 } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, type Appointment } from '@/lib/supabase';
+
+const CANCELLATION_REASONS = [
+  'Busy',
+  "Don't want to book anymore",
+  'Want to change the service',
+  'Others',
+];
 
 export default function ProfilePage() {
   const { user, profile, customer, refreshProfile } = useAuth();
@@ -25,7 +32,10 @@ export default function ProfilePage() {
   const [saveError, setSaveError] = useState('');
 
   // Cancel appointment states
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancelModalApptId, setCancelModalApptId] = useState<string | null>(null);
+  const [selectedReason, setSelectedReason] = useState<string>('');
+  const [otherReasonText, setOtherReasonText] = useState<string>('');
+  const [submittingCancel, setSubmittingCancel] = useState(false);
 
   const loadAppointments = async () => {
     if (!user) return;
@@ -120,25 +130,49 @@ export default function ProfilePage() {
     }
   };
 
-  const handleCancelAppointment = async (apptId: string) => {
-    if (!confirm('Are you sure you want to cancel this appointment? This action cannot be undone.')) return;
-    setCancellingId(apptId);
+  const handleOpenCancelModal = (apptId: string) => {
+    setCancelModalApptId(apptId);
+    setSelectedReason('');
+    setOtherReasonText('');
+  };
+
+  const handleCloseCancelModal = () => {
+    setCancelModalApptId(null);
+    setSelectedReason('');
+    setOtherReasonText('');
+  };
+
+  const handleConfirmCancellation = async () => {
+    if (!cancelModalApptId) return;
+    const finalReason = selectedReason === 'Others' ? otherReasonText.trim() : selectedReason;
+    if (!finalReason) return;
+
+    setSubmittingCancel(true);
     try {
       const { error } = await supabase
         .from('appointments')
-        .update({ status: 'Cancelled' })
-        .eq('id', apptId);
+        .update({ 
+          status: 'Cancelled',
+          cancellation_reason: finalReason
+        })
+        .eq('id', cancelModalApptId);
 
       if (error) throw new Error(error.message);
       
       // Update locally
       setAppointments((cur) =>
-        cur.map((a) => (a.id === apptId ? { ...a, status: 'Cancelled' } : a))
+        cur.map((a) => (a.id === cancelModalApptId ? { ...a, status: 'Cancelled', cancellation_reason: finalReason } : a))
       );
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('appointmentsUpdated'));
+      }
+
+      handleCloseCancelModal();
     } catch (err) {
       alert('Failed to cancel appointment. Please try again.');
     } finally {
-      setCancellingId(null);
+      setSubmittingCancel(false);
     }
   };
 
@@ -185,11 +219,8 @@ export default function ProfilePage() {
           {/* HEADER SECTION */}
           <div className="mb-12 border-b border-zinc-200/60 pb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-pink-700 border border-pink-200/40">
-                <Sparkles size={11} className="text-pink-600" /> Welcome back
-              </span>
-              <h1 className="font-serif text-3xl sm:text-5xl font-medium text-zinc-950 mt-4 leading-tight">
-                Your Sanctuary <span className="font-serif italic text-pink-600 font-normal">Dashboard</span>
+              <h1 className="font-serif text-3xl sm:text-5xl font-medium text-zinc-950 leading-tight">
+                Your <span className="font-serif italic text-pink-600 font-normal">Dashboard</span>
               </h1>
             </div>
             
@@ -414,11 +445,10 @@ export default function ProfilePage() {
                           {/* Cancellation Button */}
                           {activeTab === 'upcoming' && appt.status !== 'Cancelled' && (
                             <button
-                              disabled={cancellingId === appt.id}
-                              onClick={() => handleCancelAppointment(appt.id!)}
-                              className="inline-flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-red-600 transition-colors border border-zinc-200 hover:border-red-200 bg-white px-4 py-2 rounded-full shadow-sm hover:shadow-red-50/50"
+                              onClick={() => handleOpenCancelModal(appt.id!)}
+                              className="inline-flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-red-600 transition-colors border border-zinc-200 hover:border-red-200 bg-white px-4 py-2 rounded-full shadow-sm hover:shadow-red-50/50 cursor-pointer"
                             >
-                              <Trash2 size={12} /> {cancellingId === appt.id ? 'Cancelling...' : 'Cancel'}
+                              <Trash2 size={12} /> Cancel
                             </button>
                           )}
                         </div>
@@ -449,6 +479,73 @@ export default function ProfilePage() {
             </section>
           </div>
         </div>
+
+        {/* CANCELLATION REASON MODAL */}
+        {cancelModalApptId && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in"
+            onClick={handleCloseCancelModal}
+          >
+            <div 
+              className="relative w-[90%] max-w-[420px] my-auto rounded-3xl bg-white p-7 sm:p-9 shadow-2xl animate-scale-in border border-pink-100/60 flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={handleCloseCancelModal}
+                aria-label="Close"
+                className="absolute right-5 top-5 text-zinc-400 hover:text-zinc-700 transition-colors p-1.5 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <h2 className="font-serif text-xl sm:text-2xl font-medium text-zinc-900 tracking-tight text-center mb-6">
+                Why are you cancelling?
+              </h2>
+
+              <div className="space-y-2.5 mb-5">
+                {CANCELLATION_REASONS.map((reason) => {
+                  const isSelected = selectedReason === reason;
+                  return (
+                    <div
+                      key={reason}
+                      onClick={() => setSelectedReason(reason)}
+                      className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all duration-200 ${
+                        isSelected
+                          ? 'border-pink-500 bg-pink-50/40 text-zinc-900 font-medium shadow-xs'
+                          : 'border-zinc-200/80 bg-white hover:border-pink-200 text-zinc-700'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
+                        isSelected ? 'border-pink-600 bg-pink-600' : 'border-zinc-300 bg-white'
+                      }`}>
+                        {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </div>
+                      <span className="text-xs sm:text-sm">{reason}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {selectedReason === 'Others' && (
+                <textarea
+                  value={otherReasonText}
+                  onChange={(e) => setOtherReasonText(e.target.value)}
+                  placeholder="Please specify your reason..."
+                  rows={3}
+                  className="w-full rounded-xl border border-zinc-200 p-3 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-500 transition-colors resize-none mb-5 font-sans"
+                />
+              )}
+
+              <button
+                onClick={handleConfirmCancellation}
+                disabled={!selectedReason || (selectedReason === 'Others' && !otherReasonText.trim()) || submittingCancel}
+                className="w-full h-12 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md shadow-pink-200/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submittingCancel ? 'SUBMITTING...' : 'SUBMIT'}
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </SalonLayout>
   );

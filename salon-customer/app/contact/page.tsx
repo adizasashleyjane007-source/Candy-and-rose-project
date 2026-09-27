@@ -72,7 +72,7 @@ export default function ContactPage() {
 
   return (
     <SalonLayout>
-      <main className="bg-[#FAF8F8] min-h-screen pt-6 sm:pt-8 lg:pt-12 pb-14 lg:pb-18 px-4 sm:px-6 lg:px-8 overflow-x-hidden font-sans text-zinc-900">
+      <main className="bg-[#FFFBF2] min-h-screen pt-6 sm:pt-8 lg:pt-12 pb-14 lg:pb-18 px-4 sm:px-6 lg:px-8 overflow-x-hidden font-sans text-zinc-900">
         
         {/* SECTION 1: CONTACT INFO + FORM */}
         <section className="max-w-6xl mx-auto mb-14 lg:mb-18">

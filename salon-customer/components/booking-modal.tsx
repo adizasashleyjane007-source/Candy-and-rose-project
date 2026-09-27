@@ -48,6 +48,61 @@ function getTodayString(): string {
   return `${year}-${month}-${day}`;
 }
 
+async function getCustomerDailyBookingCount(
+  targetDate: string,
+  user: any,
+  profile: any,
+  customer: any
+): Promise<number> {
+  if (!targetDate || !user) return 0;
+
+  // 1. Get customerId
+  let custId = customer?.id;
+  if (!custId && user.id) {
+    const { data: custByUid } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    custId = custByUid?.id;
+  }
+  if (!custId && user.email) {
+    const { data: custByEmail } = await supabase
+      .from('customers')
+      .select('id')
+      .ilike('email', user.email.trim().toLowerCase())
+      .limit(1);
+    if (custByEmail && custByEmail.length > 0) {
+      custId = custByEmail[0].id;
+    }
+  }
+
+  const nameToMatch = profile?.full_name || profile?.name || customer?.full_name || customer?.name || user.email?.split('@')[0];
+
+  // Query appointments where date matches AND not Cancelled
+  let query = supabase
+    .from('appointments')
+    .select('id, status, appointment_date, date, customer_id, customer_name')
+    .neq('status', 'Cancelled')
+    .or(`appointment_date.eq.${targetDate},date.eq.${targetDate}`);
+
+  if (custId) {
+    if (nameToMatch) {
+      query = query.or(`customer_id.eq.${custId},customer_name.eq.${nameToMatch}`);
+    } else {
+      query = query.eq('customer_id', custId);
+    }
+  } else if (nameToMatch) {
+    query = query.eq('customer_name', nameToMatch);
+  } else {
+    return 0;
+  }
+
+  const { data, error } = await query;
+  if (error || !data) return 0;
+  return data.length;
+}
+
 export function BookingModal({
   open,
   onClose,
@@ -57,6 +112,7 @@ export function BookingModal({
 }: BookingModalProps) {
   const { user, profile, customer } = useAuth();
   const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [limitModalOpen, setLimitModalOpen] = useState(false);
 
   // Current calendar view
   const todayStr = useMemo(() => getTodayString(), []);
@@ -82,6 +138,7 @@ export function BookingModal({
     if (!open) return;
     setStep('datetime');
     setErrorMsg('');
+    setLimitModalOpen(false);
     const now = new Date();
     setViewYear(now.getFullYear());
     setViewMonth(now.getMonth());
@@ -196,7 +253,7 @@ export function BookingModal({
   };
 
   // Step 1: Click "NEXT STEP"
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     if (!selectedDate) {
       setErrorMsg('Please select a date.');
       return;
@@ -210,6 +267,16 @@ export function BookingModal({
     if (!user) {
       window.dispatchEvent(new CustomEvent('open-auth'));
       return;
+    }
+
+    try {
+      const activeCount = await getCustomerDailyBookingCount(selectedDate, user, profile, customer);
+      if (activeCount >= 5) {
+        setLimitModalOpen(true);
+        return;
+      }
+    } catch (e) {
+      console.error('Failed checking booking limit:', e);
     }
 
     setStep('details');
@@ -304,6 +371,14 @@ export function BookingModal({
 
       const validServiceId = isValidUUID(primaryService?.id) ? primaryService?.id : null;
       const validStaffId = isValidUUID(assignedStaffId) ? assignedStaffId : null;
+
+      // Verification check: verify 5-booking limit immediately before inserting appointment
+      const activeCountOnDate = await getCustomerDailyBookingCount(selectedDate, currentUser, profile, customerRecord);
+      if (activeCountOnDate >= 5) {
+        setLimitModalOpen(true);
+        setSubmitting(false);
+        return;
+      }
 
       const appointmentPayload = {
         customer_id: customerRecord.id, // Insert actual UUID from customers.id
@@ -799,6 +874,54 @@ export function BookingModal({
         )}
 
       </div>
+
+      {/* DAILY BOOKING LIMIT REACHED MODAL */}
+      {limitModalOpen && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in"
+          onClick={() => setLimitModalOpen(false)}
+        >
+          <div 
+            className="relative w-[92%] sm:w-full max-w-[580px] min-h-[380px] sm:min-h-[420px] my-auto rounded-3xl bg-white pt-12 pb-10 px-6 sm:pt-14 sm:pb-12 sm:px-12 shadow-2xl animate-scale-in text-center flex flex-col items-center justify-between border border-pink-100/60"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Plain text close button */}
+            <button
+              type="button"
+              onClick={() => setLimitModalOpen(false)}
+              aria-label="Close"
+              className="absolute top-5 right-6 text-zinc-400 hover:text-zinc-700 text-2xl font-light leading-none p-1.5 transition-colors cursor-pointer"
+            >
+              ×
+            </button>
+
+            <div className="w-full flex-1 flex flex-col items-center justify-center">
+              <h2 className="font-serif text-2xl sm:text-[26px] font-medium text-zinc-900 tracking-tight leading-snug mb-5 px-2 sm:px-6">
+                We&apos;re sorry, but your booking limit has been reached
+              </h2>
+              
+              <p className="font-sans text-sm sm:text-base text-zinc-600 font-normal leading-relaxed mb-4 max-w-[460px]">
+                You can book up to 5 services per day. Please choose another date.
+              </p>
+              
+              <p className="font-sans text-xs sm:text-sm text-zinc-500 font-medium leading-relaxed mb-8 sm:mb-10 max-w-[460px]">
+                Thank you for understanding! See you soon at Candy &amp; Rose Salon.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setLimitModalOpen(false);
+                setStep('datetime');
+              }}
+              className="w-full h-12 sm:h-13 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md shadow-pink-200/50 mt-auto"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

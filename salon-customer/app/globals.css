@@ -84,6 +84,10 @@
     font-family: var(--font-serif), "Playfair Display", "Cormorant Garamond", Georgia, serif;
   }
 
+  .font-cursive {
+    font-family: var(--font-cursive), "Great Vibes", "Brush Script MT", cursive;
+  }
+
   .font-sans,
   .font-script {
     font-family: var(--font-poppins), system-ui, sans-serif;

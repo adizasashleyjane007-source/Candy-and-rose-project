@@ -44,16 +44,8 @@ function LoginFormContent() {
   const handleContinue = () => {
     if (returnTo) {
       router.push(returnTo);
-    } else if (book === 'true') {
-      router.push('/services');
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('open-book'));
-      }, 100);
     } else {
       router.push('/services');
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('open-book'));
-      }, 100);
     }
   };
 

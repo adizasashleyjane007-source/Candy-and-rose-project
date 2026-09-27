@@ -224,7 +224,7 @@ export default function PackagesPage() {
 
   return (
     <SalonLayout>
-      <main className="bg-white min-h-screen">
+      <main className="bg-[#FFFBF2] min-h-screen">
         {/* HAIR SERVICES SECTION */}
         {HAIR_PACKAGES.length > 0 && (
           <section className="px-6 pt-12 pb-20 lg:pt-16 lg:px-10 max-w-7xl mx-auto">

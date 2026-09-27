@@ -195,7 +195,7 @@ export default function TestimonialsPage() {
 
   return (
     <SalonLayout>
-      <main className="min-h-screen bg-white pb-24 pt-12">
+      <main className="min-h-screen bg-[#FFFBF2] pb-24 pt-12">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           
           {/* Header */}

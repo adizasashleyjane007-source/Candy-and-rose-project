@@ -125,7 +125,7 @@ export default function ServicesPage() {
 
   return (
     <SalonLayout>
-      <main className="bg-[#FAF8F8] min-h-screen w-full">
+      <main className="bg-[#FFFBF2] min-h-screen w-full">
         <div className="max-w-[1400px] w-full mx-auto px-4 sm:px-8 lg:px-12 pt-6 sm:pt-10 pb-40 sm:pb-32 box-border">
           
           <div className="flex flex-col lg:flex-row lg:items-start gap-12 sm:gap-16 xl:gap-24 w-full">

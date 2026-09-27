@@ -71,9 +71,9 @@ const HOMEPAGE_GALLERY_IMAGES = [
 ];
 
 const carouselImages = [
-  '/images/package-img.jpg',
-  '/images/salon-header 1.jpg',
-  '/images/salon-header 2.jpg',
+  '/images/home1.jpg',
+  '/images/home2.jpg',
+  '/images/home3.jpg',
 ];
 
 const rotatingWords = [
@@ -298,7 +298,7 @@ export default function Home() {
                 <span className="text-xs font-medium uppercase tracking-widest text-pink-500 mb-2 block">
                   OUR SERVICES
                 </span>
-                <h2 className="font-sans text-3xl sm:text-4xl lg:text-5xl font-medium text-zinc-950 tracking-tight leading-tight">
+                <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-medium text-zinc-950 tracking-tight leading-tight">
                   Beauty &amp; Care, All Under One Roof
                 </h2>
                 <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
@@ -358,7 +358,7 @@ export default function Home() {
                 <span className="text-xs font-medium uppercase tracking-widest text-pink-500 mb-2 block">
                   FEATURED WORK
                 </span>
-                <h2 className="font-sans text-3xl sm:text-4xl text-zinc-950 font-medium tracking-tight">
+                <h2 className="font-serif text-3xl sm:text-4xl text-zinc-950 font-medium tracking-tight">
                   Nail Arts Portfolio
                 </h2>
                 <p className="mt-3 text-sm text-zinc-600 font-normal leading-relaxed">
@@ -412,7 +412,7 @@ export default function Home() {
         <section className="relative z-20 py-24 bg-[#FFFBF2] overflow-hidden border-t border-zinc-100">
           <div className="mx-auto max-w-7xl px-6 lg:px-10 mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div>
-              <h2 className="font-sans text-3xl sm:text-5xl font-medium text-zinc-950 tracking-tight">
+              <h2 className="font-serif text-3xl sm:text-5xl font-medium text-zinc-950 tracking-tight">
                 Our Artwork
               </h2>
               <p className="mt-3 text-xs sm:text-sm text-zinc-600 max-w-lg font-normal">
@@ -466,7 +466,7 @@ export default function Home() {
               <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-500/10 px-3.5 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-pink-400 border border-pink-500/20 mb-3">
                 TESTIMONIALS
               </span>
-              <h2 className="font-sans text-3xl sm:text-5xl font-medium text-white tracking-tight">
+              <h2 className="font-serif text-3xl sm:text-5xl font-medium text-white tracking-tight">
                 What Our Clients Are Saying
               </h2>
               <p className="mt-3 text-xs sm:text-sm text-zinc-400 max-w-lg font-normal">

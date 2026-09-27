@@ -145,19 +145,14 @@ export default function GalleryPage() {
 
   return (
     <SalonLayout>
-      <main className="bg-white min-h-screen pt-28 pb-20 overflow-hidden">
+      <main className="bg-[#FFFBF2] min-h-screen pt-4 sm:pt-6 pb-20 overflow-hidden">
         
         {/* 1. EDITORIAL GALLERY HERO */}
-        <section className="relative px-6 py-10 lg:py-14 max-w-7xl mx-auto text-center">
+        <section className="relative px-6 pt-4 pb-8 sm:pt-6 sm:pb-10 max-w-7xl mx-auto text-center">
           {/* Subtle blush background glow */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-pink-100/40 rounded-full blur-3xl pointer-events-none -z-10" />
 
           <div className="space-y-3 max-w-2xl mx-auto">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-pink-600">
-              <Sparkles size={13} className="text-pink-500 animate-pulse" />
-              OUR GALLERY
-            </span>
-
             <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-medium tracking-tight text-zinc-950 leading-[1.15]">
               The Art of <span className="font-brand italic font-normal text-pink-600">Candy &amp; Rose</span>
             </h1>

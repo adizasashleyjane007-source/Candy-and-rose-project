@@ -31,8 +31,8 @@ export const footerNavItems: { label: string; href: string }[] = [
 export function Logo({ light = false }: { light?: boolean }) {
   return (
     <Link href="/" aria-label="Candy and Rose Salon home" className="flex items-center shrink-0 group py-1">
-      <span className={`font-brand text-2xl sm:text-3xl lg:text-[2.25rem] font-medium tracking-tight group-hover:text-pink-600 transition-all duration-300 ${light ? 'text-white' : 'text-zinc-950'}`}>
-        Candy <span className="font-brand italic font-normal text-pink-500 text-2xl sm:text-3xl lg:text-[2.35rem] mx-0.5">&amp;</span> Rose
+      <span className={`font-cursive text-2xl sm:text-3xl lg:text-[2.25rem] font-medium tracking-tight group-hover:text-pink-600 transition-all duration-300 ${light ? 'text-white' : 'text-zinc-950'}`}>
+        Candy <span className="font-cursive italic font-normal text-pink-500 text-2xl sm:text-3xl lg:text-[2.35rem] mx-0.5">&amp;</span> Rose
       </span>
     </Link>
   );
@@ -91,7 +91,7 @@ export function Header({ onBook }: { onBook: () => void }) {
   }, [pathname]);
 
   return (
-    <header className="z-50 fixed top-0 left-0 right-0 w-full transition-all duration-300 shadow-xs bg-white/95 backdrop-blur-md border-b border-zinc-100">
+    <header className="z-50 fixed top-0 left-0 right-0 w-full transition-all duration-300 bg-[#FFFBF2]">
       <div className="mx-auto flex h-20 max-w-[90rem] w-full items-center justify-between px-4 sm:px-6 lg:px-8">
         <Logo />
         
@@ -246,7 +246,7 @@ export function Header({ onBook }: { onBook: () => void }) {
 
       {/* Mobile Drawer */}
       {menuOpen && (
-        <div className="border-t border-zinc-100 bg-white p-6 shadow-xl lg:hidden animate-in slide-in-from-top-4 duration-200">
+        <div className="border-t border-zinc-100 bg-[#FFFBF2] p-6 shadow-xl lg:hidden animate-in slide-in-from-top-4 duration-200">
           <nav className="flex flex-col gap-4">
             {headerNavItems.map((item) => (
               <Link
