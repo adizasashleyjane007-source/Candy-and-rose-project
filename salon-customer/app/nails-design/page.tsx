@@ -113,10 +113,10 @@ export default function NailsDesignPage() {
                 <div 
                   key={design.id || idx} 
                   onClick={() => setSelectedPreviewDesign(design)}
-                  className="group flex flex-col justify-between bg-white rounded-md sm:rounded-lg p-3 sm:p-3.5 border border-zinc-200/80 shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden"
+                  className="group flex flex-col justify-between bg-transparent rounded-md sm:rounded-lg p-3 sm:p-3.5 border border-zinc-200/80 transition-all duration-200 cursor-pointer overflow-hidden"
                 >
                   {/* 1. NAIL DESIGN IMAGE (Top) */}
-                  <div className="relative w-full aspect-square overflow-hidden rounded-sm sm:rounded-md mb-3 bg-pink-50/20">
+                  <div className="relative w-full aspect-square overflow-hidden rounded-sm sm:rounded-md mb-3">
                     <img 
                       src={design.image} 
                       alt={design.name}
