@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowRight, Sparkles, X, Check, Heart, ShieldCheck, Clock } from 'lucide-react';
+import { ArrowRight, X, Check, Clock } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { NAIL_DESIGNS, type NailDesignItem } from '@/lib/nail-designs';
 
@@ -29,18 +29,15 @@ export default function NailPortfolioPage() {
 
   return (
     <SalonLayout>
-      <main className="bg-[#FAF8F8] min-h-screen w-full pb-28 pt-8 sm:pt-12">
+      <main className="bg-[#FAF8F8] min-h-screen w-full pb-28 pt-24 sm:pt-28">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           {/* HEADER SECTION */}
-          <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-[#A94E70] border border-pink-200/70 mb-4 shadow-xs">
-              <Sparkles size={14} className="text-[#A94E70]" /> ARTISAN NAIL GALLERY
-            </span>
+          <div className="text-center max-w-3xl mx-auto mb-10">
             <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-light text-zinc-900 tracking-tight leading-tight uppercase">
               NAIL ARTS PORTFOLIO
             </h1>
-            <p className="mt-4 text-sm sm:text-base text-zinc-600 font-sans font-light leading-relaxed max-w-xl mx-auto">
+            <p className="mt-3 text-sm sm:text-base text-zinc-600 font-sans font-light leading-relaxed max-w-xl mx-auto">
               Explore our nail designs and find the look you love.
             </p>
           </div>

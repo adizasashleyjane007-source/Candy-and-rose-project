@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowRight, Sparkles, X, Check, Clock } from 'lucide-react';
+import { ArrowRight, X, Check, Clock } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { NAIL_DESIGNS, type NailDesignItem } from '@/lib/nail-designs';
 
@@ -29,14 +29,11 @@ export default function NailsDesignPage() {
 
   return (
     <SalonLayout>
-      <main className="nails-design-page bg-[#FAF8F5] text-zinc-900 font-sans min-h-screen pt-24 pb-20 overflow-x-hidden">
+      <main className="nails-design-page bg-[#FAF8F5] text-zinc-900 font-sans min-h-screen pt-24 sm:pt-28 pb-20 overflow-x-hidden">
         
         {/* Header Section */}
-        <section className="mx-auto max-w-7xl px-6 lg:px-10 mb-16 mt-6 text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-[#A94E70] border border-pink-200/70 mb-4 shadow-xs">
-            <Sparkles size={14} className="text-[#A94E70]" /> ARTISAN NAIL GALLERY
-          </span>
-          <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl text-zinc-950 font-medium mb-4 animate-slide-up">
+        <section className="mx-auto max-w-7xl px-6 lg:px-10 mb-10 text-center">
+          <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl text-zinc-950 font-medium mb-3 animate-slide-up">
             Nails <span className="italic text-pink-600 font-normal">Design</span>
           </h1>
           <p className="max-w-2xl mx-auto text-zinc-500 text-sm sm:text-base leading-relaxed">
