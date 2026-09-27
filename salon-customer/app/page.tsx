@@ -119,7 +119,7 @@ export default function Home() {
   const [isExiting, setIsExiting] = useState(false);
   const [timerKey, setTimerKey] = useState(0);
   const [fetchedReviews, setFetchedReviews] = useState<any[]>([]);
-  const [activeReviewIdx, setActiveReviewIdx] = useState(0);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
 
   const heroBgRef = useRef<HTMLDivElement>(null);
   const heroHeadlineRef = useRef<HTMLHeadingElement>(null);
@@ -127,17 +127,30 @@ export default function Home() {
   const heroBtnsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    supabase
-      .from('feedback')
-      .select('*, review_images(image_url)')
-      .eq('status', 'approved')
-      .order('created_at', { ascending: false })
-      .limit(12)
-      .then(({ data }) => {
-        if (data && data.length > 0) {
-          setFetchedReviews(data);
+    setReviewsLoading(true);
+    const getReviews = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('reviews')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching reviews:', error);
         }
-      });
+        if (data && data.length > 0) {
+          const uniqueReviews = Array.from(new Map(data.map(item => [item.id, item])).values());
+          setFetchedReviews(uniqueReviews);
+        } else {
+          setFetchedReviews([]);
+        }
+      } catch (e) {
+        console.error('Error fetching reviews for homepage:', e);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+    getReviews();
   }, []);
 
   const handleTransition = useCallback((nextIdx: number) => {
@@ -198,8 +211,6 @@ export default function Home() {
   const triggerBooking = () => {
     window.dispatchEvent(new CustomEvent('open-book'));
   };
-
-  const currentReview = fetchedReviews[activeReviewIdx] || null;
 
   return (
     <SalonLayout>
@@ -453,7 +464,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 5. TESTIMONIALS SECTION (Two Moving Marquee Rows) */}
+        {/* 5. TESTIMONIALS SECTION */}
         <section id="testimonials" className="relative z-20 py-24 bg-zinc-950 text-white overflow-hidden border-t border-zinc-900">
           <div className="mx-auto max-w-7xl px-6 lg:px-10 mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div>
@@ -476,80 +487,38 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* TWO MOVING MARQUEE ROWS */}
-          <div className="space-y-6 overflow-hidden relative group">
-            <div className="absolute top-0 bottom-0 left-0 w-16 sm:w-28 bg-gradient-to-r from-zinc-950 to-transparent z-10 pointer-events-none" />
-            <div className="absolute top-0 bottom-0 right-0 w-16 sm:w-28 bg-gradient-to-l from-zinc-950 to-transparent z-10 pointer-events-none" />
-
-            {/* ROW 1: Right to Left */}
-            <div className="animate-marquee-left flex gap-6 px-4">
-              {[...(fetchedReviews.length > 0 ? fetchedReviews : [
-                { id: 't1', customer_name: 'Sophia M.', rating: 5, comment: 'Candy & Rose is hands-down the best salon experience I have ever had! The nail art is breathtaking.', created_at: '2026-09-15' },
-                { id: 't2', customer_name: 'Elena R.', rating: 5, comment: 'The stylists here are true artisans. My hair transformation was flawless and so relaxing.', created_at: '2026-09-18' },
-                { id: 't3', customer_name: 'Maria C.', rating: 5, comment: 'Impeccable hygiene, luxurious atmosphere, and extremely polite staff. Highly recommended!', created_at: '2026-09-20' },
-              ]), ...(fetchedReviews.length > 0 ? fetchedReviews : [
-                { id: 't1', customer_name: 'Sophia M.', rating: 5, comment: 'Candy & Rose is hands-down the best salon experience I have ever had! The nail art is breathtaking.', created_at: '2026-09-15' },
-                { id: 't2', customer_name: 'Elena R.', rating: 5, comment: 'The stylists here are true artisans. My hair transformation was flawless and so relaxing.', created_at: '2026-09-18' },
-                { id: 't3', customer_name: 'Maria C.', rating: 5, comment: 'Impeccable hygiene, luxurious atmosphere, and extremely polite staff. Highly recommended!', created_at: '2026-09-20' },
-              ])].map((item, idx) => (
-                <div
-                  key={`r1-${item.id}-${idx}`}
-                  className="shrink-0 w-80 sm:w-96 rounded-2xl bg-zinc-900/90 border border-zinc-800 p-6 shadow-md flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex gap-1 text-pink-500 mb-3">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} size={15} className={i < (item.rating || 5) ? "fill-pink-500 text-pink-500" : "fill-transparent text-zinc-700"} />
-                      ))}
+          <div className="mx-auto max-w-7xl px-6 lg:px-10">
+            {reviewsLoading ? (
+              <div className="py-16 text-center text-xs sm:text-sm text-zinc-500 font-medium">Loading reviews...</div>
+            ) : fetchedReviews.length === 0 ? (
+              <div className="py-16 text-center text-xs sm:text-sm text-zinc-500 font-medium">No reviews yet.</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {fetchedReviews.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-6 shadow-md flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex gap-1 text-pink-500 mb-3">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} size={15} className={i < (Number(item.rating) || 5) ? "fill-pink-500 text-pink-500" : "fill-transparent text-zinc-700"} />
+                        ))}
+                      </div>
+                      <p className="text-xs sm:text-sm text-zinc-200 leading-relaxed font-normal italic mb-4">
+                        &quot;{item.review || item.comment || ''}&quot;
+                      </p>
                     </div>
-                    <p className="text-xs sm:text-sm text-zinc-200 leading-relaxed font-normal italic mb-4">
-                      &quot;{item.comment}&quot;
-                    </p>
-                  </div>
-                  <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between">
-                    <span className="text-xs font-medium text-white">{item.customer_name}</span>
-                    <span className="text-[10px] text-zinc-500">
-                      {new Date(item.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* ROW 2: Left to Right */}
-            <div className="animate-marquee-right flex gap-6 px-4">
-              {[...(fetchedReviews.length > 0 ? fetchedReviews : [
-                { id: 't4', customer_name: 'Isabella G.', rating: 5, comment: 'I booked the Velvet Rose Cat-Eye design from the portfolio and it exceeded all expectations!', created_at: '2026-09-22' },
-                { id: 't5', customer_name: 'Camilla T.', rating: 5, comment: 'Bespoke treatments and incredible attention to detail. CANDY & ROSE is my forever go-to salon.', created_at: '2026-09-24' },
-                { id: 't6', customer_name: 'Hannah B.', rating: 5, comment: 'The Brazilian care treatment left my hair silky smooth for weeks. Absolutely wonderful experience!', created_at: '2026-09-25' },
-              ]), ...(fetchedReviews.length > 0 ? fetchedReviews : [
-                { id: 't4', customer_name: 'Isabella G.', rating: 5, comment: 'I booked the Velvet Rose Cat-Eye design from the portfolio and it exceeded all expectations!', created_at: '2026-09-22' },
-                { id: 't5', customer_name: 'Camilla T.', rating: 5, comment: 'Bespoke treatments and incredible attention to detail. CANDY & ROSE is my forever go-to salon.', created_at: '2026-09-24' },
-                { id: 't6', customer_name: 'Hannah B.', rating: 5, comment: 'The Brazilian care treatment left my hair silky smooth for weeks. Absolutely wonderful experience!', created_at: '2026-09-25' },
-              ])].map((item, idx) => (
-                <div
-                  key={`r2-${item.id}-${idx}`}
-                  className="shrink-0 w-80 sm:w-96 rounded-2xl bg-zinc-900/90 border border-zinc-800 p-6 shadow-md flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex gap-1 text-pink-500 mb-3">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} size={15} className={i < (item.rating || 5) ? "fill-pink-500 text-pink-500" : "fill-transparent text-zinc-700"} />
-                      ))}
+                    <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between">
+                      <span className="text-xs font-medium text-white">{item.customer_name || item.name || 'Customer'}</span>
+                      <span className="text-[10px] text-zinc-500">
+                        {new Date(item.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
                     </div>
-                    <p className="text-xs sm:text-sm text-zinc-200 leading-relaxed font-normal italic mb-4">
-                      &quot;{item.comment}&quot;
-                    </p>
                   </div>
-                  <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between">
-                    <span className="text-xs font-medium text-white">{item.customer_name}</span>
-                    <span className="text-[10px] text-zinc-500">
-                      {new Date(item.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 

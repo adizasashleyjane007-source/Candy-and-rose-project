@@ -30,7 +30,7 @@ export default function ReviewsPage() {
   const fetchReviews = async () => {
     try {
       const { data, error } = await supabase
-        .from('feedback')
+        .from('reviews')
         .select('*, review_images(image_url)')
         .order('created_at', { ascending: false });
 
@@ -47,7 +47,7 @@ export default function ReviewsPage() {
   const updateStatus = async (id: string, newStatus: string) => {
     try {
       const { error } = await supabase
-        .from('feedback')
+        .from('reviews')
         .update({ status: newStatus })
         .eq('id', id);
 
@@ -62,7 +62,7 @@ export default function ReviewsPage() {
 
   const filteredReviews = reviews.filter(r => 
     r.customer_name.toLowerCase().includes(search.toLowerCase()) || 
-    r.comment.toLowerCase().includes(search.toLowerCase())
+    (r.review || r.comment || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -124,8 +124,8 @@ export default function ReviewsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-zinc-600 max-w-xs truncate" title={review.comment}>
-                        {review.comment}
+                      <p className="text-zinc-600 max-w-xs truncate" title={review.review || review.comment}>
+                        {review.review || review.comment}
                       </p>
                       {review.review_images && review.review_images.length > 0 && (
                         <div className="flex gap-2 mt-3">

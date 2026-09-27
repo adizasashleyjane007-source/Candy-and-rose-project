@@ -11,7 +11,8 @@ type Review = {
   id: string;
   customer_name: string;
   rating: number;
-  comment: string;
+  comment?: string;
+  review?: string;
   created_at: string;
   review_images?: { image_url: string }[];
 };
@@ -19,7 +20,7 @@ type Review = {
 export default function TestimonialsPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user, profile } = useAuth();
+  const { user, profile, customer } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [rating, setRating] = useState(0);
@@ -42,15 +43,15 @@ export default function TestimonialsPage() {
   const fetchReviews = async () => {
     try {
       const { data, error } = await supabase
-        .from('feedback')
+        .from('reviews')
         .select('*, review_images(image_url)')
-        .eq('status', 'approved')
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching reviews:', error);
       } else {
-        setReviews(data || []);
+        const unique = Array.from(new Map((data || []).map(r => [r.id, r])).values());
+        setReviews(unique);
       }
     } catch (e) {
       console.error(e);
@@ -120,19 +121,23 @@ export default function TestimonialsPage() {
     
     setSubmitting(true);
     try {
-      const { data: custData } = await supabase
-        .from('customers')
-        .select('id')
-        .or(`user_id.eq.${user?.id},email.ilike.${user?.email?.trim().toLowerCase()}`)
-        .maybeSingle();
+      let custId = customer?.id || null;
+      if (!custId && user?.id) {
+        const { data: custData } = await supabase
+          .from('customers')
+          .select('id')
+          .or(`user_id.eq.${user.id},email.ilike.${user.email?.trim().toLowerCase()}`)
+          .maybeSingle();
+        if (custData) custId = custData.id;
+      }
 
-      const { data: newReviewData, error } = await supabase.from('feedback').insert([
+      const { data: newReviewData, error } = await supabase.from('reviews').insert([
         {
-          customer_id: custData?.id || null,
-          customer_name: name || user?.email?.split('@')[0] || 'Anonymous',
+          customer_id: custId,
+          customer_name: name.trim() || user?.email?.split('@')[0] || 'Anonymous',
           rating,
-          comment: reviewText,
-          status: 'pending',
+          review: reviewText.trim(),
+          status: 'approved',
         }
       ]).select('id').single();
 
@@ -253,7 +258,7 @@ export default function TestimonialsPage() {
                         <Star key={i} size={16} className={i < review.rating ? "fill-pink-600 text-pink-600" : "fill-transparent text-pink-200"} />
                       ))}
                     </div>
-                    <p className="text-zinc-700 leading-relaxed italic mb-6">"{review.comment}"</p>
+                    <p className="text-zinc-700 leading-relaxed italic mb-6">"{review.review || review.comment}"</p>
                     
                     {review.review_images && review.review_images.length > 0 && (
                       <div className="flex gap-3 mb-6">
