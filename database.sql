@@ -129,6 +129,7 @@ CREATE TABLE IF NOT EXISTS public.nail_designs (
     preview_url text,
     category text,
     description text,
+    inclusions text,
     price numeric,
     is_trending boolean DEFAULT false,
     created_at timestamptz DEFAULT now()

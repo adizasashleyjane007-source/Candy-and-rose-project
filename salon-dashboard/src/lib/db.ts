@@ -120,6 +120,7 @@ export interface NailDesign {
   image_url: string;
   category?: string;
   description?: string;
+  inclusions?: string;
   is_trending?: boolean;
   price?: number;
 }

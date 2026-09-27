@@ -32,7 +32,6 @@ function formatDate(iso?: string) {
     " · " + d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
-// ── Persistent Nail Identifier Helper ──────────────────────────────────────────
 function getPersistentNailId(design: NailDesign, idMap: Record<string, string>): string {
   if (!design.id) return "#001";
   if (idMap[design.id]) return `#${idMap[design.id]}`;
@@ -67,14 +66,13 @@ function PreviewModal({
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="bg-white/95 backdrop-blur-xl border border-pink-100/80 rounded-3xl w-full max-w-2xl shadow-2xl shadow-pink-500/10 overflow-hidden relative flex flex-col md:flex-row animate-in zoom-in-95 duration-200"
+        className="bg-white/95 backdrop-blur-xl border border-pink-100/80 rounded-3xl w-full max-w-2xl shadow-2xl shadow-pink-500/10 overflow-hidden relative flex flex-col md:flex-row animate-in zoom-in-95 duration-200 max-h-[90vh]"
       >
         {/* Left — Visual Showcase */}
         <div className="relative md:w-5/12 min-h-[260px] md:min-h-[380px] bg-gradient-to-br from-pink-50 via-pink-100/40 to-purple-50/50 flex items-center justify-center overflow-hidden p-6">
           <div className="absolute -top-10 -left-10 w-36 h-36 bg-pink-400/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-10 -right-10 w-36 h-36 bg-purple-400/20 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Image frame */}
           <div className="relative w-full h-full max-h-72 rounded-2xl overflow-hidden shadow-md border border-white/80 bg-white/40 group flex items-center justify-center">
             {design.image_url ? (
               <img
@@ -87,7 +85,6 @@ function PreviewModal({
             )}
           </div>
 
-          {/* Floating Badges */}
           <div className="absolute top-4 left-4 flex flex-col gap-1.5 z-10">
             {design.is_trending && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-full text-xs font-bold shadow-md shadow-pink-500/30">
@@ -98,9 +95,8 @@ function PreviewModal({
         </div>
 
         {/* Right — Details & Attributes */}
-        <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between min-w-0 bg-white">
+        <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between min-w-0 bg-white overflow-y-auto">
           <div>
-            {/* Top Bar: ID Pill + Category Badge + Close Button */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-3.5 py-1 bg-pink-500 text-white text-xs font-bold rounded-full shadow-sm shadow-pink-500/20">
@@ -122,7 +118,6 @@ function PreviewModal({
               </button>
             </div>
 
-            {/* Title & Price */}
             <div className="flex items-start justify-between gap-2 mb-1.5">
               <h3 className="text-2xl font-bold text-gray-900 capitalize">
                 {design.name}
@@ -136,7 +131,6 @@ function PreviewModal({
               {formatDate(design.created_at)}
             </div>
 
-            {/* Specs & Description */}
             <div className="space-y-4">
               {/* Category */}
               <div>
@@ -165,6 +159,32 @@ function PreviewModal({
                     design.description
                   ) : (
                     <span className="text-gray-400 italic">No description provided for this design.</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Inclusion Box */}
+              <div>
+                <span className="text-xs font-semibold text-gray-500 block mb-1.5">
+                  Inclusion
+                </span>
+                <div className="bg-pink-50/40 border border-pink-100/60 rounded-2xl p-4 text-xs text-gray-700 leading-relaxed">
+                  {design.inclusions ? (
+                    <ul className="space-y-1">
+                      {design.inclusions.split('\n').map((inc, i) => (
+                        <li key={i} className="flex items-start gap-1.5">
+                          <span className="text-pink-500 font-bold">•</span>
+                          <span>{inc.replace(/^[•\-\*\s]+/, '')}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <ul className="space-y-1">
+                      <li className="flex items-start gap-1.5"><span className="text-pink-500 font-bold">•</span><span>Full set application</span></li>
+                      <li className="flex items-start gap-1.5"><span className="text-pink-500 font-bold">•</span><span>Nail preparation & shaping</span></li>
+                      <li className="flex items-start gap-1.5"><span className="text-pink-500 font-bold">•</span><span>Artisan design application</span></li>
+                      <li className="flex items-start gap-1.5"><span className="text-pink-500 font-bold">•</span><span>High-shine gel top coat finish</span></li>
+                    </ul>
                   )}
                 </div>
               </div>
@@ -250,7 +270,6 @@ function ViewAllFeaturedModal({
       <div
         className="bg-white rounded-3xl w-full max-w-5xl shadow-2xl border border-pink-100/80 max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
       >
-        {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-gradient-to-r from-pink-50/40 via-white to-pink-50/20">
           <div>
             <div className="flex items-center gap-2.5">
@@ -291,7 +310,6 @@ function ViewAllFeaturedModal({
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-6 overflow-y-auto flex-1 bg-[#f7f8fa]">
           {filteredFeatured.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-3xl border border-gray-100 px-4">
@@ -326,7 +344,6 @@ function ViewAllFeaturedModal({
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between bg-white">
           <span className="text-xs font-medium text-gray-400">
             Showing <strong className="text-gray-700">{filteredFeatured.length}</strong> of {designs.length} featured designs
@@ -488,6 +505,7 @@ function EditDesignModal({
     price?: number;
     category?: string;
     description?: string;
+    inclusions?: string;
     is_trending: boolean;
     file?: File | null;
   }) => void;
@@ -497,6 +515,7 @@ function EditDesignModal({
   const [price, setPrice] = useState(design.price !== undefined && design.price !== null ? String(design.price) : "500");
   const [category, setCategory] = useState(design.category || "");
   const [description, setDescription] = useState(design.description || "");
+  const [inclusions, setInclusions] = useState(design.inclusions || "• Full set application\n• Nail preparation & shaping\n• Artisan design application\n• High-shine gel top coat finish");
   const [isTrending, setIsTrending] = useState(!!design.is_trending);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(design.image_url || null);
@@ -513,7 +532,7 @@ function EditDesignModal({
               <h3 className="text-lg font-bold text-gray-900">Edit Nail Design</h3>
               <span className="px-2.5 py-0.5 bg-pink-500 text-white rounded-full text-xs font-bold">{nailId}</span>
             </div>
-            <p className="text-xs text-gray-500 font-medium">Update title, price, image, category and details</p>
+            <p className="text-xs text-gray-500 font-medium">Update title, price, inclusions, image, category and details</p>
           </div>
           <button
             onClick={onClose}
@@ -585,6 +604,18 @@ function EditDesignModal({
             />
           </div>
 
+          {/* Inclusions */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Inclusions (One per line)</label>
+            <textarea
+              value={inclusions}
+              onChange={e => setInclusions(e.target.value)}
+              placeholder={"• Full set application\n• Nail preparation & shaping\n• Artisan design application\n• High-shine gel top coat finish"}
+              rows={3}
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 focus:ring-2 focus:ring-pink-200 focus:border-pink-400 outline-none transition-all resize-none"
+            />
+          </div>
+
           {/* Image Upload / Preview */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Replace Image (Optional)</label>
@@ -647,6 +678,7 @@ function EditDesignModal({
                 price: price ? Number(price) : undefined,
                 category: category.trim() || undefined,
                 description: description.trim() || undefined,
+                inclusions: inclusions.trim() || undefined,
                 is_trending: isTrending,
                 file: selectedFile,
               });
@@ -685,7 +717,6 @@ function DesignCard({
     <div
       className={`bg-white rounded-2xl overflow-hidden border border-pink-50/80 shadow-sm hover:shadow-md transition-all group flex flex-col ${cardWidth || "w-full"}`}
     >
-      {/* Image area */}
       <div className={`relative w-full aspect-square ${catStyle.bg} flex items-center justify-center overflow-hidden`}>
         {design.image_url ? (
           <img
@@ -697,7 +728,6 @@ function DesignCard({
           <span className="text-5xl">💅</span>
         )}
 
-        {/* Badge top-left */}
         <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
           {featured && (
             <span className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-full text-xs font-semibold shadow-sm">
@@ -711,12 +741,10 @@ function DesignCard({
           )}
         </div>
 
-        {/* Nail ID badge */}
         <div className="absolute bottom-2 left-2 px-2.5 py-1 bg-black/60 backdrop-blur-sm text-white rounded-full text-xs font-medium shadow-sm">
           {nailId}
         </div>
 
-        {/* Action Buttons Top Right (Edit & Delete) */}
         <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
           {onEditRequest && (
             <button
@@ -745,7 +773,6 @@ function DesignCard({
         </div>
       </div>
 
-      {/* Info */}
       <div className="p-3.5 flex-1 flex flex-col justify-between">
         <div>
           <div className="flex items-start justify-between gap-1 mb-1">
@@ -759,7 +786,6 @@ function DesignCard({
           </p>
         </div>
 
-        {/* Tags row + Preview button */}
         <div className="flex items-center justify-between gap-1.5 pt-1">
           {design.category ? (
             <span className={`px-2 py-0.5 ${catStyle.bg} ${catStyle.text} text-xs font-semibold rounded-full border border-pink-100/60 truncate max-w-[110px]`}>
@@ -780,7 +806,7 @@ function DesignCard({
   );
 }
 
-// ── Featured Carousel Card (Image-only, click to preview) ─────────────────────
+// ── Featured Carousel Card ───────────────────────────────────────────────────
 function FeaturedCarouselCard({
   design,
   nailId,
@@ -841,21 +867,13 @@ export default function NailRecommendationPage() {
   const [nailIdMap, setNailIdMap] = useState<Record<string, string>>({});
   const [featuredTopIds, setFeaturedTopIds] = useState<string[]>([]);
 
-  // Preview modal
   const [previewDesign, setPreviewDesign] = useState<NailDesign | null>(null);
-
-  // View All Featured Modal state
   const [isViewAllFeaturedOpen, setIsViewAllFeaturedOpen] = useState(false);
-
-  // Delete Confirmation Modal states
   const [designToDelete, setDesignToDelete] = useState<NailDesign | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Edit Modal states
   const [editingDesign, setEditingDesign] = useState<NailDesign | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  // Add design modal states
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -864,13 +882,12 @@ export default function NailRecommendationPage() {
   const [newPrice, setNewPrice] = useState("500");
   const [newCategory, setNewCategory] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [newInclusions, setNewInclusions] = useState("• Full set application\n• Nail preparation & shaping\n• Artisan design application\n• High-shine gel top coat finish");
   const [isTrending, setIsTrending] = useState(false);
 
-  // Add Category inline input state inside Add Design Modal
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
 
-  // Success modals
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showEditSuccessModal, setShowEditSuccessModal] = useState(false);
   const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
@@ -999,6 +1016,7 @@ export default function NailRecommendationPage() {
     setNewPrice("500");
     setNewCategory("");
     setNewDescription("");
+    setNewInclusions("• Full set application\n• Nail preparation & shaping\n• Artisan design application\n• High-shine gel top coat finish");
     setIsTrending(false);
     setIsAddingCategory(false);
     setNewCategoryInput("");
@@ -1051,6 +1069,7 @@ export default function NailRecommendationPage() {
         price: newPrice ? Number(newPrice) : 500,
         category: newCategory.trim() || undefined,
         description: newDescription.trim() || undefined,
+        inclusions: newInclusions.trim() || undefined,
         is_trending: isTrending,
       });
       addNotification("Design Added", `"${newName}" has been added to nail recommendations.`, "system");
@@ -1070,6 +1089,7 @@ export default function NailRecommendationPage() {
     price?: number;
     category?: string;
     description?: string;
+    inclusions?: string;
     is_trending: boolean;
     file?: File | null;
   }) => {
@@ -1093,6 +1113,7 @@ export default function NailRecommendationPage() {
         price: data.price,
         category: data.category,
         description: data.description,
+        inclusions: data.inclusions,
         is_trending: data.is_trending,
         image_url: imageUrl,
       });
@@ -1423,7 +1444,7 @@ export default function NailRecommendationPage() {
               </button>
             </div>
 
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
               {/* Design Name */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Design Name *</label>
@@ -1556,6 +1577,18 @@ export default function NailRecommendationPage() {
                   placeholder="Short description of this design or tips for styling…"
                   rows={2}
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-pink-200 focus:border-pink-400 outline-none transition-all resize-none"
+                />
+              </div>
+
+              {/* Inclusions */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Inclusions (One per line)</label>
+                <textarea
+                  value={newInclusions}
+                  onChange={e => setNewInclusions(e.target.value)}
+                  placeholder={"• Full set application\n• Nail preparation & shaping\n• Artisan design application\n• High-shine gel top coat finish"}
+                  rows={3}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 focus:ring-2 focus:ring-pink-200 focus:border-pink-400 outline-none transition-all resize-none"
                 />
               </div>
 

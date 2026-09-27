@@ -6,8 +6,16 @@ export interface NailDesignItem {
   priceNumeric: number;
   image: string;
   category?: string;
+  inclusions?: string[];
   isFeatured?: boolean;
 }
+
+export const DEFAULT_NAIL_INCLUSIONS = [
+  'Full set application',
+  'Nail preparation & shaping',
+  'Artisan design application',
+  'High-shine gel top coat finish'
+];
 
 export const NAIL_DESIGNS: NailDesignItem[] = [
   {
@@ -18,6 +26,12 @@ export const NAIL_DESIGNS: NailDesignItem[] = [
     priceNumeric: 500,
     image: '/images/Nail1.jpg',
     category: 'Sculpted Art',
+    inclusions: [
+      'Full set gel sculpting',
+      'Nail cuticle care & prep',
+      'Rose gold leaf & shimmer application',
+      'Protective gel top coat finish'
+    ],
     isFeatured: true,
   },
   {
@@ -28,6 +42,12 @@ export const NAIL_DESIGNS: NailDesignItem[] = [
     priceNumeric: 350,
     image: '/images/NAIL2.jpg',
     category: 'French & Minimal',
+    inclusions: [
+      'Full set natural nail prep',
+      'Precision fine-line tip lining',
+      'Soft ivory & nude base polish',
+      'Glossy top coat seal'
+    ],
     isFeatured: true,
   },
   {
@@ -38,6 +58,12 @@ export const NAIL_DESIGNS: NailDesignItem[] = [
     priceNumeric: 600,
     image: '/images/NAIL3.jpg',
     category: 'Hand Painted',
+    inclusions: [
+      'Full set nail preparation',
+      'Hand-painted foliage & floral art',
+      'Custom color base coat',
+      'UV/LED protective top coat'
+    ],
     isFeatured: true,
   },
   {
@@ -48,6 +74,12 @@ export const NAIL_DESIGNS: NailDesignItem[] = [
     priceNumeric: 550,
     image: '/images/NAIL4.jpg',
     category: 'Cat Eye & Magnetic',
+    inclusions: [
+      'Full set magnetic gel overlay',
+      'Cuticle shaping & care',
+      'Velvet cat-eye multi-angle effect',
+      'Diamond gel top coat finish'
+    ],
     isFeatured: true,
   },
   {
@@ -58,6 +90,12 @@ export const NAIL_DESIGNS: NailDesignItem[] = [
     priceNumeric: 450,
     image: '/images/NAIL5.jpg',
     category: 'Marble & Quartz',
+    inclusions: [
+      'Full set nail preparation',
+      'Rose quartz marble layering',
+      'Gold foil accent placement',
+      'High-gloss gel sealing'
+    ],
     isFeatured: false,
   },
   {
@@ -68,6 +106,12 @@ export const NAIL_DESIGNS: NailDesignItem[] = [
     priceNumeric: 400,
     image: '/images/NAIL6.jpg',
     category: 'Chrome & Glaze',
+    inclusions: [
+      'Nail buffing & cuticle prep',
+      'Nude gel base coat',
+      'Pearl-chrome rub application',
+      'Long-lasting top coat seal'
+    ],
     isFeatured: false,
   },
   {
@@ -78,6 +122,12 @@ export const NAIL_DESIGNS: NailDesignItem[] = [
     priceNumeric: 650,
     image: '/images/NAIL7.jpg',
     category: '3D & Artisan',
+    inclusions: [
+      'Full set artisan nail prep',
+      '3D sculpted acrylic floral placement',
+      'Micro-gem setting',
+      'Reinforced gel top coat'
+    ],
     isFeatured: true,
   },
   {
@@ -88,6 +138,12 @@ export const NAIL_DESIGNS: NailDesignItem[] = [
     priceNumeric: 500,
     image: '/images/NAIL8.jpg',
     category: 'Ombré & Gradient',
+    inclusions: [
+      'Full set gradient blending',
+      'Nail shaping & cuticle trim',
+      'Blush-to-pearl ombré application',
+      'High-shine gel finish'
+    ],
     isFeatured: false,
   },
   {
@@ -98,6 +154,12 @@ export const NAIL_DESIGNS: NailDesignItem[] = [
     priceNumeric: 550,
     image: '/images/NAIL9.jpg',
     category: 'Glitter & Glam',
+    inclusions: [
+      'Full set deep-tone base coat',
+      'Micro-glitter constellation detailing',
+      'Nail prep & edge filing',
+      'Ultra-durable gel seal'
+    ],
     isFeatured: false,
   },
   {
@@ -108,6 +170,12 @@ export const NAIL_DESIGNS: NailDesignItem[] = [
     priceNumeric: 700,
     image: '/images/NAIL10.jpg',
     category: 'Signature Luxury',
+    inclusions: [
+      'Full set signature luxury prep',
+      'Bespoke multi-technique nail art',
+      'Premium crystal & foil detailing',
+      'Luxury gel top coat finish'
+    ],
     isFeatured: true,
   },
 ];
