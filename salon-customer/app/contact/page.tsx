@@ -162,7 +162,7 @@ export default function ContactPage() {
             </div>
 
             {/* RIGHT: HAVE A QUESTION? FORM (~60% OPEN & MINIMAL MATCHING REFERENCE) */}
-            <div className="lg:col-span-7 flex flex-col justify-between pt-1">
+            <div className="lg:col-span-7 flex flex-col justify-between h-full pt-1">
               <div>
                 <h2 className="font-sans text-2xl sm:text-[30px] text-zinc-950 font-medium mb-2 tracking-normal">
                   Have a Question?
@@ -171,100 +171,100 @@ export default function ContactPage() {
                 <div className="h-px w-full bg-zinc-200/80 my-3.5" />
 
                 {/* Business Hours Banner */}
-                <p className="text-xs sm:text-sm text-zinc-700 mb-6 font-normal">
+                <p className="text-xs sm:text-sm text-zinc-700 mb-5 lg:mb-6 font-normal">
                   <span className="font-medium text-pink-500">Business Hours:</span>{' '}
                   <span className="text-zinc-800"><span className="font-medium text-zinc-900">Mon – Fri:</span> 08.00 AM To 09.00 PM &nbsp;<span className="font-medium text-zinc-900">Sat:</span> 09.00 AM To 06.00 PM</span>
                 </p>
+              </div>
 
-                {sent ? (
-                  <div className="flex flex-col items-center justify-center text-center py-12">
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-950 text-white">
-                      <Check size={20} strokeWidth={2} />
-                    </div>
-                    <h3 className="font-sans text-2xl text-zinc-950 font-medium mb-2">Message Received</h3>
-                    <p className="text-sm text-zinc-600 mb-6 max-w-sm font-normal">
-                      Thank you for contacting Candy & Rose. We have received your inquiry and will get back to you shortly.
-                    </p>
-                    <button 
-                      onClick={() => setSent(false)} 
-                      className="text-xs font-medium uppercase tracking-widest text-zinc-950 hover:text-pink-500 transition-colors border-b border-zinc-950 hover:border-pink-500 pb-0.5"
-                    >
-                      Send Another Message
-                    </button>
+              {sent ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center py-12">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-950 text-white">
+                    <Check size={20} strokeWidth={2} />
                   </div>
-                ) : (
-                  <form onSubmit={submit} className="space-y-5">
-                    {/* Row 1: Name & Email */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                      <div>
-                        <input 
-                          type="text"
-                          required 
-                          placeholder="Your Name"
-                          value={fullName} 
-                          onChange={(e) => setFullName(e.target.value)} 
-                          className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors shadow-none"
-                        />
-                      </div>
-                      <div>
-                        <input 
-                          type="email"
-                          required 
-                          placeholder="Email"
-                          value={email} 
-                          onChange={(e) => setEmail(e.target.value)} 
-                          className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors shadow-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Row 2: Service & Phone */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                      <div>
-                        <input 
-                          type="text"
-                          placeholder="What Service You Want?"
-                          value={service} 
-                          onChange={(e) => setService(e.target.value)} 
-                          className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors shadow-none"
-                        />
-                      </div>
-                      <div>
-                        <input 
-                          type="tel"
-                          placeholder="Phone"
-                          value={phone} 
-                          onChange={(e) => setPhone(e.target.value)} 
-                          className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors shadow-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Row 3: Message */}
+                  <h3 className="font-sans text-2xl text-zinc-950 font-medium mb-2">Message Received</h3>
+                  <p className="text-sm text-zinc-600 mb-6 max-w-sm font-normal">
+                    Thank you for contacting Candy & Rose. We have received your inquiry and will get back to you shortly.
+                  </p>
+                  <button 
+                    onClick={() => setSent(false)} 
+                    className="text-xs font-medium uppercase tracking-widest text-zinc-950 hover:text-pink-500 transition-colors border-b border-zinc-950 hover:border-pink-500 pb-0.5"
+                  >
+                    Send Another Message
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={submit} className="flex-1 flex flex-col justify-between space-y-4 sm:space-y-5 lg:space-y-6">
+                  {/* Row 1: Name & Email */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                     <div>
-                      <textarea 
+                      <input 
+                        type="text"
                         required 
-                        rows={4}
-                        placeholder="Message"
-                        value={message} 
-                        onChange={(e) => setMessage(e.target.value)} 
-                        className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors resize-none shadow-none"
+                        placeholder="Your Name"
+                        value={fullName} 
+                        onChange={(e) => setFullName(e.target.value)} 
+                        className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors shadow-none"
                       />
                     </div>
-
-                    {/* Row 4: Submit Button */}
-                    <div className="pt-1">
-                      <button 
-                        type="submit"
-                        disabled={busy} 
-                        className="inline-flex items-center justify-center rounded-none bg-zinc-950 px-9 py-3 text-sm font-medium text-white transition-all duration-300 hover:bg-pink-500 disabled:opacity-60"
-                      >
-                        {busy ? 'Sending...' : 'Send'}
-                      </button>
+                    <div>
+                      <input 
+                        type="email"
+                        required 
+                        placeholder="Email"
+                        value={email} 
+                        onChange={(e) => setEmail(e.target.value)} 
+                        className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors shadow-none"
+                      />
                     </div>
-                  </form>
-                )}
-              </div>
+                  </div>
+
+                  {/* Row 2: Service & Phone */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                    <div>
+                      <input 
+                        type="text"
+                        placeholder="What Service You Want?"
+                        value={service} 
+                        onChange={(e) => setService(e.target.value)} 
+                        className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors shadow-none"
+                      />
+                    </div>
+                    <div>
+                      <input 
+                        type="tel"
+                        placeholder="Phone"
+                        value={phone} 
+                        onChange={(e) => setPhone(e.target.value)} 
+                        className="w-full bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors shadow-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 3: Message */}
+                  <div className="flex-1 flex flex-col min-h-[120px]">
+                    <textarea 
+                      required 
+                      rows={4}
+                      placeholder="Message"
+                      value={message} 
+                      onChange={(e) => setMessage(e.target.value)} 
+                      className="w-full flex-1 bg-white border border-zinc-200/90 rounded-none px-4 py-3 text-sm font-normal text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-pink-400 transition-colors resize-none shadow-none"
+                    />
+                  </div>
+
+                  {/* Row 4: Submit Button */}
+                  <div className="pt-1">
+                    <button 
+                      type="submit"
+                      disabled={busy} 
+                      className="inline-flex items-center justify-center rounded-none bg-zinc-950 px-9 py-3 text-sm font-medium text-white transition-all duration-300 hover:bg-pink-500 disabled:opacity-60"
+                    >
+                      {busy ? 'Sending...' : 'Send'}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
 
           </div>

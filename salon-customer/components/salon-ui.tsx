@@ -225,12 +225,13 @@ export function Header({ onBook }: { onBook: () => void }) {
           )}
           {!user && (
             <div className="flex items-center gap-2">
-              <Link
-                href="/login"
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-auth'))}
                 className="text-xs font-bold uppercase tracking-wider px-6 py-2.5 rounded-lg transition-all cursor-pointer bg-[#111111] hover:bg-black text-white shadow-sm"
               >
                 Login
-              </Link>
+              </button>
             </div>
           )}
 
@@ -288,12 +289,16 @@ export function Header({ onBook }: { onBook: () => void }) {
               </div>
             ) : (
               <div className="mt-4 flex flex-col gap-2 pt-4 border-t border-zinc-100">
-                <Link
-                  href="/login"
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-pink-500 py-3 text-xs font-bold uppercase tracking-widest text-white hover:bg-pink-600 transition-all shadow-sm"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    window.dispatchEvent(new CustomEvent('open-auth'));
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-pink-500 py-3 text-xs font-bold uppercase tracking-widest text-white hover:bg-pink-600 transition-all shadow-sm cursor-pointer"
                 >
                   Login / Register
-                </Link>
+                </button>
               </div>
             )}
           </nav>
@@ -564,12 +569,29 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
+
   if (!open) return null;
 
   const handleClose = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setStep('form');
     onClose();
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
   };
 
   const submit = async (event: FormEvent) => {
@@ -634,7 +656,10 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
   // Compact Registration Success Message Modal
   if (step === 'regSuccess') {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in">
+      <div 
+        onClick={handleBackdropClick}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in"
+      >
         <div className="relative w-[90%] max-w-[440px] my-auto rounded-3xl bg-white p-8 sm:p-10 shadow-2xl animate-scale-in text-center flex flex-col items-center">
           <div className="h-16 w-16 rounded-full bg-pink-50 border border-pink-200 flex items-center justify-center mb-5 shadow-sm">
             <Check size={32} className="text-[#E61E73]" />
@@ -653,7 +678,10 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
   // Enhanced Welcome Message Modal
   if (step === 'welcome') {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4 sm:p-6 backdrop-blur-[5px] overflow-y-auto animate-fade-in">
+      <div 
+        onClick={handleBackdropClick}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in"
+      >
         <div className="relative w-[90%] max-w-[500px] my-auto rounded-[32px] bg-white p-8 sm:p-12 md:p-14 shadow-[0_20px_60px_rgba(0,0,0,0.18)] animate-scale-in text-center flex flex-col items-center">
           <h2 className="font-sans text-2xl sm:text-3xl lg:text-[34px] font-medium text-[#231F20] tracking-tight leading-[1.25]">
             Welcome to Candy and<br />
@@ -678,12 +706,15 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
 
   // Standard 2-Column Split Screen Login & Registration Form Modal
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto">
+    <div 
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto"
+    >
       {/* Primary Floating Modal Container */}
-      <div className="relative w-full max-w-[1080px] my-auto rounded-3xl overflow-hidden shadow-2xl animate-scale-in">
-        <div className="grid md:grid-cols-2 min-h-[580px] md:min-h-[620px]">
+      <div className="relative w-full max-w-[980px] my-auto rounded-3xl overflow-hidden bg-white shadow-2xl animate-scale-in">
+        <div className="grid md:grid-cols-2 min-h-[540px] md:min-h-[580px]">
           {/* Left Column: Image with Overlay */}
-          <div className="relative min-h-[280px] md:min-h-[620px] bg-zinc-950 flex flex-col justify-end p-8 sm:p-12 md:p-14 overflow-hidden">
+          <div className="relative min-h-[260px] md:min-h-[580px] bg-zinc-950 flex flex-col justify-end p-8 sm:p-10 lg:p-12 overflow-hidden">
             <img
               src={mode === 'login' ? '/images/login-img.jpg' : '/images/login-customer.jpg'}
               alt="Candy & Rose Beauty Experience"
@@ -698,28 +729,28 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                 care and attention<br />
                 they deserve.
               </h2>
-              <p className="mt-5 text-xs sm:text-sm font-light tracking-wide text-zinc-200/90 drop-shadow">
+              <p className="mt-4 text-xs sm:text-sm font-light tracking-wide text-zinc-200/90 drop-shadow">
                 Where Tranquility Meets Transformation.
               </p>
             </div>
           </div>
 
           {/* Right Column: Refined White Form Panel */}
-          <div className="relative bg-[#FCFBF9] p-8 sm:p-10 md:p-12 lg:p-14 flex flex-col justify-center text-zinc-900">
+          <div className="relative bg-white p-7 sm:p-9 lg:p-11 flex flex-col justify-center text-zinc-900">
             {/* Minimal X Close Button inside top-right corner */}
             <button 
               onClick={handleClose} 
-              className="absolute top-6 right-7 text-[#77727A] hover:text-[#E61E73] transition-colors p-1 cursor-pointer z-20"
+              className="absolute top-5 right-6 text-zinc-400 hover:text-[#E61E73] transition-colors p-1 cursor-pointer z-20"
               aria-label="Close modal"
             >
-              <X size={21} />
+              <X size={20} />
             </button>
 
-            <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col justify-center">
-              <h2 className="font-sans text-2xl sm:text-3xl lg:text-[2rem] font-medium text-[#231F20] tracking-tight mb-2">
+            <div className="max-w-[400px] w-full mx-auto my-auto flex flex-col justify-center">
+              <h2 className="font-sans text-2xl sm:text-3xl font-medium text-[#231F20] tracking-tight mb-2">
                 {mode === 'login' ? 'Login' : 'Register'}
               </h2>
-              <p className="text-xs sm:text-[14px] text-[#77727A] font-normal leading-relaxed mb-6">
+              <p className="text-xs sm:text-sm text-[#77727A] font-normal leading-relaxed mb-6">
                 {mode === 'login'
                   ? "Welcome back, we are glad you're feeling beautiful today. Login to continue"
                   : "Welcome to Candy & Rose Beauty Salon, we hope your stay with us feel as bright as the morning sun."
@@ -845,7 +876,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                     disabled={busy}
                     className={
                       mode === 'login'
-                        ? "w-[calc(100%+16px)] -ml-[8px] h-[56px] sm:h-[60px] rounded-lg bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-md"
+                        ? "w-full h-[50px] sm:h-[52px] rounded-xl bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
                         : "w-full h-[50px] sm:h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
                     }
                   >
@@ -859,8 +890,9 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                   <>
                     Don&apos;t have an account?{' '}
                     <button
+                      type="button"
                       onClick={() => { setMode('register'); setError(''); }}
-                      className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors cursor-pointer"
+                      className="text-[#E61E73] hover:text-[#D91868] font-bold transition-colors cursor-pointer"
                     >
                       Register
                     </button>
@@ -869,8 +901,9 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                   <>
                     Already have an account?{' '}
                     <button
+                      type="button"
                       onClick={() => { setMode('login'); setError(''); }}
-                      className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors cursor-pointer"
+                      className="text-[#E61E73] hover:text-[#D91868] font-bold transition-colors cursor-pointer"
                     >
                       Login
                     </button>

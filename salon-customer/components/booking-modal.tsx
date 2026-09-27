@@ -233,48 +233,62 @@ export function BookingModal({
     }
     setSubmitting(true);
     try {
-      let customerId: string | null = customer?.id || null;
-      const normalizedEmail = customerEmail.trim().toLowerCase();
+      // 1. Get authenticated Supabase user
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const currentUser = authUser || user;
 
-      if (!customerId && user?.id) {
-        const { data: custByUid } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        if (custByUid) customerId = custByUid.id;
+      if (!currentUser) {
+        setErrorMsg('Please log in to complete your booking.');
+        setSubmitting(false);
+        return;
       }
 
-      if (!customerId && normalizedEmail) {
+      // 2. Fetch customer record using user_id
+      let customerRecord: { id: string; user_id?: string; name?: string; full_name?: string; email?: string; phone?: string } | null = null;
+
+      const { data: custByUid, error: custErr } = await supabase
+        .from('customers')
+        .select('id, user_id, name, full_name, email, phone')
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+
+      if (custByUid) {
+        customerRecord = custByUid;
+      } else if (currentUser.email) {
+        // Fallback: check by email if user_id was not populated yet
         const { data: custByEmail } = await supabase
           .from('customers')
-          .select('id')
-          .ilike('email', normalizedEmail)
+          .select('id, user_id, name, full_name, email, phone')
+          .ilike('email', currentUser.email.trim().toLowerCase())
           .order('created_at', { ascending: false })
           .limit(1);
-        if (custByEmail && custByEmail.length > 0) customerId = custByEmail[0].id;
+
+        if (custByEmail && custByEmail.length > 0) {
+          customerRecord = custByEmail[0];
+          if (!customerRecord.user_id) {
+            await supabase
+              .from('customers')
+              .update({ user_id: currentUser.id })
+              .eq('id', customerRecord.id);
+            customerRecord.user_id = currentUser.id;
+          }
+        }
       }
 
-      if (customerId) {
+      // 3. If customer profile not found, display clear error
+      if (!customerRecord || !customerRecord.id) {
+        setErrorMsg('Customer profile could not be found. Please re-login or register.');
+        setSubmitting(false);
+        return;
+      }
+
+      // Update phone/name on existing customer record if updated in form
+      if (customerName.trim() || customerPhone.trim()) {
         await supabase.from('customers').update({
-          name: customerName.trim(),
-          full_name: customerName.trim(),
-          phone: customerPhone.trim() || null,
-          user_id: user?.id || null,
-        }).eq('id', customerId);
-      } else {
-        const { data: newCust, error: custErr } = await supabase
-          .from('customers')
-          .insert({
-            user_id: user?.id || null,
-            name: customerName.trim(),
-            full_name: customerName.trim(),
-            email: normalizedEmail,
-            phone: customerPhone.trim() || null,
-            status: 'Active',
-            membership_type: 'New'
-          }).select().single();
-        if (!custErr && newCust) customerId = newCust.id;
+          name: customerName.trim() || customerRecord.name || customerRecord.full_name,
+          full_name: customerName.trim() || customerRecord.full_name || customerRecord.name,
+          phone: customerPhone.trim() || customerRecord.phone || null,
+        }).eq('id', customerRecord.id);
       }
 
       const formattedTimeForDb = formatTimeForDB(selectedTime);
@@ -284,12 +298,19 @@ export function BookingModal({
         ? `${customerNotes.trim() ? customerNotes.trim() + ' | ' : ''}Selected Design: ${selectedDesign.name} (${selectedDesign.id})`
         : (customerNotes.trim() || null);
 
+      // Validate UUID format helper
+      const isValidUUID = (str: string | null | undefined) =>
+        !!str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+      const validServiceId = isValidUUID(primaryService?.id) ? primaryService?.id : null;
+      const validStaffId = isValidUUID(assignedStaffId) ? assignedStaffId : null;
+
       const appointmentPayload = {
-        customer_id: customerId,
-        customer_name: customerName.trim(),
-        service_id: primaryService?.id || null,
+        customer_id: customerRecord.id, // Insert actual UUID from customers.id
+        customer_name: customerName.trim() || customerRecord.full_name || customerRecord.name || 'Customer',
+        service_id: validServiceId,
         service_name: serviceNames,
-        staff_id: assignedStaffId,
+        staff_id: validStaffId,
         staff_name: assignedStaffName,
         appointment_date: selectedDate,
         appointment_time: formattedTimeForDb,
