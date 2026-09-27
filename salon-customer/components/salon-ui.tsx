@@ -640,10 +640,10 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
   const [step, setStep] = useState<'form' | 'regSuccess' | 'welcome'>('form');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -685,12 +685,12 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
         setError('Please enter a valid email address.');
         return;
       }
-      if (!address.trim()) {
-        setError('Please enter your address.');
-        return;
-      }
       if (!password || password.length < 6) {
         setError('Password must be at least 6 characters long.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.');
         return;
       }
     }
@@ -699,14 +699,13 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
 
     try {
       if (mode === 'register') {
-        const result = await signUp(email, password, name, phone, address);
+        const result = await signUp(email, password, name);
         if (result.error) {
           setError(result.error);
         } else {
           setName('');
-          setPhone('');
-          setAddress('');
           setPassword('');
+          setConfirmPassword('');
           setStep('regSuccess');
 
           timerRef.current = setTimeout(() => {
@@ -721,8 +720,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
         } else {
           setName('');
           setPassword('');
-          setPhone('');
-          setAddress('');
+          setConfirmPassword('');
           setStep('welcome');
         }
       }
@@ -873,46 +871,6 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                   </div>
                 </div>
 
-                {mode === 'register' && (
-                  <>
-                    <div className="space-y-1">
-                      <label htmlFor="auth-modal-phone" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                        Phone Number
-                      </label>
-                      <div className="relative group">
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                        <input
-                          id="auth-modal-phone"
-                          type="tel"
-                          maxLength={11}
-                          placeholder="09123456789"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                          className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label htmlFor="auth-modal-address" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                        Address *
-                      </label>
-                      <div className="relative group">
-                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                        <input
-                          id="auth-modal-address"
-                          type="text"
-                          required
-                          placeholder="Enter your address"
-                          value={address}
-                          onChange={(e) => setAddress(e.target.value)}
-                          className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-
                 <div className="space-y-1">
                   <label htmlFor="auth-modal-password" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
                     Password *
@@ -938,6 +896,34 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                     </button>
                   </div>
                 </div>
+
+                {mode === 'register' && (
+                  <div className="space-y-1">
+                    <label htmlFor="auth-modal-confirm-password" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
+                      Confirm Password *
+                    </label>
+                    <div className="relative group">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                      <input
+                        id="auth-modal-confirm-password"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        placeholder="Confirm your password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {mode === 'login' && (
                   <div className="flex items-center pt-0.5">

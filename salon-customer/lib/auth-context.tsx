@@ -203,9 +203,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!normalizedEmail || !normalizedEmail.includes('@')) {
       return { error: 'Please enter a valid email address.' };
     }
-    if (!trimmedAddress) {
-      return { error: 'Please enter your address.' };
-    }
     if (!password || password.length < 6) {
       return { error: 'Password must be at least 6 characters long.' };
     }

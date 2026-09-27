@@ -3,7 +3,7 @@
 import { FormEvent, useState, useRef, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { User, Mail, Phone, MapPin, Lock, Eye, EyeOff, Check } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, Check } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
 function RegisterFormContent() {
@@ -15,10 +15,10 @@ function RegisterFormContent() {
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [regSuccess, setRegSuccess] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -42,19 +42,19 @@ function RegisterFormContent() {
       setError('Please enter a valid email address.');
       return;
     }
-    if (!address.trim()) {
-      setError('Please enter your address.');
-      return;
-    }
     if (!password || password.length < 6) {
       setError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
       return;
     }
 
     setBusy(true);
 
     try {
-      const result = await signUp(email, password, name, phone, address);
+      const result = await signUp(email, password, name);
       if (result.error) {
         setError(result.error);
       } else {
@@ -184,42 +184,6 @@ function RegisterFormContent() {
                     </div>
 
                     <div className="space-y-1">
-                      <label htmlFor="register-phone" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                        Phone Number
-                      </label>
-                      <div className="relative group">
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                        <input
-                          id="register-phone"
-                          type="tel"
-                          maxLength={11}
-                          placeholder="09123456789"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                          className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label htmlFor="register-address" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                        Address *
-                      </label>
-                      <div className="relative group">
-                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                        <input
-                          id="register-address"
-                          type="text"
-                          required
-                          placeholder="Enter your address"
-                          value={address}
-                          onChange={(e) => setAddress(e.target.value)}
-                          className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
                       <label htmlFor="register-password" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
                         Password *
                       </label>
@@ -241,6 +205,32 @@ function RegisterFormContent() {
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
                         >
                           {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label htmlFor="register-confirm-password" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
+                        Confirm Password *
+                      </label>
+                      <div className="relative group">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                        <input
+                          id="register-confirm-password"
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          required
+                          placeholder="Confirm your password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
+                        >
+                          {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
                       </div>
                     </div>
