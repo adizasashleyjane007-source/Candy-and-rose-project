@@ -1,13 +1,16 @@
 'use client';
 
-import { FormEvent, useState, useRef, useEffect } from 'react';
+import { FormEvent, useState, useRef, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { User, Mail, Phone, MapPin, Lock, Eye, EyeOff, Check } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
-export default function RegisterPage() {
+function RegisterFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get('returnTo');
+
   const { signUp } = useAuth();
   
   const [name, setName] = useState('');
@@ -57,7 +60,8 @@ export default function RegisterPage() {
       } else {
         setRegSuccess(true);
         timerRef.current = setTimeout(() => {
-          router.push('/login');
+          const targetLogin = returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login';
+          router.push(targetLogin);
         }, 1500);
       }
     } catch (err: any) {
@@ -66,6 +70,8 @@ export default function RegisterPage() {
       setBusy(false);
     }
   };
+
+  const loginHref = returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login';
 
   return (
     <main className="min-h-screen bg-[#181818] font-sans flex flex-col items-center justify-center p-4 sm:p-6 md:p-10">
@@ -118,9 +124,12 @@ export default function RegisterPage() {
                   <div className="h-16 w-16 rounded-full bg-pink-50 border border-pink-200 flex items-center justify-center mb-5 shadow-sm">
                     <Check size={32} className="text-[#E61E73]" />
                   </div>
-                  <h3 className="font-sans text-xl sm:text-2xl font-medium text-[#231F20] tracking-tight">
+                  <h3 className="font-sans text-xl sm:text-2xl font-medium text-[#231F20] tracking-tight mb-2">
                     Your registration was successful.
                   </h3>
+                  <p className="text-xs sm:text-sm text-[#77727A]">
+                    Redirecting you to the login page...
+                  </p>
                 </div>
               ) : (
                 <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col justify-center">
@@ -249,7 +258,7 @@ export default function RegisterPage() {
 
                   <div className="mt-6 text-center text-xs sm:text-[13.5px] text-[#77727A]">
                     Already have an account?{' '}
-                    <Link href="/login" className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors">
+                    <Link href={loginHref} className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors">
                       Login
                     </Link>
                   </div>
@@ -260,5 +269,13 @@ export default function RegisterPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#181818] flex items-center justify-center text-zinc-400">Loading...</div>}>
+      <RegisterFormContent />
+    </Suspense>
   );
 }

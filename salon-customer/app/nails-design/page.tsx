@@ -1,6 +1,5 @@
 'use client';
 import SalonLayout from '@/components/salon-layout';
-import Image from 'next/image';
 import { NAIL_DESIGNS } from '@/lib/nail-designs';
 
 export default function NailsDesignPage() {
@@ -30,11 +29,10 @@ export default function NailsDesignPage() {
                 className="group flex flex-col items-center text-center bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 border border-zinc-100 hover:-translate-y-1"
               >
                 <div className="relative w-full aspect-square overflow-hidden rounded-2xl mb-5 bg-zinc-50">
-                  <Image 
+                  <img 
                     src={design.image} 
                     alt={design.name}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
                 </div>

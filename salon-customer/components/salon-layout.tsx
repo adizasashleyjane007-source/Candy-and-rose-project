@@ -1,10 +1,10 @@
 'use client';
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState, useCallback } from 'react';
 import { PageShell, BookingLauncher, AuthModal } from './salon-ui';
 import { BookingModal } from './booking-modal';
 import { useAuth } from '@/lib/auth-context';
-import type { Service } from '@/lib/supabase';
+import { supabase, type Service } from '@/lib/supabase';
 import type { NailDesignItem } from '@/lib/nail-designs';
 
 export default function SalonLayout({ children }: { children: ReactNode }) {
@@ -15,47 +15,47 @@ export default function SalonLayout({ children }: { children: ReactNode }) {
   const [selectedDesign, setSelectedDesign] = useState<NailDesignItem | null>(null);
   const [pendingBookingAttempt, setPendingBookingAttempt] = useState(false);
 
+  // Unified Authenticated Booking Trigger
+  const handleBookingRequest = useCallback(async (services?: Service[], design?: NailDesignItem | null) => {
+    const targetServices = services || [];
+    const targetDesign = design || null;
+
+    setPreselectedServices(targetServices);
+    setSelectedDesign(targetDesign);
+
+    // 1. Verify active Supabase session
+    const { data: { session } } = await supabase.auth.getSession();
+    const isAuthenticated = !!(session?.user || user);
+
+    if (!isAuthenticated) {
+      setPendingBookingAttempt(true);
+      setAuthOpen(true);
+      return;
+    }
+
+    // 2. Authenticated: continue directly to BookingModal
+    setBookingModalOpen(true);
+  }, [user]);
+
   useEffect(() => {
-    const handleOpenBook = (event?: Event) => {
+    const handleOpenBookEvent = (event?: Event) => {
       const customEvent = event as CustomEvent<{ services?: Service[]; design?: NailDesignItem | null }>;
       const services = customEvent?.detail?.services || [];
       const design = customEvent?.detail?.design || null;
-
-      if (services.length > 0) {
-        setPreselectedServices(services);
-      } else {
-        setPreselectedServices([]);
-      }
-
-      setSelectedDesign(design);
-      setBookingModalOpen(true);
+      handleBookingRequest(services, design);
     };
 
-    const handleOpenAuth = () => {
+    const handleOpenAuthEvent = () => {
       setAuthOpen(true);
     };
 
-    window.addEventListener('open-book', handleOpenBook);
-    window.addEventListener('open-auth', handleOpenAuth);
+    window.addEventListener('open-book', handleOpenBookEvent);
+    window.addEventListener('open-auth', handleOpenAuthEvent);
     return () => {
-      window.removeEventListener('open-book', handleOpenBook);
-      window.removeEventListener('open-auth', handleOpenAuth);
+      window.removeEventListener('open-book', handleOpenBookEvent);
+      window.removeEventListener('open-auth', handleOpenAuthEvent);
     };
-  }, [user]);
-
-  const openBookModal = (services?: Service[], design?: NailDesignItem | null) => {
-    if (services && services.length > 0) {
-      setPreselectedServices(services);
-    } else {
-      setPreselectedServices([]);
-    }
-    if (design) {
-      setSelectedDesign(design);
-    } else {
-      setSelectedDesign(null);
-    }
-    setBookingModalOpen(true);
-  };
+  }, [handleBookingRequest]);
 
   const handleAuthClose = () => {
     setAuthOpen(false);
@@ -64,13 +64,16 @@ export default function SalonLayout({ children }: { children: ReactNode }) {
 
   const handleAuthSuccess = () => {
     setAuthOpen(false);
-    setBookingModalOpen(true);
+    if (pendingBookingAttempt) {
+      setBookingModalOpen(true);
+      setPendingBookingAttempt(false);
+    }
   };
 
   return (
     <>
-      <PageShell onBook={() => openBookModal()}>{children}</PageShell>
-      <BookingLauncher onBook={() => openBookModal()} />
+      <PageShell onBook={() => handleBookingRequest()}>{children}</PageShell>
+      <BookingLauncher onBook={() => handleBookingRequest()} />
       <AuthModal
         open={authOpen}
         onClose={handleAuthClose}

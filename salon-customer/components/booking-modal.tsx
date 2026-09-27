@@ -55,7 +55,7 @@ export function BookingModal({
   selectedDesign,
   onBookingSuccess
 }: BookingModalProps) {
-  const { user, profile } = useAuth();
+  const { user, profile, customer } = useAuth();
   const [staffList, setStaffList] = useState<Staff[]>([]);
 
   // Current calendar view
@@ -94,13 +94,16 @@ export function BookingModal({
   }, [open]);
 
   useEffect(() => {
-    if (user || profile) {
-      if (profile?.full_name || profile?.name) setCustomerName(profile.full_name || profile.name || '');
-      else if (user?.email) setCustomerName(user.email.split('@')[0]);
-      if (user?.email) setCustomerEmail(user.email);
-      if (profile?.phone) setCustomerPhone(profile.phone);
+    if (user || profile || customer) {
+      if (customer?.full_name || customer?.name) setCustomerName(customer.full_name || customer.name || '');
+      else if (profile?.full_name || profile?.name) setCustomerName(profile.full_name || profile.name || '');
+      else if (user?.email) setCustomerName(user.email.split('@')[0] || '');
+
+      if (customer?.email || user?.email) setCustomerEmail(customer?.email || user?.email || '');
+      if (customer?.phone) setCustomerPhone(customer.phone || '');
+      else if (profile?.phone) setCustomerPhone(profile.phone || '');
     }
-  }, [user, profile, open]);
+  }, [user, profile, customer, open]);
 
   if (!open) return null;
 

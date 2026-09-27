@@ -1,13 +1,17 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
-export default function LoginPage() {
+function LoginFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get('returnTo');
+  const book = searchParams.get('book');
+
   const { signIn } = useAuth();
   
   const [email, setEmail] = useState('');
@@ -38,11 +42,22 @@ export default function LoginPage() {
   };
 
   const handleContinue = () => {
-    router.push('/services');
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('open-book'));
-    }, 100);
+    if (returnTo) {
+      router.push(returnTo);
+    } else if (book === 'true') {
+      router.push('/services');
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('open-book'));
+      }, 100);
+    } else {
+      router.push('/services');
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('open-book'));
+      }, 100);
+    }
   };
+
+  const registerHref = returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : '/register';
 
   return (
     <main className="min-h-screen bg-[#181818] font-sans flex flex-col items-center justify-center p-4 sm:p-6 md:p-10">
@@ -97,7 +112,7 @@ export default function LoginPage() {
                     Rose Salon
                   </h2>
                   <p className="mt-3 mb-8 text-sm text-[#77727A] font-normal">
-                    Continue your booking
+                    {returnTo ? 'Continue to your destination' : 'Continue your booking'}
                   </p>
                   <button
                     onClick={handleContinue}
@@ -191,7 +206,7 @@ export default function LoginPage() {
 
                   <div className="mt-7 text-center text-xs sm:text-[13.5px] text-[#77727A]">
                     Don&apos;t have an account?{' '}
-                    <Link href="/register" className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors">
+                    <Link href={registerHref} className="text-[#E61E73] hover:text-[#D91868] font-semibold transition-colors">
                       Register
                     </Link>
                   </div>
@@ -202,5 +217,13 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#181818] flex items-center justify-center text-zinc-400">Loading...</div>}>
+      <LoginFormContent />
+    </Suspense>
   );
 }
