@@ -16,8 +16,6 @@ export const headerNavItems: { label: string; href: string }[] = [
   { label: 'Services', href: '/services' },
   { label: 'Nails Design', href: '/nails-design' },
   { label: 'Promo', href: '/packages' },
-  { label: 'Gallery', href: '/gallery' },
-  { label: 'Testimonials', href: '/testimonials' },
   { label: 'Contact', href: '/contact' },
 ];
 
@@ -33,7 +31,7 @@ export const footerNavItems: { label: string; href: string }[] = [
 export function Logo({ light = false }: { light?: boolean }) {
   return (
     <Link href="/" aria-label="Candy and Rose Salon home" className="flex items-center shrink-0 group py-1">
-      <span className="font-brand text-2xl sm:text-3xl lg:text-[2.25rem] font-medium tracking-tight text-zinc-950 group-hover:text-pink-600 transition-all duration-300">
+      <span className={`font-brand text-2xl sm:text-3xl lg:text-[2.25rem] font-medium tracking-tight group-hover:text-pink-600 transition-all duration-300 ${light ? 'text-white' : 'text-zinc-950'}`}>
         Candy <span className="font-brand italic font-normal text-pink-500 text-2xl sm:text-3xl lg:text-[2.35rem] mx-0.5">&amp;</span> Rose
       </span>
     </Link>
@@ -441,7 +439,7 @@ export function Footer() {
             <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-full bg-zinc-900 flex items-center justify-center hover:bg-pink-600 hover:text-white transition-colors">
               <Instagram size={16} />
             </a>
-            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-full bg-zinc-900 flex items-center justify-center hover:bg-pink-600 hover:text-white transition-colors">
+            <a href="https://www.facebook.com/profile.php?id=61576903201744" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-full bg-zinc-900 flex items-center justify-center hover:bg-pink-600 hover:text-white transition-colors" aria-label="Candy & Rose Facebook">
               <Facebook size={16} />
             </a>
             <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-full bg-zinc-900 flex items-center justify-center hover:bg-pink-600 hover:text-white transition-colors">
@@ -471,11 +469,11 @@ export function Footer() {
         <div>
           <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-pink-400">Our Services</p>
           <ul className="space-y-3 text-xs text-zinc-400 font-medium">
-            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Hair Styling & Cuts</Link></li>
-            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Bridal & Party Makeup</Link></li>
-            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Skin Care & Facials</Link></li>
-            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Artisan Nail Art</Link></li>
-            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Hair Color & Balayage</Link></li>
+            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Haircut &amp; Styling</Link></li>
+            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Hair Care</Link></li>
+            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Treatments &amp; Services</Link></li>
+            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Nail Art</Link></li>
+            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Additional Services</Link></li>
           </ul>
         </div>
 

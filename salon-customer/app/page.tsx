@@ -58,16 +58,16 @@ const FEATURED_NAIL_IMAGES = [
 ];
 
 const HOMEPAGE_GALLERY_IMAGES = [
-  { id: 'gal1', src: '/images/gal1.jpg', title: 'Signature Transformation', category: 'Total Beauty' },
-  { id: 'hair1', src: '/images/HAIR1.jpg', title: 'Sunlit Balayage', category: 'Hair Artistry' },
-  { id: 'makeup1', src: '/images/MAKEUP1.jpg', title: 'Bridal Glamour', category: 'Makeup Artistry' },
-  { id: 'nail1', src: '/images/Nail1.jpg', title: 'Rose Gold Sculpt', category: 'Artisan Nails' },
-  { id: 'makeup2', src: '/images/MAKEUP2.jpg', title: 'Blossom Flush', category: 'Makeup Artistry' },
-  { id: 'nail2', src: '/images/NAIL2.jpg', title: 'Fine-Line French', category: 'Artisan Nails' },
-  { id: 'hair2', src: '/images/HAIR2.jpg', title: 'Silky Brunette Gloss', category: 'Hair Artistry' },
-  { id: 'makeup3', src: '/images/MAKEUP3.jpg', title: 'Smoldering Eye', category: 'Makeup Artistry' },
-  { id: 'nail3', src: '/images/NAIL3.jpg', title: 'Botanical Hand-Art', category: 'Artisan Nails' },
-  { id: 'nail4', src: '/images/NAIL4.jpg', title: 'Velvet Rose Cat-Eye', category: 'Artisan Nails' },
+  { id: 'gal1', src: '/images/gal1.jpg', title: 'Signature Transformation', category: 'Hair Styling' },
+  { id: 'hair1', src: '/images/HAIR1.jpg', title: 'Sunlit Balayage', category: 'Hair Styling' },
+  { id: 'makeup1', src: '/images/MAKEUP1.jpg', title: 'Bridal Glamour', category: 'Makeup' },
+  { id: 'nail1', src: '/images/Nail1.jpg', title: 'Rose Gold Sculpt', category: 'Nail' },
+  { id: 'makeup2', src: '/images/MAKEUP2.jpg', title: 'Blossom Flush', category: 'Makeup' },
+  { id: 'nail2', src: '/images/NAIL2.jpg', title: 'Fine-Line French', category: 'Nail' },
+  { id: 'hair2', src: '/images/HAIR2.jpg', title: 'Silky Brunette Gloss', category: 'Hair Styling' },
+  { id: 'makeup3', src: '/images/MAKEUP3.jpg', title: 'Smoldering Eye', category: 'Makeup' },
+  { id: 'nail3', src: '/images/NAIL3.jpg', title: 'Botanical Hand-Art', category: 'Nail' },
+  { id: 'nail4', src: '/images/NAIL4.jpg', title: 'Velvet Rose Cat-Eye', category: 'Nail' },
 ];
 
 const carouselImages = [
@@ -412,24 +412,22 @@ export default function Home() {
         <section className="relative z-20 py-24 bg-[#FFFBF2] overflow-hidden border-t border-zinc-100">
           <div className="mx-auto max-w-7xl px-6 lg:px-10 mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-50 px-3.5 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-pink-600 border border-pink-200/80 mb-3">
-                <Sparkles size={12} className="text-pink-500 animate-pulse" /> OUR GALLERY
-              </span>
               <h2 className="font-sans text-3xl sm:text-5xl font-medium text-zinc-950 tracking-tight">
-                Visual Inspiration
+                Our Artwork
               </h2>
               <p className="mt-3 text-xs sm:text-sm text-zinc-600 max-w-lg font-normal">
                 Explore a live showcase of our signature hair transformations, makeup artistry, and artisan nail creations.
               </p>
             </div>
 
-            <Link
-              href="/gallery"
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-zinc-950 text-white shadow-md transition-all duration-300 hover:bg-pink-500 hover:scale-105 cursor-pointer self-start sm:self-auto"
-              aria-label="View Full Gallery"
-            >
-              <ArrowRight size={18} />
-            </Link>
+            <div className="shrink-0">
+              <Link
+                href="/gallery"
+                className="inline-flex items-center gap-2 rounded-full bg-zinc-950 hover:bg-pink-500 px-6 py-3 text-xs font-medium uppercase tracking-widest text-white transition-all duration-300 shadow-sm hover:scale-105 cursor-pointer self-start sm:self-auto"
+              >
+                VIEW ALL &rarr;
+              </Link>
+            </div>
           </div>
 
           <div className="gallery-marquee-container w-full overflow-hidden relative group">
@@ -450,13 +448,10 @@ export default function Home() {
                     className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover/card:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/85 via-zinc-950/20 to-transparent" />
-                  <div className="absolute bottom-6 left-6 right-6 text-white z-10">
-                    <span className="text-[10px] font-medium uppercase tracking-widest text-pink-300 bg-pink-950/50 border border-pink-400/20 px-2.5 py-1 rounded-full inline-block mb-2 backdrop-blur-xs">
+                  <div className="absolute bottom-6 left-6 right-6 z-10">
+                    <span className="text-[10px] font-medium uppercase tracking-widest text-pink-300 bg-pink-950/50 border border-pink-400/20 px-2.5 py-1 rounded-full inline-block backdrop-blur-xs">
                       {item.category}
                     </span>
-                    <h3 className="font-sans text-lg sm:text-xl font-medium text-white leading-tight group-hover/card:text-pink-300 transition-colors">
-                      {item.title}
-                    </h3>
                   </div>
                 </Link>
               ))}
