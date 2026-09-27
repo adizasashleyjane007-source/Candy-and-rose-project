@@ -108,15 +108,15 @@ export default function NailPortfolioPage() {
               <p className="text-xs text-zinc-400 font-medium">Loading portfolio nail designs...</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3.5 sm:gap-5 lg:gap-6">
               {designs.map((design, idx) => (
                 <div
                   key={design.id || idx}
                   onClick={() => setSelectedPreviewDesign(design)}
-                  className="group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-white p-5 border border-pink-100/80 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-pink-300/80 cursor-pointer"
+                  className="group flex flex-col justify-between bg-white rounded-xl p-3 sm:p-3.5 border border-zinc-200/70 shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden"
                 >
                   {/* 1. NAIL DESIGN IMAGE */}
-                  <div className="relative aspect-square w-full overflow-hidden rounded-2xl mb-4 bg-pink-50/40">
+                  <div className="relative aspect-square w-full overflow-hidden rounded-lg mb-2.5 bg-pink-50/30">
                     <img
                       src={design.image}
                       alt={design.name}
@@ -128,13 +128,13 @@ export default function NailPortfolioPage() {
                   {/* Content Container */}
                   <div className="flex flex-col flex-1 justify-between">
                     {/* 2. NAIL DESIGN NAME */}
-                    <h3 className="font-serif text-lg sm:text-xl font-medium text-zinc-900 group-hover:text-pink-600 transition-colors leading-snug mb-4">
+                    <h3 className="font-sans text-xs sm:text-sm md:text-base font-semibold text-zinc-900 group-hover:text-pink-600 transition-colors leading-snug line-clamp-1 mb-2">
                       {design.name}
                     </h3>
 
                     {/* 3. PRICE & 4. BOOK BUTTON */}
-                    <div className="pt-3 border-t border-zinc-100 flex items-center justify-between gap-3">
-                      <span className="text-xl sm:text-2xl font-serif font-bold text-pink-600 leading-none">
+                    <div className="pt-2 border-t border-zinc-100 flex items-center justify-between gap-2">
+                      <span className="text-xs sm:text-sm md:text-base font-serif font-bold text-pink-600 leading-none">
                         {design.price}
                       </span>
 
@@ -143,7 +143,7 @@ export default function NailPortfolioPage() {
                           e.stopPropagation();
                           handleBookDesign(design);
                         }}
-                        className="px-6 py-2.5 rounded-full bg-pink-600 hover:bg-zinc-950 text-white text-xs font-bold uppercase tracking-widest transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer shrink-0"
+                        className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-pink-600 hover:bg-zinc-950 text-white text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0"
                       >
                         BOOK
                       </button>

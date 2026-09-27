@@ -91,32 +91,32 @@ export default function NailsDesignPage() {
       <main className="nails-design-page bg-[#FAF8F5] text-zinc-900 font-sans min-h-screen pt-24 sm:pt-28 pb-20 overflow-x-hidden">
         
         {/* Header Section */}
-        <section className="mx-auto max-w-7xl px-6 lg:px-10 mb-10 text-center">
-          <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl text-zinc-950 font-medium mb-3 animate-slide-up">
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 mb-8 sm:mb-10 text-center">
+          <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl text-zinc-950 font-medium mb-3 animate-slide-up">
             Nails <span className="italic text-pink-600 font-normal">Design</span>
           </h1>
-          <p className="max-w-2xl mx-auto text-zinc-500 text-sm sm:text-base leading-relaxed">
+          <p className="max-w-2xl mx-auto text-zinc-500 text-xs sm:text-base leading-relaxed">
             Browse our curated collection of luxury nail art. From minimalist elegance to bold crystal embellishments, find the perfect design to express your unique style.
           </p>
         </section>
 
-        {/* Gallery Grid */}
-        <section className="mx-auto max-w-7xl px-6 lg:px-10 mb-20">
+        {/* Gallery Grid — Compact 4-Column Product Grid Layout */}
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 mb-20">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20">
               <Loader2 className="w-10 h-10 animate-spin text-pink-600 mb-3" />
               <p className="text-xs text-zinc-400 font-medium">Loading published nail designs...</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3.5 sm:gap-5 lg:gap-6">
               {designs.map((design, idx) => (
                 <div 
                   key={design.id || idx} 
                   onClick={() => setSelectedPreviewDesign(design)}
-                  className="group flex flex-col justify-between bg-white rounded-3xl p-5 shadow-sm hover:shadow-xl transition-all duration-300 border border-pink-100/80 hover:-translate-y-1 cursor-pointer overflow-hidden"
+                  className="group flex flex-col justify-between bg-white rounded-xl p-3 sm:p-3.5 border border-zinc-200/70 shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden"
                 >
                   {/* 1. NAIL DESIGN IMAGE */}
-                  <div className="relative w-full aspect-square overflow-hidden rounded-2xl mb-4 bg-pink-50/40">
+                  <div className="relative w-full aspect-square overflow-hidden rounded-lg mb-2.5 bg-pink-50/30">
                     <img 
                       src={design.image} 
                       alt={design.name}
@@ -127,13 +127,13 @@ export default function NailsDesignPage() {
                   {/* Content Container */}
                   <div className="flex flex-col flex-1 justify-between">
                     {/* 2. NAIL DESIGN NAME */}
-                    <h3 className="font-serif text-lg sm:text-xl font-medium text-zinc-900 group-hover:text-pink-600 transition-colors leading-snug mb-4">
+                    <h3 className="font-sans text-xs sm:text-sm md:text-base font-semibold text-zinc-900 group-hover:text-pink-600 transition-colors leading-snug line-clamp-1 mb-2">
                       {design.name}
                     </h3>
 
                     {/* 3. PRICE & 4. BOOK BUTTON */}
-                    <div className="pt-3 border-t border-zinc-100 flex items-center justify-between gap-3">
-                      <span className="text-xl sm:text-2xl font-serif font-bold text-pink-600 leading-none">
+                    <div className="pt-2 border-t border-zinc-100 flex items-center justify-between gap-2">
+                      <span className="text-xs sm:text-sm md:text-base font-serif font-bold text-pink-600 leading-none">
                         {design.price}
                       </span>
 
@@ -142,7 +142,7 @@ export default function NailsDesignPage() {
                           e.stopPropagation();
                           handleBookDesign(design);
                         }}
-                        className="px-6 py-2.5 rounded-full bg-pink-600 hover:bg-zinc-950 text-white text-xs font-bold uppercase tracking-widest transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer shrink-0"
+                        className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-pink-600 hover:bg-zinc-950 text-white text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0"
                       >
                         BOOK
                       </button>
@@ -155,18 +155,18 @@ export default function NailsDesignPage() {
         </section>
         
         {/* Bottom CTA */}
-        <section className="mx-auto max-w-4xl px-6 lg:px-10 text-center">
-           <div className="rounded-3xl bg-zinc-950 p-10 sm:p-16 border border-zinc-900 shadow-2xl relative overflow-hidden">
+        <section className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-10 text-center">
+           <div className="rounded-2xl sm:rounded-3xl bg-zinc-950 p-8 sm:p-14 border border-zinc-900 shadow-2xl relative overflow-hidden">
              <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-pink-500 via-transparent to-transparent pointer-events-none" />
-             <h2 className="relative z-10 font-serif text-3xl sm:text-4xl text-white mb-4">
+             <h2 className="relative z-10 font-serif text-2xl sm:text-4xl text-white mb-3">
                Found Your Perfect Match?
              </h2>
-             <p className="relative z-10 text-zinc-400 text-sm sm:text-base mb-8 max-w-lg mx-auto">
+             <p className="relative z-10 text-zinc-400 text-xs sm:text-base mb-6 max-w-lg mx-auto leading-relaxed">
                Book your appointment today and let our expert nail technicians bring your vision to life.
              </p>
              <button
                onClick={() => window.dispatchEvent(new CustomEvent('open-book'))}
-               className="relative z-10 inline-flex items-center gap-2 rounded-full bg-pink-600 px-8 py-3.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-pink-500 transition-colors shadow-lg cursor-pointer"
+               className="relative z-10 inline-flex items-center gap-2 rounded-full bg-pink-600 px-7 py-3 text-xs font-bold uppercase tracking-widest text-white hover:bg-pink-500 transition-colors shadow-lg cursor-pointer"
              >
                Book Now
              </button>
