@@ -89,7 +89,7 @@ export default function NailPortfolioPage() {
   return (
     <SalonLayout>
       <main className="bg-[#FAF8F8] min-h-screen w-full pb-28 pt-24 sm:pt-28">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl xl:max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8">
           
           {/* HEADER SECTION */}
           <div className="text-center max-w-3xl mx-auto mb-10">
@@ -108,7 +108,7 @@ export default function NailPortfolioPage() {
               <p className="text-xs text-zinc-400 font-medium">Loading portfolio nail designs...</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
               {designs.map((design, idx) => (
                 <div
                   key={design.id || idx}

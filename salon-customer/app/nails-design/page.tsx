@@ -101,14 +101,14 @@ export default function NailsDesignPage() {
         </section>
 
         {/* Gallery Grid — Rectangular Cards (IMAGE -> NAME -> PRICE + BOOK NOW) */}
-        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10 mb-20">
+        <section className="mx-auto max-w-7xl xl:max-w-[1380px] px-4 sm:px-6 lg:px-8 mb-20">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20">
               <Loader2 className="w-10 h-10 animate-spin text-pink-600 mb-3" />
               <p className="text-xs text-zinc-400 font-medium">Loading published nail designs...</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
               {designs.map((design, idx) => (
                 <div 
                   key={design.id || idx} 
