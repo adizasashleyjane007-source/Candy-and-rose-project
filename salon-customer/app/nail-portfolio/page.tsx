@@ -77,28 +77,43 @@ export default function NailPortfolioPage() {
                 </div>
 
                 {/* Card Content */}
-                <div className="p-5 flex flex-col grow justify-between bg-white">
+                <div className="p-6 flex flex-col justify-between grow bg-white">
                   <div>
-                    <h3 className="font-sans text-lg font-bold text-zinc-900 group-hover:text-[#A94E70] transition-colors leading-snug">
-                      {design.name}
-                    </h3>
-                    <p className="mt-1.5 text-xs text-zinc-500 line-clamp-2 leading-relaxed font-normal">
-                      {design.description}
-                    </p>
+                    {/* Design ID & Name */}
+                    <div className="mb-2">
+                      <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-zinc-400 block">
+                        {design.id}
+                      </span>
+                      <h3 className="font-sans text-base sm:text-lg font-bold text-zinc-900 group-hover:text-[#A94E70] transition-colors leading-snug">
+                        {design.name}
+                      </h3>
+                    </div>
+
+                    {/* Price */}
+                    <div className="my-2.5 flex items-baseline">
+                      <span className="text-xl sm:text-2xl font-bold text-pink-600">
+                        {design.price}
+                      </span>
+                    </div>
+
+                    {/* Short Description */}
+                    {design.description && (
+                      <p className="text-xs text-zinc-500 leading-relaxed mb-5 line-clamp-2">
+                        {design.description}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="mt-5 pt-3 border-t border-pink-50 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-zinc-800">{design.price}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleBookDesign(design);
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-[#A94E70] hover:bg-pink-700 text-white px-4 py-2 text-[11px] font-bold uppercase tracking-wider shadow-xs transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
-                    >
-                      BOOK THIS DESIGN
-                    </button>
-                  </div>
+                  {/* BOOK THIS DESIGN Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleBookDesign(design);
+                    }}
+                    className="w-full inline-flex justify-center items-center gap-2 rounded-full bg-pink-600 hover:bg-pink-700 text-white px-5 py-3 text-xs font-bold uppercase tracking-widest shadow-md transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer mt-2"
+                  >
+                    BOOK THIS DESIGN <ArrowRight size={14} />
+                  </button>
                 </div>
               </div>
             ))}
