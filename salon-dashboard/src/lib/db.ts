@@ -121,6 +121,7 @@ export interface NailDesign {
   category?: string;
   description?: string;
   is_trending?: boolean;
+  price?: number;
 }
 
 export interface Message {
@@ -626,6 +627,17 @@ export const NailDesigns = {
     const { data, error } = await supabase()
       .from("nail_designs")
       .insert(payload)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as NailDesign;
+  },
+
+  async update(id: string, payload: Partial<NailDesign>) {
+    const { data, error } = await supabase()
+      .from("nail_designs")
+      .update(payload)
+      .eq("id", id)
       .select()
       .single();
     if (error) throw error;

@@ -4,11 +4,11 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 39 100% 97%;
     --foreground: 0 0% 6%;
-    --card: 0 0% 100%;
+    --card: 39 100% 97%;
     --card-foreground: 0 0% 6%;
-    --popover: 0 0% 100%;
+    --popover: 39 100% 97%;
     --popover-foreground: 0 0% 6%;
     --primary: 330 81% 60%;
     --primary-foreground: 0 0% 100%;
@@ -52,8 +52,13 @@
     @apply border-border;
   }
 
+  html {
+    background-color: #FFFBF2;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    background-color: #FFFBF2;
+    @apply text-foreground;
     font-family: var(--font-poppins), system-ui, sans-serif;
   }
 

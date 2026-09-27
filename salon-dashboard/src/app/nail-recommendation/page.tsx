@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Plus, Loader2, X, Star, Eye, Trash2, Grid3X3, Layers, CalendarDays, Search, ChevronDown, Filter, Tag, Check,
-  ChevronRight, AlertTriangle
+  ChevronRight, AlertTriangle, Pencil
 } from "lucide-react";
 import Header from "@/components/Header";
 import { NailDesigns, Storage, SettingsDB, type NailDesign } from "@/lib/db";
@@ -33,7 +33,6 @@ function formatDate(iso?: string) {
 }
 
 // ── Persistent Nail Identifier Helper ──────────────────────────────────────────
-// Ensures that once a nail gets #001 or #002, deleting any other design NEVER alters its identity.
 function getPersistentNailId(design: NailDesign, idMap: Record<string, string>): string {
   if (!design.id) return "#001";
   if (idMap[design.id]) return `#${idMap[design.id]}`;
@@ -51,11 +50,13 @@ function PreviewModal({
   design,
   nailId,
   onClose,
+  onEditRequest,
   onDeleteRequest,
 }: {
   design: NailDesign;
   nailId: string;
   onClose: () => void;
+  onEditRequest?: () => void;
   onDeleteRequest?: () => void;
 }) {
   const catStyle = getCategoryStyle(design.category);
@@ -70,7 +71,6 @@ function PreviewModal({
       >
         {/* Left — Visual Showcase */}
         <div className="relative md:w-5/12 min-h-[260px] md:min-h-[380px] bg-gradient-to-br from-pink-50 via-pink-100/40 to-purple-50/50 flex items-center justify-center overflow-hidden p-6">
-          {/* Ambient decorative glow */}
           <div className="absolute -top-10 -left-10 w-36 h-36 bg-pink-400/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-10 -right-10 w-36 h-36 bg-purple-400/20 rounded-full blur-3xl pointer-events-none" />
 
@@ -122,10 +122,15 @@ function PreviewModal({
               </button>
             </div>
 
-            {/* Title & Date */}
-            <h3 className="text-2xl font-bold text-gray-900 mb-1.5 capitalize">
-              {design.name}
-            </h3>
+            {/* Title & Price */}
+            <div className="flex items-start justify-between gap-2 mb-1.5">
+              <h3 className="text-2xl font-bold text-gray-900 capitalize">
+                {design.name}
+              </h3>
+              <span className="text-xl font-bold text-pink-600 shrink-0">
+                ₱{design.price !== undefined && design.price !== null ? design.price : 500}
+              </span>
+            </div>
             <div className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-6">
               <CalendarDays className="w-3.5 h-3.5 text-pink-400" />
               {formatDate(design.created_at)}
@@ -168,17 +173,30 @@ function PreviewModal({
 
           {/* Bottom Action Footer */}
           <div className="pt-6 mt-6 border-t border-gray-100 flex items-center justify-between gap-3">
-            {onDeleteRequest ? (
-              <button
-                onClick={() => {
-                  onClose();
-                  onDeleteRequest();
-                }}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-red-500 hover:bg-red-50 rounded-xl transition-all"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Delete
-              </button>
-            ) : <div />}
+            <div className="flex items-center gap-2">
+              {onEditRequest && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onEditRequest();
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-pink-600 hover:bg-pink-50 rounded-xl transition-all border border-pink-100"
+                >
+                  <Pencil className="w-3.5 h-3.5" /> Edit
+                </button>
+              )}
+              {onDeleteRequest && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onDeleteRequest();
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
+              )}
+            </div>
             <button
               onClick={onClose}
               className="px-6 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-full font-bold text-xs transition-all shadow-md shadow-pink-500/25 active:scale-95 ml-auto"
@@ -198,12 +216,14 @@ function ViewAllFeaturedModal({
   idMap,
   onClose,
   onPreview,
+  onEditRequest,
   onDeleteRequest,
 }: {
   designs: NailDesign[];
   idMap: Record<string, string>;
   onClose: () => void;
   onPreview: (d: NailDesign) => void;
+  onEditRequest: (d: NailDesign) => void;
   onDeleteRequest: (d: NailDesign) => void;
 }) {
   const [modalSearch, setModalSearch] = useState("");
@@ -297,6 +317,7 @@ function ViewAllFeaturedModal({
                   design={design}
                   nailId={getPersistentNailId(design, idMap)}
                   onPreview={() => onPreview(design)}
+                  onEditRequest={() => onEditRequest(design)}
                   onDeleteRequest={() => onDeleteRequest(design)}
                   featured
                 />
@@ -355,7 +376,6 @@ function DeleteConfirmModal({
       <div
         className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-pink-100 p-6 sm:p-7 animate-in zoom-in-95 duration-200 relative overflow-hidden"
       >
-        {/* Close Button */}
         <button
           onClick={onClose}
           className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 text-gray-400 hover:text-pink-600 hover:bg-pink-50 transition-all absolute top-5 right-5"
@@ -364,9 +384,7 @@ function DeleteConfirmModal({
           <X className="w-4 h-4" />
         </button>
 
-        {/* Modal Content */}
         <div className="text-center pt-2">
-          {/* Alert icon badge */}
           <div className="w-14 h-14 rounded-2xl bg-red-50 text-red-500 border border-red-100 flex items-center justify-center mx-auto mb-4 shadow-sm">
             <AlertTriangle className="w-7 h-7" />
           </div>
@@ -379,7 +397,6 @@ function DeleteConfirmModal({
             This design will be safely moved to the Archive in Settings.
           </p>
 
-          {/* Design Info Card Preview */}
           <div className="p-3.5 bg-pink-50/40 rounded-2xl border border-pink-100 flex items-center gap-3.5 mb-5 text-left">
             <div className="w-12 h-12 rounded-xl bg-white overflow-hidden flex-shrink-0 border border-pink-100 flex items-center justify-center">
               {design.image_url ? (
@@ -401,7 +418,6 @@ function DeleteConfirmModal({
             </div>
           </div>
 
-          {/* Retype Number Input */}
           <div className="mb-6 text-left">
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">
               To confirm, please retype the design number below:{" "}
@@ -425,7 +441,6 @@ function DeleteConfirmModal({
             />
           </div>
 
-          {/* Action Buttons */}
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -455,11 +470,203 @@ function DeleteConfirmModal({
   );
 }
 
+// ── Edit Design Modal ────────────────────────────────────────────────────────
+function EditDesignModal({
+  design,
+  nailId,
+  allAvailableCategories,
+  onClose,
+  onSave,
+  saving,
+}: {
+  design: NailDesign;
+  nailId: string;
+  allAvailableCategories: string[];
+  onClose: () => void;
+  onSave: (data: {
+    name: string;
+    price?: number;
+    category?: string;
+    description?: string;
+    is_trending: boolean;
+    file?: File | null;
+  }) => void;
+  saving: boolean;
+}) {
+  const [name, setName] = useState(design.name || "");
+  const [price, setPrice] = useState(design.price !== undefined && design.price !== null ? String(design.price) : "500");
+  const [category, setCategory] = useState(design.category || "");
+  const [description, setDescription] = useState(design.description || "");
+  const [isTrending, setIsTrending] = useState(!!design.is_trending);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(design.image_url || null);
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="w-full max-w-lg shadow-2xl rounded-3xl overflow-hidden bg-white border border-pink-100 my-8 animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-pink-50/40 via-white to-pink-50/20">
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-bold text-gray-900">Edit Nail Design</h3>
+              <span className="px-2.5 py-0.5 bg-pink-500 text-white rounded-full text-xs font-bold">{nailId}</span>
+            </div>
+            <p className="text-xs text-gray-500 font-medium">Update title, price, image, category and details</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-pink-500 hover:bg-pink-50 transition-all active:scale-95"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          {/* Design Name */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Design Name *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Design Name"
+              className="w-full h-11 px-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-800 focus:ring-2 focus:ring-pink-200 focus:border-pink-400 outline-none transition-all"
+            />
+          </div>
+
+          {/* Price (₱) */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Price (₱)</label>
+            <input
+              type="number"
+              value={price}
+              onChange={e => setPrice(e.target.value)}
+              placeholder="e.g. 500"
+              className="w-full h-11 px-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-800 focus:ring-2 focus:ring-pink-200 focus:border-pink-400 outline-none transition-all"
+            />
+          </div>
+
+          {/* Category Chips */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Category</label>
+            <div className="flex flex-wrap gap-1.5 p-2 bg-gray-50 border border-gray-200 rounded-2xl max-h-32 overflow-y-auto">
+              {allAvailableCategories.map(cat => {
+                const isSelected = category === cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategory(isSelected ? "" : cat)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                      isSelected
+                        ? "bg-pink-500 text-white shadow-sm shadow-pink-500/20"
+                        : "bg-white text-gray-600 border border-gray-200 hover:border-pink-200 hover:text-pink-600"
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3 h-3" />}
+                    <span>{cat}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Description</label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Short description of this nail design..."
+              rows={2}
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-800 focus:ring-2 focus:ring-pink-200 focus:border-pink-400 outline-none transition-all resize-none"
+            />
+          </div>
+
+          {/* Image Upload / Preview */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Replace Image (Optional)</label>
+            <div className="relative group">
+              <input
+                type="file"
+                accept="image/png, image/jpeg"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setSelectedFile(file);
+                  setFilePreviewUrl(URL.createObjectURL(file));
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer z-10"
+              />
+              <div className="w-full h-32 bg-gray-50 border-2 border-dashed border-pink-200 rounded-2xl flex items-center justify-center gap-3 group-hover:bg-pink-50/50 transition-all overflow-hidden relative">
+                {filePreviewUrl ? (
+                  <img src={filePreviewUrl} className="w-full h-full object-cover" alt="preview" />
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-center p-4">
+                    <Plus className="w-5 h-5 text-pink-500" />
+                    <p className="text-xs font-semibold text-gray-500">Click to upload new photo</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Featured Toggle */}
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => setIsTrending(v => !v)}
+              className={`w-11 rounded-full relative transition-colors duration-200 flex-shrink-0 p-0.5 ${isTrending ? "bg-pink-500" : "bg-gray-200"}`}
+              style={{ height: "24px" }}
+            >
+              <span
+                className={`block w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${isTrending ? "translate-x-[20px]" : ""}`}
+              />
+            </button>
+            <div>
+              <span className="text-xs font-semibold text-gray-700 block">Mark as Featured / Trending</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 pb-5 pt-3 border-t border-gray-100 bg-gray-50/50 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-3 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 rounded-full font-semibold text-xs transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            disabled={saving || !name.trim()}
+            onClick={() => {
+              onSave({
+                name: name.trim(),
+                price: price ? Number(price) : undefined,
+                category: category.trim() || undefined,
+                description: description.trim() || undefined,
+                is_trending: isTrending,
+                file: selectedFile,
+              });
+            }}
+            className="flex-1 py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-full font-bold text-xs transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-pink-500/25 active:scale-98"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Design Card ───────────────────────────────────────────────────────────────
 function DesignCard({
   design,
   nailId,
   onPreview,
+  onEditRequest,
   onDeleteRequest,
   featured = false,
   cardWidth,
@@ -467,6 +674,7 @@ function DesignCard({
   design: NailDesign;
   nailId: string;
   onPreview: () => void;
+  onEditRequest?: () => void;
   onDeleteRequest?: () => void;
   featured?: boolean;
   cardWidth?: string;
@@ -503,30 +711,49 @@ function DesignCard({
           )}
         </div>
 
-        {/* Nail ID badge (Permanent Identifier) */}
+        {/* Nail ID badge */}
         <div className="absolute bottom-2 left-2 px-2.5 py-1 bg-black/60 backdrop-blur-sm text-white rounded-full text-xs font-medium shadow-sm">
           {nailId}
         </div>
 
-        {/* Delete button top-right (Opens Confirmation Modal) */}
-        {onDeleteRequest && (
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              onDeleteRequest();
-            }}
-            className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-white/90 text-gray-400 hover:text-red-500 hover:bg-white transition-all shadow"
-            title="Delete design"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        )}
+        {/* Action Buttons Top Right (Edit & Delete) */}
+        <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+          {onEditRequest && (
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                onEditRequest();
+              }}
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-white/90 text-gray-400 hover:text-pink-600 hover:bg-white transition-all shadow"
+              title="Edit design"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onDeleteRequest && (
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                onDeleteRequest();
+              }}
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-white/90 text-gray-400 hover:text-red-500 hover:bg-white transition-all shadow"
+              title="Delete design"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Info */}
       <div className="p-3.5 flex-1 flex flex-col justify-between">
         <div>
-          <h4 className="font-bold text-gray-900 text-sm truncate capitalize">{design.name}</h4>
+          <div className="flex items-start justify-between gap-1 mb-1">
+            <h4 className="font-bold text-gray-900 text-sm truncate capitalize">{design.name}</h4>
+            <span className="text-xs font-bold text-pink-600 shrink-0">
+              ₱{design.price !== undefined && design.price !== null ? design.price : 500}
+            </span>
+          </div>
           <p className="text-xs text-gray-400 mb-3 truncate">
             {nailId} · {design.category || "Uncategorized"} {design.description ? `· ${design.description}` : ""}
           </p>
@@ -568,7 +795,6 @@ function FeaturedCarouselCard({
       onClick={onPreview}
       className="relative w-full aspect-square rounded-2xl overflow-hidden cursor-pointer group shadow-sm hover:shadow-lg transition-all border border-white/20"
     >
-      {/* Image */}
       {design.image_url ? (
         <img
           src={design.image_url}
@@ -581,22 +807,18 @@ function FeaturedCarouselCard({
         </div>
       )}
 
-      {/* Gradient overlay (appears on hover to hint it's clickable) */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-      {/* Featured badge — top left */}
       <div className="absolute top-2 left-2 z-10">
         <span className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-full text-xs font-semibold shadow-md">
           <Star className="w-3 h-3 fill-white" /> Featured
         </span>
       </div>
 
-      {/* Nail ID — bottom left */}
       <div className="absolute bottom-2 left-2 px-2.5 py-1 bg-black/60 backdrop-blur-sm text-white rounded-full text-xs font-medium shadow-sm z-10">
         {nailId}
       </div>
 
-      {/* Tap-to-view hint — bottom right, shown on hover */}
       <div className="absolute inset-0 flex items-end justify-end p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
         <span className="flex items-center gap-1.5 px-3 py-1.5 bg-white/90 backdrop-blur-sm text-gray-800 rounded-full text-xs font-bold shadow">
           <Eye className="w-3 h-3" /> View details
@@ -615,13 +837,8 @@ export default function NailRecommendationPage() {
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Dynamic Categories state
   const [userCategories, setUserCategories] = useState<string[]>(DEFAULT_CATEGORIES);
-
-  // Permanent Nail Identifiers Map (design.id -> "001", "002", etc.)
   const [nailIdMap, setNailIdMap] = useState<Record<string, string>>({});
-
-  // Top 10 Featured IDs from Analytics
   const [featuredTopIds, setFeaturedTopIds] = useState<string[]>([]);
 
   // Preview modal
@@ -634,12 +851,17 @@ export default function NailRecommendationPage() {
   const [designToDelete, setDesignToDelete] = useState<NailDesign | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Edit Modal states
+  const [editingDesign, setEditingDesign] = useState<NailDesign | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
   // Add design modal states
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
+  const [newPrice, setNewPrice] = useState("500");
   const [newCategory, setNewCategory] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [isTrending, setIsTrending] = useState(false);
@@ -648,13 +870,11 @@ export default function NailRecommendationPage() {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
 
-  // Success modal after adding a design
+  // Success modals
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-
-  // Delete success modal
+  const [showEditSuccessModal, setShowEditSuccessModal] = useState(false);
   const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
@@ -680,12 +900,10 @@ export default function NailRecommendationPage() {
         setFeaturedTopIds(storedTopIds);
       }
 
-      // Load or Initialize Permanent Nail Identifiers Map
       const storedMap = storedRegistry || {};
       const mapping: Record<string, string> = { ...(storedMap?.mapping || {}) };
       let maxCounter = storedMap?.max_counter || 0;
 
-      // Sort designs by created_at ascending to allocate permanent IDs sequentially for unassigned items
       const chronological = [...designs].sort((a, b) => {
         const timeA = new Date(a.created_at || 0).getTime();
         const timeB = new Date(b.created_at || 0).getTime();
@@ -711,7 +929,6 @@ export default function NailRecommendationPage() {
 
       setNailIdMap(mapping);
 
-      // Extract unique categories from db designs
       const dbCategories = designs
         .map(d => d.category?.trim())
         .filter((c): c is string => Boolean(c));
@@ -728,35 +945,29 @@ export default function NailRecommendationPage() {
     loadData();
   }, []);
 
-  // Compute all available categories for filtering & selection
   const allAvailableCategories = useMemo(() => {
     const fromDesigns = allDesigns.map(d => d.category?.trim()).filter((c): c is string => Boolean(c));
     return Array.from(new Set([...userCategories, ...fromDesigns])).filter(Boolean);
   }, [allDesigns, userCategories]);
 
-  // Featured Nails: Always include is_trending designs first, then fill with Analytics Top IDs
   const featured = useMemo(() => {
     const trendingDesigns = allDesigns.filter(d => d.is_trending);
 
     if (featuredTopIds.length > 0) {
       const designMap = new Map(allDesigns.map(d => [d.id, d]));
-      // Analytics top designs that are NOT already in trending
       const trendingIds = new Set(trendingDesigns.map(d => d.id));
       const fromTop = featuredTopIds
         .map(id => designMap.get(id))
         .filter((d): d is NailDesign => Boolean(d && d.id && !trendingIds.has(d.id)));
 
-      // Merge: trending first, then analytics top, cap at 10
       const merged = [...trendingDesigns, ...fromTop].slice(0, 10);
       if (merged.length > 0) return merged;
     }
 
-    // Fallback: trending designs, or first 10
     if (trendingDesigns.length > 0) return trendingDesigns.slice(0, 10);
     return allDesigns.slice(0, 10);
   }, [allDesigns, featuredTopIds]);
 
-  // Seamless infinite loop items for the moving carousel track
   const carouselItems = useMemo(() => {
     if (featured.length === 0) return [];
     if (featured.length < 5) {
@@ -765,7 +976,6 @@ export default function NailRecommendationPage() {
     return [...featured, ...featured];
   }, [featured]);
 
-  // Filter designs by Category and Functional Search
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return allDesigns
@@ -786,6 +996,7 @@ export default function NailRecommendationPage() {
     setSelectedFile(null);
     setFilePreviewUrl(null);
     setNewName("");
+    setNewPrice("500");
     setNewCategory("");
     setNewDescription("");
     setIsTrending(false);
@@ -805,7 +1016,6 @@ export default function NailRecommendationPage() {
     setIsAddingCategory(false);
   };
 
-  // ── Delete & reload (no auto-redirect) ──────────────────────────────────────
   const handleConfirmDelete = async () => {
     if (!designToDelete?.id) return;
     try {
@@ -827,7 +1037,6 @@ export default function NailRecommendationPage() {
 
   const handleUpload = async () => {
     if (!selectedFile || !newName.trim()) return;
-    // Strict PNG/JPEG validation
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
     if (!allowedTypes.includes(selectedFile.type)) {
       alert("Only PNG and JPEG images are accepted. Please choose a valid file.");
@@ -839,6 +1048,7 @@ export default function NailRecommendationPage() {
       await NailDesigns.create({
         name: newName.trim(),
         image_url: publicUrl,
+        price: newPrice ? Number(newPrice) : 500,
         category: newCategory.trim() || undefined,
         description: newDescription.trim() || undefined,
         is_trending: isTrending,
@@ -855,13 +1065,57 @@ export default function NailRecommendationPage() {
     }
   };
 
+  const handleSaveEdit = async (data: {
+    name: string;
+    price?: number;
+    category?: string;
+    description?: string;
+    is_trending: boolean;
+    file?: File | null;
+  }) => {
+    if (!editingDesign?.id) return;
+    try {
+      setIsSavingEdit(true);
+      let imageUrl = editingDesign.image_url;
+
+      if (data.file) {
+        const allowedTypes = ["image/png", "image/jpeg", "image/jpg"];
+        if (!allowedTypes.includes(data.file.type)) {
+          alert("Only PNG and JPEG images are accepted.");
+          setIsSavingEdit(false);
+          return;
+        }
+        imageUrl = await Storage.upload("nails", data.file, data.name.trim().replace(/\s+/g, "-").toLowerCase());
+      }
+
+      await NailDesigns.update(editingDesign.id, {
+        name: data.name,
+        price: data.price,
+        category: data.category,
+        description: data.description,
+        is_trending: data.is_trending,
+        image_url: imageUrl,
+      });
+
+      addNotification("Design Updated", `"${data.name}" details have been saved.`, "system");
+      setEditingDesign(null);
+      await loadData();
+      setShowEditSuccessModal(true);
+    } catch (err) {
+      console.error("Failed to update design:", err);
+      alert("Failed to update nail design.");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-[#f7f8fa] overflow-y-auto w-full">
       <Header />
 
       <div className="px-4 sm:px-8 pb-12 max-w-[1400px] mx-auto w-full mt-4">
 
-        {/* ── Page Header (Clean, icon removed) ────────────────────────────── */}
+        {/* Page Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
@@ -877,9 +1131,8 @@ export default function NailRecommendationPage() {
           </button>
         </div>
 
-        {/* ── Summary Cards ────────────────────────────────────────────────── */}
+        {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-7">
-          {/* Total Designs */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-pink-100 flex flex-col justify-between hover:bg-pink-50 hover:border-pink-200 transition-colors cursor-default">
             <div className="flex justify-between items-start">
               <p className="text-sm font-medium text-gray-500">Total Designs</p>
@@ -891,7 +1144,6 @@ export default function NailRecommendationPage() {
             </div>
           </div>
 
-          {/* Trending Now */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-pink-100 flex flex-col justify-between hover:bg-pink-50 hover:border-pink-200 transition-colors cursor-default">
             <div className="flex justify-between items-start">
               <p className="text-sm font-medium text-gray-500">Trending Now</p>
@@ -903,7 +1155,6 @@ export default function NailRecommendationPage() {
             </div>
           </div>
 
-          {/* Categories */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-pink-100 flex flex-col justify-between hover:bg-pink-50 hover:border-pink-200 transition-colors cursor-default">
             <div className="flex justify-between items-start">
               <p className="text-sm font-medium text-gray-500">Categories</p>
@@ -916,9 +1167,8 @@ export default function NailRecommendationPage() {
           </div>
         </div>
 
-        {/* ── Search + Category Filter ──────────────────────────────────────── */}
+        {/* Search + Category Filter */}
         <div className="flex flex-col sm:flex-row items-center gap-3.5 mb-8">
-          {/* Functional Search Bar with Clear 'X' button */}
           <div className="relative w-full sm:w-80">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-gray-400" />
@@ -944,7 +1194,6 @@ export default function NailRecommendationPage() {
             )}
           </div>
 
-          {/* Category Dropdown */}
           <div className="relative w-full sm:w-auto" ref={categoryDropdownRef}>
             <button
               onClick={() => setCategoryDropdownOpen(v => !v)}
@@ -1003,7 +1252,7 @@ export default function NailRecommendationPage() {
           </div>
         ) : (
           <>
-            {/* ── Featured Nail Section: Moving Carousel (Renamed & Icon Removed) ── */}
+            {/* Featured Carousel */}
             {featured.length > 0 && activeCategory === "All" && !searchQuery && (
               <section className="mb-10 overflow-hidden">
                 <div className="flex items-center justify-between mb-4">
@@ -1016,7 +1265,6 @@ export default function NailRecommendationPage() {
                     </span>
                   </div>
 
-                  {/* View All Button */}
                   <button
                     onClick={() => setIsViewAllFeaturedOpen(true)}
                     className="text-xs font-bold text-pink-600 hover:text-pink-700 bg-pink-50 hover:bg-pink-100/80 px-3.5 py-1.5 rounded-full transition-all border border-pink-100 flex items-center gap-1 active:scale-95"
@@ -1025,7 +1273,6 @@ export default function NailRecommendationPage() {
                   </button>
                 </div>
 
-                {/* Moving Carousel Track — image-only cards, click to preview */}
                 <div className="relative w-full overflow-hidden py-2 carousel-wrapper">
                   <div className="flex gap-4 animate-carousel-move w-max carousel-track">
                     {carouselItems.map((design, idx) => (
@@ -1045,7 +1292,7 @@ export default function NailRecommendationPage() {
               </section>
             )}
 
-            {/* ── All Designs Grid ───────────────────────────────────────── */}
+            {/* All Designs Grid */}
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-bold text-gray-900">
@@ -1088,11 +1335,11 @@ export default function NailRecommendationPage() {
                       design={design}
                       nailId={getPersistentNailId(design, nailIdMap)}
                       onPreview={() => setPreviewDesign(design)}
+                      onEditRequest={() => setEditingDesign(design)}
                       onDeleteRequest={() => setDesignToDelete(design)}
                     />
                   ))}
 
-                  {/* Quick Add Slot */}
                   <div
                     onClick={() => setIsUploadModalOpen(true)}
                     className="flex flex-col items-center justify-center gap-3 aspect-square bg-white/70 hover:bg-pink-50/50 rounded-2xl border-2 border-dashed border-pink-200/80 cursor-pointer transition-all group"
@@ -1109,30 +1356,30 @@ export default function NailRecommendationPage() {
         )}
       </div>
 
-      {/* ── View All Featured Modal ──────────────────────────────────────── */}
+      {/* View All Featured Modal */}
       {isViewAllFeaturedOpen && (
         <ViewAllFeaturedModal
           designs={featured}
           idMap={nailIdMap}
           onClose={() => setIsViewAllFeaturedOpen(false)}
           onPreview={(d) => setPreviewDesign(d)}
+          onEditRequest={(d) => setEditingDesign(d)}
           onDeleteRequest={(d) => setDesignToDelete(d)}
         />
       )}
 
-      {/* ── Modern Preview Modal ─────────────────────────────────────────── */}
+      {/* Preview Modal */}
       {previewDesign && (
         <PreviewModal
           design={previewDesign}
           nailId={getPersistentNailId(previewDesign, nailIdMap)}
           onClose={() => setPreviewDesign(null)}
-          onDeleteRequest={() => {
-            setDesignToDelete(previewDesign);
-          }}
+          onEditRequest={() => setEditingDesign(previewDesign)}
+          onDeleteRequest={() => setDesignToDelete(previewDesign)}
         />
       )}
 
-      {/* ── Delete Confirmation Modal ────────────────────────────────────── */}
+      {/* Delete Confirmation Modal */}
       {designToDelete && (
         <DeleteConfirmModal
           design={designToDelete}
@@ -1144,16 +1391,25 @@ export default function NailRecommendationPage() {
         />
       )}
 
-      {/* ── Add Design Modal with Dynamic Category Selector ───────────────── */}
+      {/* Edit Design Modal */}
+      {editingDesign && (
+        <EditDesignModal
+          design={editingDesign}
+          nailId={getPersistentNailId(editingDesign, nailIdMap)}
+          allAvailableCategories={allAvailableCategories}
+          onClose={() => setEditingDesign(null)}
+          onSave={handleSaveEdit}
+          saving={isSavingEdit}
+        />
+      )}
+
+      {/* Add Design Modal */}
       {isUploadModalOpen && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto"
           onClick={e => e.target === e.currentTarget && closeUploadModal()}
         >
-          <div
-            className="w-full max-w-lg shadow-2xl rounded-3xl overflow-hidden bg-white border border-pink-100 my-8 animate-in zoom-in-95 duration-200"
-          >
-            {/* Modal Header (No boxy icon, clean layout) */}
+          <div className="w-full max-w-lg shadow-2xl rounded-3xl overflow-hidden bg-white border border-pink-100 my-8 animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-pink-50/40 via-white to-pink-50/20">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Add New Design</h3>
@@ -1180,7 +1436,19 @@ export default function NailRecommendationPage() {
                 />
               </div>
 
-              {/* ── Category Selection & "Add Category" Button ───────────────── */}
+              {/* Price (₱) */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Price (₱)</label>
+                <input
+                  type="number"
+                  value={newPrice}
+                  onChange={e => setNewPrice(e.target.value)}
+                  placeholder="e.g. 500"
+                  className="w-full h-11 px-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-pink-200 focus:border-pink-400 outline-none transition-all"
+                />
+              </div>
+
+              {/* Category Selection */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-xs font-semibold text-gray-700">
@@ -1197,7 +1465,6 @@ export default function NailRecommendationPage() {
                   )}
                 </div>
 
-                {/* Inline Category Creation Input */}
                 {isAddingCategory ? (
                   <div className="p-3 bg-pink-50/70 rounded-2xl border border-pink-200 mb-3 animate-in fade-in zoom-in-95 duration-150">
                     <p className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
@@ -1242,7 +1509,6 @@ export default function NailRecommendationPage() {
                   </div>
                 ) : null}
 
-                {/* Category Chips List / Selector */}
                 <div className="flex flex-wrap gap-1.5 p-2 bg-gray-50 border border-gray-200 rounded-2xl max-h-32 overflow-y-auto">
                   {allAvailableCategories.length === 0 ? (
                     <div className="py-2 px-1 text-xs text-gray-400 text-center w-full">
@@ -1350,7 +1616,6 @@ export default function NailRecommendationPage() {
               </div>
             </div>
 
-            {/* Modal Footer (Solid Pink Save Button) */}
             <div className="px-6 pb-5 pt-3 border-t border-gray-100 bg-gray-50/50 flex items-center gap-3">
               <button
                 type="button"
@@ -1371,20 +1636,17 @@ export default function NailRecommendationPage() {
         </div>
       )}
 
-      {/* ── Success Modal ─────────────────────────────────────────────────── */}
+      {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-pink-100 p-8 flex flex-col items-center gap-5 animate-in zoom-in-95 duration-200">
-            {/* Icon */}
             <div className="w-16 h-16 rounded-full bg-pink-50 flex items-center justify-center shadow-sm">
               <Check className="w-8 h-8 text-pink-500" />
             </div>
-            {/* Message */}
             <div className="text-center">
               <h3 className="text-lg font-bold text-gray-900 mb-1">Nail Added Successfully!</h3>
-              <p className="text-xs text-gray-400 font-medium">Your new nail design has been saved and is now visible in the recommendations.</p>
+              <p className="text-xs text-gray-400 font-medium">Your new nail design has been saved and is now visible in recommendations.</p>
             </div>
-            {/* Okay Button */}
             <button
               onClick={() => setShowSuccessModal(false)}
               className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-full font-bold text-sm transition-all shadow-md shadow-pink-500/25 active:scale-95"
@@ -1395,20 +1657,38 @@ export default function NailRecommendationPage() {
         </div>
       )}
 
-      {/* ── Delete Success Modal ──────────────────────────────────────────── */}
-      {showDeleteSuccessModal && (
+      {/* Edit Success Modal */}
+      {showEditSuccessModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-pink-100 p-8 flex flex-col items-center gap-5 animate-in zoom-in-95 duration-200">
-            {/* Icon */}
             <div className="w-16 h-16 rounded-full bg-pink-50 flex items-center justify-center shadow-sm">
               <Check className="w-8 h-8 text-pink-500" />
             </div>
-            {/* Message */}
+            <div className="text-center">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">Design Updated!</h3>
+              <p className="text-xs text-gray-400 font-medium">The changes to your nail design have been updated in Supabase.</p>
+            </div>
+            <button
+              onClick={() => setShowEditSuccessModal(false)}
+              className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-full font-bold text-sm transition-all shadow-md shadow-pink-500/25 active:scale-95"
+            >
+              Okay
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Success Modal */}
+      {showDeleteSuccessModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-pink-100 p-8 flex flex-col items-center gap-5 animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-full bg-pink-50 flex items-center justify-center shadow-sm">
+              <Check className="w-8 h-8 text-pink-500" />
+            </div>
             <div className="text-center">
               <h3 className="text-lg font-bold text-gray-900 mb-1">Design Successfully Deleted</h3>
               <p className="text-xs text-gray-400 font-medium">The nail design has been removed from your recommendations.</p>
             </div>
-            {/* Okay Button */}
             <button
               onClick={() => setShowDeleteSuccessModal(false)}
               className="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-full font-bold text-sm transition-all shadow-md shadow-pink-500/25 active:scale-95"
@@ -1418,6 +1698,6 @@ export default function NailRecommendationPage() {
           </div>
         </div>
       )}
-    </div >
+    </div>
   );
 }

@@ -9,32 +9,32 @@ const teamMembers = [
     name: 'Sheryl Octaviano',
     role: 'Senior Hairstylist',
     image: '/images/contact2.jpg',
-    bio: 'Sheryl brings years of extensive hairstyling experience, previously honing her craft with INDEX salon. She specializes in precision haircuts, custom color transformations, and restorative hair care.',
+    bio: 'Sheryl is a senior hairstylist with 15 years of experience in the salon industry from her previous company, INDEX.',
   },
   {
     name: 'Jairus',
     role: 'Senior Stylist & Nail Technician',
     image: '/images/gal1.jpg',
-    bio: 'With valuable international experience working in top beauty salons in Dubai, Jairus offers master expertise in both high-end hair styling and intricate, detailed nail artistry.',
+    bio: 'Jairus is a senior stylist and nail technician with extensive experience in the salon industry. He has also worked abroad at a salon in Dubai.',
   },
   {
     name: 'Ana',
     role: 'Nail Technician',
     image: '/images/MAKEUP1.jpg',
-    bio: 'Ana is our nail care specialist, renowned for her meticulous artisan manicures, detailed nail health knowledge, and expertise in luxurious scalp and hair treatment rituals.',
+    bio: 'Ana is an experienced nail technician who also has knowledge and experience in hair treatments and hair coloring.',
   },
   {
     name: 'Reynalyn',
-    role: 'Nail Technician & Assistant',
+    role: 'Nail Technician',
     image: '/images/MAKEUP2.jpg',
-    bio: 'Reynalyn brings warmth and precision to every appointment, assisting with luxury spa care, specialized hair treatments, and exquisite nail art finishing touches.',
+    bio: 'Reynalyn is a nail technician with several years of experience working in salons.',
   },
 ];
 
 export default function AboutPage() {
   return (
     <SalonLayout>
-      <main className="about-page bg-[#FAF8F5] text-zinc-900 font-sans min-h-screen pt-24 pb-20">
+      <main className="about-page bg-[#FFFBF2] text-zinc-900 font-sans min-h-screen pt-24 pb-20">
         
         {/* 1. TOP HERO IMAGE SECTION (No video player, clean rectangular container) */}
         <section className="mx-auto max-w-6xl px-6 lg:px-10 mb-16">
@@ -142,7 +142,7 @@ export default function AboutPage() {
               </h2>
               
               <p className="text-xs sm:text-sm leading-relaxed text-zinc-600 font-normal mb-10">
-                Roselyn founded CANDY &amp; ROSE with a heart full of dedication and a clear vision: to build an inviting beauty space where women can relax, feel pampered, and leave with radiant confidence. Drawing deep inspiration from the artful techniques and warm hospitality of Japanese beauty sanctuaries, she curates every product line and service with meticulous attention to detail and creative passion.
+                “I’ve always enjoyed being presentable and feeling beautiful in my own way, and I love being able to contribute to other people’s experience of feeling that way too. I wanted to create my own unique workspace where I could choose specific product lines and set the artistic tone of the environment. After visiting many salons in Japan, I thought it would be exciting to open my own salon — but here in the Philippines.”
               </p>
 
               {/* Owner Highlights (01, 02, 03 Number Blocks) */}

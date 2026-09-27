@@ -227,7 +227,7 @@ export function Header({ onBook }: { onBook: () => void }) {
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
-                className="text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full transition-all cursor-pointer bg-zinc-100 hover:bg-pink-50 text-zinc-900 hover:text-pink-600 border border-zinc-200 shadow-xs"
+                className="text-xs font-bold uppercase tracking-wider px-6 py-2.5 rounded-lg transition-all cursor-pointer bg-[#111111] hover:bg-black text-white shadow-sm"
               >
                 Login
               </Link>
@@ -423,25 +423,7 @@ export function Footer() {
 
   return (
     <footer className="bg-zinc-950 text-white pt-16 pb-12 border-t border-zinc-900">
-      {/* Top CTA Banner inside Footer */}
-      <div className="mx-auto max-w-7xl px-6 lg:px-10 mb-16">
-        <div className="rounded-3xl bg-gradient-to-r from-zinc-900 via-zinc-900 to-pink-950/60 p-8 sm:p-12 border border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl">
-          <div className="max-w-2xl text-center md:text-left">
-            <h3 className="font-serif text-3xl sm:text-4xl text-white font-medium">
-              Ready to Transform Your Look?
-            </h3>
-            <p className="mt-3 text-sm text-zinc-400 leading-relaxed">
-              Book your appointment now and let our certified beauty experts pamper you with high-end luxury treatments.
-            </p>
-          </div>
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('open-book'))}
-            className="inline-flex shrink-0 items-center gap-2.5 rounded-full bg-pink-600 px-8 py-4 text-xs font-bold uppercase tracking-widest text-white shadow-xl transition-all duration-300 hover:bg-pink-500 hover:shadow-pink-600/40 active:scale-95 cursor-pointer"
-          >
-            <CalendarDays size={16} /> Book Appointment
-          </button>
-        </div>
-      </div>
+
 
       <div className="mx-auto max-w-7xl px-6 lg:px-10 grid gap-10 md:grid-cols-4 border-b border-zinc-800/80 pb-14">
         {/* Brand Column */}
@@ -861,7 +843,11 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full h-[50px] sm:h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
+                    className={
+                      mode === 'login'
+                        ? "w-[calc(100%+16px)] -ml-[8px] h-[56px] sm:h-[60px] rounded-lg bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-md"
+                        : "w-full h-[50px] sm:h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
+                    }
                   >
                     {busy ? (mode === 'login' ? 'LOGGING IN...' : 'REGISTERING...') : (mode === 'login' ? 'LOGIN' : 'REGISTER')}
                   </button>

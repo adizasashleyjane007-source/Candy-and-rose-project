@@ -3,9 +3,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { 
-  ArrowRight, ChevronLeft, ChevronRight, CheckCircle2, Heart, ShieldCheck, 
-  Sparkles, Star, UserCheck, Play, Award, Leaf, Scissors,
-  Pipette, Flower2
+  ArrowRight, ChevronLeft, ChevronRight, CheckCircle2, Heart, 
+  Sparkles, Star, Play, Award, Leaf, Scissors
 } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { SectionHeading } from '@/components/salon-ui';
@@ -47,28 +46,7 @@ const servicesData = [
   },
 ];
 
-const highlights = [
-  {
-    icon: Pipette,
-    title: 'Premium Products',
-    subtitle: 'Safe & Effective',
-  },
-  {
-    icon: UserCheck,
-    title: 'Professional Stylists',
-    subtitle: 'Trained & Experienced',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Hygienic & Relaxing',
-    subtitle: 'Clean & Comfortable',
-  },
-  {
-    icon: Flower2,
-    title: 'Your Beauty, Our Priority',
-    subtitle: 'Personalized Care',
-  },
-];
+
 
 const FEATURED_NAIL_IMAGES = [
   { id: 'nail1', src: '/images/Nail1.jpg', title: 'Rose Gold Sculpt' },
@@ -228,7 +206,7 @@ export default function Home() {
       <main className="relative bg-transparent font-sans text-zinc-900">
         
         {/* 1. HERO SECTION */}
-        <section className="relative w-full bg-[#FAF8F5] pt-28 sm:pt-36 pb-16 sm:pb-24 z-10 overflow-hidden">
+        <section className="relative w-full bg-[#FFFBF2] pt-28 sm:pt-36 pb-16 sm:pb-24 z-10 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6 lg:px-10">
             
             {/* Small centered eyebrow text */}
@@ -288,7 +266,7 @@ export default function Home() {
                       className={`rounded-full transition-all duration-300 cursor-pointer ${
                         idx === currentSlide
                           ? 'w-7 h-2 bg-pink-500 shadow-sm'
-                          : 'w-2 h-2 bg-white/60 hover:bg-white'
+                          : 'w-2 h-2 bg-[#FFFBF2]/60 hover:bg-[#FFFBF2]'
                       }`}
                     />
                   ))}
@@ -299,34 +277,10 @@ export default function Home() {
           </div>
         </section>
 
-        {/* BENEFITS HIGHLIGHTS */}
-        <section className="relative z-20 w-full bg-gradient-to-b from-zinc-950 to-black py-16 sm:py-20 border-y border-white/5 shadow-2xl">
-          <div className="mx-auto max-w-[88rem] px-6 lg:px-10">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 sm:gap-y-12 lg:gap-0 lg:divide-x divide-white/5">
-              {highlights.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div key={item.title} className="flex flex-row items-center sm:items-start lg:items-center gap-5 lg:px-8 xl:px-10 group cursor-default transition-all duration-500">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-pink-950/20 text-[#f4a7bb] border border-[#f4a7bb]/25 shadow-[0_0_20px_rgba(244,167,187,0.05)] transition-all duration-400 ease-out group-hover:scale-105 group-hover:shadow-[0_0_25px_rgba(244,167,187,0.2)] group-hover:bg-pink-950/40 group-hover:text-pink-300 group-hover:border-[#f4a7bb]/40">
-                      <Icon size={28} strokeWidth={1.25} className="transition-all duration-400" />
-                    </div>
-                    <div className="flex flex-col justify-center">
-                      <h4 className="font-sans text-base sm:text-[17px] font-medium text-white tracking-wide">
-                        {item.title}
-                      </h4>
-                      <p className="mt-1.5 text-[13px] sm:text-sm text-zinc-400/90 leading-relaxed font-sans font-normal">
-                        {item.subtitle}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
+
 
         {/* 2. SERVICES / BEAUTY SECTION (Editorial Layout) */}
-        <section className="relative z-20 px-6 py-24 lg:px-10 bg-white">
+        <section className="relative z-20 px-6 pt-10 pb-24 lg:px-10 bg-[#FFFBF2]">
           <div className="mx-auto max-w-7xl">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
               <div className="max-w-2xl">
@@ -356,7 +310,7 @@ export default function Home() {
                 <Link
                   key={service.num}
                   href={service.href}
-                  className="group flex flex-col overflow-hidden rounded-2xl bg-white border border-zinc-200/80 transition-all duration-500 hover:-translate-y-2 hover:shadow-xl hover:border-pink-200/60"
+                  className="group flex flex-col overflow-hidden rounded-2xl bg-[#FFFBF2] border border-zinc-200/80 transition-all duration-500 hover:-translate-y-2 hover:shadow-xl hover:border-pink-200/60"
                 >
                   <div className="relative h-72 sm:h-80 w-full overflow-hidden bg-pink-50/50">
                     <img
@@ -365,7 +319,7 @@ export default function Home() {
                       className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                     />
                   </div>
-                  <div className="p-6 sm:p-7 flex flex-col grow bg-white">
+                  <div className="p-6 sm:p-7 flex flex-col grow bg-[#FFFBF2]">
                     <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-pink-500 mb-2.5 block">
                       {service.num}
                     </span>
@@ -386,7 +340,7 @@ export default function Home() {
         </section>
 
         {/* 3. FEATURED SECTION — ARTISAN NAIL PORTFOLIO */}
-        <section className="relative z-20 py-12 sm:py-16 px-6 lg:px-10 bg-[#FAF8F8] border-t border-zinc-100">
+        <section className="relative z-20 py-12 sm:py-16 px-6 lg:px-10 bg-[#FFFBF2] border-t border-zinc-100">
           <div className="mx-auto max-w-6xl">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-8 sm:mb-10">
               <div className="max-w-2xl">
@@ -416,7 +370,7 @@ export default function Home() {
                 <Link 
                   key={nail.id} 
                   href="/nail-portfolio"
-                  className="group relative aspect-[4/3] sm:aspect-[4/3] rounded-xl overflow-hidden bg-white border border-zinc-200/80 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1 block"
+                  className="group relative aspect-[4/3] sm:aspect-[4/3] rounded-xl overflow-hidden bg-[#FFFBF2] border border-zinc-200/80 shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1 block"
                 >
                   <img 
                     src={nail.src} 
@@ -444,7 +398,7 @@ export default function Home() {
         </section>
 
         {/* 4. GALLERY SECTION (Infinite Marquee) */}
-        <section className="relative z-20 py-24 bg-white overflow-hidden border-t border-zinc-100">
+        <section className="relative z-20 py-24 bg-[#FFFBF2] overflow-hidden border-t border-zinc-100">
           <div className="mx-auto max-w-7xl px-6 lg:px-10 mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-50 px-3.5 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-pink-600 border border-pink-200/80 mb-3">
@@ -468,8 +422,8 @@ export default function Home() {
           </div>
 
           <div className="gallery-marquee-container w-full overflow-hidden relative group">
-            <div className="absolute top-0 bottom-0 left-0 w-16 sm:w-28 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
-            <div className="absolute top-0 bottom-0 right-0 w-16 sm:w-28 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+            <div className="absolute top-0 bottom-0 left-0 w-16 sm:w-28 bg-gradient-to-r from-[#FFFBF2] to-transparent z-10 pointer-events-none" />
+            <div className="absolute top-0 bottom-0 right-0 w-16 sm:w-28 bg-gradient-to-l from-[#FFFBF2] to-transparent z-10 pointer-events-none" />
 
             <div className="animate-gallery-marquee flex gap-6 px-3">
               {[...HOMEPAGE_GALLERY_IMAGES, ...HOMEPAGE_GALLERY_IMAGES].map((item, idx) => (
@@ -549,7 +503,7 @@ export default function Home() {
                       ))}
                     </div>
                     <p className="text-xs sm:text-sm text-zinc-200 leading-relaxed font-normal italic mb-4">
-                      "{item.comment}"
+                      &quot;{item.comment}&quot;
                     </p>
                   </div>
                   <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between">
@@ -584,7 +538,7 @@ export default function Home() {
                       ))}
                     </div>
                     <p className="text-xs sm:text-sm text-zinc-200 leading-relaxed font-normal italic mb-4">
-                      "{item.comment}"
+                      &quot;{item.comment}&quot;
                     </p>
                   </div>
                   <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between">

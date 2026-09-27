@@ -197,7 +197,7 @@ function LoginFormContent() {
                       <button
                         type="submit"
                         disabled={busy}
-                        className="w-full h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
+                        className="w-[calc(100%+16px)] -ml-[8px] h-[56px] sm:h-[60px] rounded-lg bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-md"
                       >
                         {busy ? 'LOGGING IN...' : 'LOGIN'}
                       </button>

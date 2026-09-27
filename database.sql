@@ -127,6 +127,9 @@ CREATE TABLE IF NOT EXISTS public.nail_designs (
     art_data jsonb,
     image_url text,
     preview_url text,
+    category text,
+    description text,
+    price numeric,
     is_trending boolean DEFAULT false,
     created_at timestamptz DEFAULT now()
 );
