@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
-import { PageShell, BookingLauncher, AuthModal } from './salon-ui';
+import { PageShell, BookingLauncher, AuthModal, GoogleWelcomeModal } from './salon-ui';
 import { BookingModal } from './booking-modal';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, type Service } from '@/lib/supabase';
@@ -11,7 +11,7 @@ import type { NailDesignItem } from '@/lib/nail-designs';
 
 export default function SalonLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, googleWelcomeUser, dismissGoogleWelcome } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [noServiceModalOpen, setNoServiceModalOpen] = useState(false);
@@ -91,6 +91,15 @@ export default function SalonLayout({ children }: { children: ReactNode }) {
         open={authOpen}
         onClose={handleAuthClose}
         onSuccess={handleAuthSuccess}
+      />
+      <GoogleWelcomeModal
+        open={!!googleWelcomeUser}
+        name={googleWelcomeUser?.name}
+        onClose={dismissGoogleWelcome}
+        onContinue={() => {
+          dismissGoogleWelcome();
+          handleBookingRequest();
+        }}
       />
       {noServiceModalOpen && (
         <div 

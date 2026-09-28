@@ -3,8 +3,9 @@
 import { FormEvent, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Check } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
 
 function LoginFormContent() {
   const router = useRouter();
@@ -19,6 +20,8 @@ function LoginFormContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [welcomeStep, setWelcomeStep] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -33,6 +36,34 @@ function LoginFormContent() {
         setError(result.error);
       } else {
         setWelcomeStep(true);
+      }
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleForgotSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to send password reset email.');
+      } else {
+        setForgotSuccess(true);
       }
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
@@ -113,6 +144,87 @@ function LoginFormContent() {
                     CONTINUE
                   </button>
                 </div>
+              ) : forgotSuccess ? (
+                <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col items-center justify-center text-center animate-scale-in py-6">
+                  <div className="h-16 w-16 rounded-full bg-pink-50 border border-pink-200 flex items-center justify-center mb-6 shadow-sm">
+                    <Mail size={30} className="text-[#E61E73]" />
+                  </div>
+                  <h2 className="font-sans text-2xl sm:text-3xl font-medium text-[#231F20] tracking-tight mb-2">
+                    Check your email
+                  </h2>
+                  <p className="text-xs sm:text-sm text-[#77727A] font-normal leading-relaxed mb-7 max-w-sm">
+                    We&apos;ve sent you a password reset link. Please check your email and follow the link to create a new password.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotMode(false);
+                      setForgotSuccess(false);
+                      setError('');
+                    }}
+                    className="w-full h-[52px] sm:h-[54px] rounded-xl bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 cursor-pointer flex items-center justify-center shadow-md"
+                  >
+                    BACK TO LOGIN
+                  </button>
+                </div>
+              ) : forgotMode ? (
+                <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col justify-center">
+                  <h2 className="font-sans text-2xl sm:text-3xl font-medium text-[#231F20] tracking-tight mb-2">
+                    Forgot Password
+                  </h2>
+                  <p className="text-xs sm:text-[14px] text-[#77727A] font-normal leading-relaxed mb-6">
+                    Enter your email address and we&apos;ll send you a secure link to reset your password.
+                  </p>
+
+                  {error && (
+                    <div className="mb-5 rounded-xl bg-red-50 border border-red-200 p-3.5 text-xs text-red-600 font-medium">
+                      {error}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleForgotSubmit} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label htmlFor="login-forgot-email" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
+                        Email Address *
+                      </label>
+                      <div className="relative group">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                        <input
+                          id="login-forgot-email"
+                          type="email"
+                          required
+                          placeholder="Enter your email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        disabled={busy}
+                        className="w-full h-[52px] sm:h-[54px] rounded-xl bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-md"
+                      >
+                        {busy ? 'SENDING...' : 'SEND RESET LINK'}
+                      </button>
+                    </div>
+                  </form>
+
+                  <div className="mt-7 text-center text-xs sm:text-[13.5px] text-[#77727A]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotMode(false);
+                        setError('');
+                      }}
+                      className="text-[#E61E73] hover:text-[#D91868] font-bold transition-colors cursor-pointer"
+                    >
+                      Back to Login
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col justify-center">
                   <h2 className="font-sans text-2xl sm:text-3xl lg:text-[2rem] font-medium text-[#231F20] tracking-tight mb-2">
@@ -173,7 +285,7 @@ function LoginFormContent() {
                       </div>
                     </div>
 
-                    <div className="flex items-center pt-0.5">
+                    <div className="flex items-center justify-between pt-0.5">
                       <label className="flex items-center gap-2.5 text-xs text-[#77727A] cursor-pointer select-none">
                         <input
                           type="checkbox"
@@ -183,6 +295,16 @@ function LoginFormContent() {
                         />
                         <span>Remember me</span>
                       </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setForgotMode(true);
+                          setError('');
+                        }}
+                        className="text-xs font-medium text-[#E61E73] hover:text-[#D91868] hover:underline transition-colors cursor-pointer"
+                      >
+                        Forgot password?
+                      </button>
                     </div>
 
                     <div className="pt-2">

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import bcrypt from 'bcryptjs';
 import { supabase } from './supabase';
 import type { Profile, Customer } from './supabase';
 
@@ -21,6 +22,8 @@ type AuthContextValue = {
   ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  googleWelcomeUser: { name?: string; email?: string } | null;
+  dismissGoogleWelcome: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -30,11 +33,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
+  const [googleWelcomeUser, setGoogleWelcomeUser] = useState<{ name?: string; email?: string } | null>(null);
 
-  const loadProfile = async (userId: string, userEmail?: string) => {
+  const checkGoogleWelcome = (authUser: User, cust?: Customer | null, prof?: Profile | null) => {
+    if (typeof window === 'undefined') return;
+    const isPending = sessionStorage.getItem('candy_rose_google_login_pending') === 'true';
+    if (isPending) {
+      sessionStorage.removeItem('candy_rose_google_login_pending');
+      const metaName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.user_metadata?.given_name || '';
+      const resolvedName = metaName || cust?.full_name || cust?.name || prof?.full_name || prof?.name || '';
+      const resolvedEmail = authUser.email || cust?.email || prof?.email || '';
+      setGoogleWelcomeUser({
+        name: resolvedName,
+        email: resolvedEmail,
+      });
+    }
+  };
+
+  const dismissGoogleWelcome = () => {
+    setGoogleWelcomeUser(null);
+  };
+
+  const loadProfile = async (userId: string, userEmail?: string, userMetadata?: any) => {
     try {
       const normalizedEmail = userEmail?.trim().toLowerCase() || '';
       let activeCust: Customer | null = null;
+      let activeProf: Profile | null = null;
 
       // 1. Check customer record by user_id
       const { data: custByUserId } = await supabase
@@ -66,7 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      let resolvedName = activeCust?.full_name || activeCust?.name || normalizedEmail.split('@')[0] || 'Customer';
+      const metaName = userMetadata?.full_name || userMetadata?.name || userMetadata?.user_name || '';
+      let resolvedName = activeCust?.full_name || activeCust?.name || metaName || (normalizedEmail ? normalizedEmail.split('@')[0] : 'Customer');
       let resolvedPhone = activeCust?.phone || '';
       let resolvedAddress = activeCust?.address || '';
 
@@ -101,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (profData) {
-        setProfile({
+        activeProf = {
           id: profData.id,
           name: profData.name || profData.full_name || resolvedName,
           full_name: profData.full_name || profData.name || resolvedName,
@@ -111,7 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           image_url: profData.image_url,
           avatar_url: profData.avatar_url || profData.image_url,
           role: profData.role || 'Customer',
-        });
+        };
+        setProfile(activeProf);
       } else {
         const newProfile: Profile = {
           id: userId,
@@ -123,10 +149,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: 'Customer',
         };
         await supabase.from('profiles').upsert(newProfile);
+        activeProf = newProfile;
         setProfile(newProfile);
       }
+
+      return { customer: activeCust, profile: activeProf };
     } catch (e) {
       console.error('Error loading customer profile:', e);
+      return { customer: null, profile: null };
     }
   };
 
@@ -137,7 +167,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       setSession(data.session);
       if (data.session?.user) {
-        loadProfile(data.session.user.id, data.session.user.email).finally(() => mounted && setLoading(false));
+        loadProfile(data.session.user.id, data.session.user.email, data.session.user.user_metadata)
+          .then((res) => {
+            if (mounted && data.session?.user) {
+              checkGoogleWelcome(data.session.user, res?.customer, res?.profile);
+            }
+          })
+          .finally(() => mounted && setLoading(false));
       } else {
         setLoading(false);
       }
@@ -146,7 +182,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       if (newSession?.user) {
-        loadProfile(newSession.user.id, newSession.user.email);
+        loadProfile(newSession.user.id, newSession.user.email, newSession.user.user_metadata)
+          .then((res) => {
+            checkGoogleWelcome(newSession.user, res?.customer, res?.profile);
+          });
       } else {
         setProfile(null);
         setCustomer(null);
@@ -168,6 +207,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: 'Please enter your password.' };
     }
 
+    // 1. Check if customer exists in customers table
+    const { data: custRecord } = await supabase
+      .from('customers')
+      .select('*')
+      .ilike('email', normalizedEmail)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (custRecord && custRecord.password) {
+      const isMatch = bcrypt.compareSync(password, custRecord.password);
+      if (!isMatch) {
+        return { error: 'Invalid email or password.' };
+      }
+
+      // Customer verified via bcrypt hash
+      setCustomer(custRecord as Customer);
+      if (custRecord.user_id) {
+        await loadProfile(custRecord.user_id, custRecord.email);
+        try {
+          await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+        } catch (_) {}
+      } else {
+        const resolvedName = custRecord.full_name || custRecord.name || normalizedEmail.split('@')[0] || 'Customer';
+        setProfile({
+          id: custRecord.id,
+          name: resolvedName,
+          full_name: resolvedName,
+          email: normalizedEmail,
+          phone: custRecord.phone || '',
+          address: custRecord.address || '',
+          role: 'Customer',
+        });
+      }
+      return { error: null };
+    }
+
+    // Fallback: If customer doesn't have bcrypt password column set yet, use supabase.auth
     const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password,
@@ -243,7 +320,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: 'Registration failed. Please try again.' };
     }
 
-    // 4. Save customer record to Supabase customers table
+    // 4. Hash password with bcrypt and save customer record to Supabase customers table
+    const hashedPassword = bcrypt.hashSync(password, 10);
     const { data: createdCust, error: custInsertError } = await supabase
       .from('customers')
       .insert({
@@ -251,6 +329,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: trimmedName,
         full_name: trimmedName,
         email: normalizedEmail,
+        password: hashedPassword,
         phone: trimmedPhone || null,
         address: trimmedAddress || null,
         status: 'Active',
@@ -312,7 +391,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, user: session?.user ?? null, profile, customer, loading, signIn, signUp, signOut, refreshProfile }}
+      value={{
+        session,
+        user: session?.user ?? null,
+        profile,
+        customer,
+        loading,
+        signIn,
+        signUp,
+        signOut,
+        refreshProfile,
+        googleWelcomeUser,
+        dismissGoogleWelcome,
+      }}
     >
       {children}
     </AuthContext.Provider>

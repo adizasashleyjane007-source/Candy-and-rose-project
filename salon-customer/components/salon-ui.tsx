@@ -6,7 +6,7 @@ import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import {
   CalendarDays, Check, ChevronRight, Clock3, Heart, History,
   LogIn, LogOut, Mail, MapPin, Menu, Phone, Plus, Sparkles,
-  Star, X, Facebook, Twitter, Instagram, Youtube, ChevronDown, Leaf, Eye, EyeOff, User, Lock, Search
+  Star, X, Facebook, Instagram, ChevronDown, Leaf, Eye, EyeOff, User, Lock, Search
 } from 'lucide-react';
 import { supabase, getSalonInfo, defaultSalonInfo, type SalonInfo, type Appointment, type Service } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
@@ -442,12 +442,6 @@ export function Footer() {
             <a href="https://www.facebook.com/profile.php?id=61576903201744" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-full bg-zinc-900 flex items-center justify-center hover:bg-pink-600 hover:text-white transition-colors" aria-label="Candy & Rose Facebook">
               <Facebook size={16} />
             </a>
-            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-full bg-zinc-900 flex items-center justify-center hover:bg-pink-600 hover:text-white transition-colors">
-              <Twitter size={16} />
-            </a>
-            <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-full bg-zinc-900 flex items-center justify-center hover:bg-pink-600 hover:text-white transition-colors">
-              <Youtube size={16} />
-            </a>
           </div>
         </div>
 
@@ -537,10 +531,33 @@ function Modal({ children, onClose, maxWidth = 'max-w-2xl' }: { children: ReactN
   );
 }
 
+function GoogleIcon({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24">
+      <path
+        fill="#4285F4"
+        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.25 21.32 7.33 24 12 24z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.97 0 12s.46 3.84 1.26 5.42l4.02-3.15z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.25 2.68 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+      />
+    </svg>
+  );
+}
+
 export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess: () => void }) {
   const { signIn, signUp } = useAuth();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [step, setStep] = useState<'form' | 'regSuccess' | 'welcome'>('form');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [step, setStep] = useState<'form' | 'regSuccess' | 'welcome' | 'forgotSuccess'>('form');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -552,6 +569,63 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
   const [busy, setBusy] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setBusy(true);
+      setError('');
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('candy_rose_google_login_pending', 'true');
+      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/` : undefined,
+        },
+      });
+      if (error) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('candy_rose_google_login_pending');
+        }
+        setError(error.message);
+      }
+    } catch (err: any) {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('candy_rose_google_login_pending');
+      }
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleForgotSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to send password reset email.');
+      } else {
+        setStep('forgotSuccess');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -561,6 +635,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
   useEffect(() => {
     if (!open) {
       setStep('form');
+      setMode('login');
       setError('');
       setBusy(false);
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -583,6 +658,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
   const handleClose = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setStep('form');
+    setMode('login');
     onClose();
   };
 
@@ -673,6 +749,46 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
     );
   }
 
+  // Compact Check Email Success Message Modal (Forgot Password)
+  if (step === 'forgotSuccess') {
+    return (
+      <div 
+        onClick={handleBackdropClick}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in"
+      >
+        <div className="relative w-[90%] max-w-[440px] my-auto rounded-3xl bg-white p-8 sm:p-10 shadow-2xl animate-scale-in text-center flex flex-col items-center">
+          <button 
+            onClick={handleClose} 
+            className="absolute top-5 right-6 text-zinc-400 hover:text-[#E61E73] transition-colors p-1 cursor-pointer"
+            aria-label="Close modal"
+          >
+            <X size={20} />
+          </button>
+          <div className="h-16 w-16 rounded-full bg-pink-50 border border-pink-200 flex items-center justify-center mb-5 shadow-sm">
+            <Mail size={30} className="text-[#E61E73]" />
+          </div>
+          <h3 className="font-sans text-xl sm:text-2xl font-medium text-[#231F20] tracking-tight mb-2">
+            Check your email
+          </h3>
+          <p className="text-xs sm:text-sm text-[#77727A] font-normal leading-relaxed mb-6">
+            We&apos;ve sent you a password reset link. Please check your email and follow the link to create a new password.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setStep('form');
+              setMode('login');
+              setError('');
+            }}
+            className="w-full h-[50px] sm:h-[52px] rounded-xl bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 cursor-pointer flex items-center justify-center shadow-sm"
+          >
+            BACK TO LOGIN
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Enhanced Welcome Message Modal
   if (step === 'welcome') {
     return (
@@ -714,7 +830,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
           {/* Left Column: Image with Overlay */}
           <div className="relative min-h-[260px] md:min-h-[580px] bg-zinc-950 flex flex-col justify-end p-8 sm:p-10 lg:p-12 overflow-hidden">
             <img
-              src={mode === 'login' ? '/images/login-img.jpg' : '/images/login-customer.jpg'}
+              src={mode === 'register' ? '/images/login-customer.jpg' : '/images/login-img.jpg'}
               alt="Candy & Rose Beauty Experience"
               className="absolute inset-0 w-full h-full object-cover object-center"
             />
@@ -746,12 +862,14 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
 
             <div className="max-w-[400px] w-full mx-auto my-auto flex flex-col justify-center">
               <h2 className="font-sans text-2xl sm:text-3xl font-medium text-[#231F20] tracking-tight mb-2">
-                {mode === 'login' ? 'Login' : 'Register'}
+                {mode === 'login' ? 'Login' : mode === 'register' ? 'Register' : 'Forgot Password'}
               </h2>
               <p className="text-xs sm:text-sm text-[#77727A] font-normal leading-relaxed mb-6">
                 {mode === 'login'
                   ? "Welcome back, we are glad you're feeling beautiful today. Login to continue"
-                  : "Welcome to Candy & Rose Beauty Salon, we hope your stay with us feel as bright as the morning sun."
+                  : mode === 'register'
+                  ? "Welcome to Candy & Rose Beauty Salon, we hope your stay with us feel as bright as the morning sun."
+                  : "Enter your email address and we'll send you a secure link to reset your password."
                 }
               </p>
 
@@ -761,127 +879,185 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                 </div>
               )}
 
-              <form onSubmit={submit} className="space-y-3.5">
-                {mode === 'register' && (
+              {mode === 'login' && (
+                <div className="mb-3.5">
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={busy}
+                    className="relative w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-white hover:bg-zinc-50 hover:border-zinc-300 text-[#231F20] font-medium text-xs sm:text-sm transition-all duration-150 flex items-center justify-center shadow-sm cursor-pointer disabled:opacity-60"
+                  >
+                    <GoogleIcon className="absolute left-4 sm:left-4.5 w-4.5 h-4.5 sm:w-5 sm:h-5" />
+                    <span>Continue with Google</span>
+                  </button>
+
+                  <div className="flex items-center my-3 sm:my-3.5">
+                    <div className="flex-grow border-t border-[#E1DFE3]" />
+                    <span className="shrink-0 px-3 text-xs text-[#77727A]">or</span>
+                    <div className="flex-grow border-t border-[#E1DFE3]" />
+                  </div>
+                </div>
+              )}
+
+              {mode === 'forgot' ? (
+                <form onSubmit={handleForgotSubmit} className="space-y-4">
                   <div className="space-y-1">
-                    <label htmlFor="auth-modal-name" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                      Full Name *
+                    <label htmlFor="auth-modal-forgot-email" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
+                      Email Address *
                     </label>
                     <div className="relative group">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
                       <input
-                        id="auth-modal-name"
-                        type="text"
+                        id="auth-modal-forgot-email"
+                        type="email"
                         required
-                        placeholder="Enter your full name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Enter your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
                       />
                     </div>
                   </div>
-                )}
 
-                <div className="space-y-1">
-                  <label htmlFor="auth-modal-email" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                    Email Address *
-                  </label>
-                  <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                    <input
-                      id="auth-modal-email"
-                      type="email"
-                      required
-                      placeholder="Enter your email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="auth-modal-password" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                    Password *
-                  </label>
-                  <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                    <input
-                      id="auth-modal-password"
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                    />
+                  <div className="pt-2">
                     <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
+                      type="submit"
+                      disabled={busy}
+                      className="w-full h-[50px] sm:h-[52px] rounded-xl bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
                     >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      {busy ? 'SENDING...' : 'SEND RESET LINK'}
                     </button>
                   </div>
-                </div>
+                </form>
+              ) : (
+                <form onSubmit={submit} className="space-y-3.5">
+                  {mode === 'register' && (
+                    <div className="space-y-1">
+                      <label htmlFor="auth-modal-name" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
+                        Full Name *
+                      </label>
+                      <div className="relative group">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                        <input
+                          id="auth-modal-name"
+                          type="text"
+                          required
+                          placeholder="Enter your full name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                        />
+                      </div>
+                    </div>
+                  )}
 
-                {mode === 'register' && (
                   <div className="space-y-1">
-                    <label htmlFor="auth-modal-confirm-password" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                      Confirm Password *
+                    <label htmlFor="auth-modal-email" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
+                      Email Address *
+                    </label>
+                    <div className="relative group">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                      <input
+                        id="auth-modal-email"
+                        type="email"
+                        required
+                        placeholder="Enter your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="auth-modal-password" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
+                      Password *
                     </label>
                     <div className="relative group">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
                       <input
-                        id="auth-modal-confirm-password"
-                        type={showConfirmPassword ? 'text' : 'password'}
+                        id="auth-modal-password"
+                        type={showPassword ? 'text' : 'password'}
                         required
-                        placeholder="Confirm your password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
                       />
                       <button
                         type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
                       >
-                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
                   </div>
-                )}
 
-                {mode === 'login' && (
-                  <div className="flex items-center pt-0.5">
-                    <label className="flex items-center gap-2.5 text-xs text-[#77727A] cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        className="h-4 w-4 rounded border-zinc-300 accent-[#E61E73] cursor-pointer"
-                      />
-                      <span>Remember me</span>
-                    </label>
+                  {mode === 'register' && (
+                    <div className="space-y-1">
+                      <label htmlFor="auth-modal-confirm-password" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
+                        Confirm Password *
+                      </label>
+                      <div className="relative group">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
+                        <input
+                          id="auth-modal-confirm-password"
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          required
+                          placeholder="Confirm your password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
+                        >
+                          {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {mode === 'login' && (
+                    <div className="flex items-center justify-between pt-0.5">
+                      <label className="flex items-center gap-2.5 text-xs text-[#77727A] cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="h-4 w-4 rounded border-zinc-300 accent-[#E61E73] cursor-pointer"
+                        />
+                        <span>Remember me</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode('forgot');
+                          setError('');
+                        }}
+                        className="text-xs font-medium text-[#E61E73] hover:text-[#D91868] hover:underline transition-colors cursor-pointer"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className="w-full h-[50px] sm:h-[52px] rounded-xl bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
+                    >
+                      {busy ? (mode === 'login' ? 'LOGGING IN...' : 'REGISTERING...') : (mode === 'login' ? 'LOGIN' : 'REGISTER')}
+                    </button>
                   </div>
-                )}
-
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className={
-                      mode === 'login'
-                        ? "w-full h-[50px] sm:h-[52px] rounded-xl bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
-                        : "w-full h-[50px] sm:h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
-                    }
-                  >
-                    {busy ? (mode === 'login' ? 'LOGGING IN...' : 'REGISTERING...') : (mode === 'login' ? 'LOGIN' : 'REGISTER')}
-                  </button>
-                </div>
-              </form>
+                </form>
+              )}
 
               <div className="mt-6 text-center text-xs sm:text-[13.5px] text-[#77727A]">
                 {mode === 'login' ? (
@@ -895,7 +1071,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                       Register
                     </button>
                   </>
-                ) : (
+                ) : mode === 'register' ? (
                   <>
                     Already have an account?{' '}
                     <button
@@ -906,6 +1082,14 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
                       Login
                     </button>
                   </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setMode('login'); setError(''); }}
+                    className="text-[#E61E73] hover:text-[#D91868] font-bold transition-colors cursor-pointer"
+                  >
+                    Back to Login
+                  </button>
                 )}
               </div>
             </div>
@@ -1017,3 +1201,97 @@ export function SectionHeading({ eyebrow, title, description, centered = false }
     </div>
   );
 }
+
+export function GoogleWelcomeModal({
+  open,
+  name,
+  onClose,
+  onContinue,
+}: {
+  open: boolean;
+  name?: string;
+  onClose: () => void;
+  onContinue?: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  const displayName = name?.trim();
+  const welcomeHeading = displayName
+    ? `WELCOME TO CANDY & ROSE, ${displayName.toUpperCase()}!`
+    : 'WELCOME TO CANDY & ROSE!';
+
+  const handleContinueClick = () => {
+    if (onContinue) {
+      onContinue();
+    } else {
+      onClose();
+    }
+  };
+
+  return (
+    <div
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in"
+    >
+      <div
+        className="relative w-[90%] max-w-[440px] my-auto rounded-3xl bg-white pt-10 pb-8 px-6 sm:pt-12 sm:pb-9 sm:px-8 shadow-2xl animate-scale-in text-center flex flex-col items-center border border-pink-100/60"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Top-right X close button */}
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute top-4 right-4 sm:top-5 sm:right-5 text-zinc-400 hover:text-[#E61E73] transition-colors p-1.5 cursor-pointer rounded-full hover:bg-zinc-100"
+        >
+          <X size={20} />
+        </button>
+
+        {/* Dynamic Welcome Title */}
+        <h2 className="font-sans text-xl sm:text-2xl font-semibold text-[#231F20] tracking-tight uppercase leading-snug mb-3">
+          {welcomeHeading}
+        </h2>
+
+        {/* Question text below welcome */}
+        <p className="text-sm sm:text-base text-[#77727A] font-normal mb-8">
+          Want to book service?
+        </p>
+
+        {/* Side-by-side Action Buttons: [CANCEL]  [CONTINUE] */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 w-full">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full h-[50px] sm:h-[52px] rounded-xl bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center shadow-md hover:scale-[1.01] active:scale-[0.99]"
+          >
+            CANCEL
+          </button>
+          <button
+            type="button"
+            onClick={handleContinueClick}
+            className="w-full h-[50px] sm:h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center shadow-md shadow-pink-200/50 hover:scale-[1.01] active:scale-[0.99]"
+          >
+            CONTINUE
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
