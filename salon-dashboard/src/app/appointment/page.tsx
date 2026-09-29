@@ -608,6 +608,11 @@ function AppointmentContent() {
             const apt = appointments.find(a => a.id === id);
             if (!apt) return;
 
+            if (apt.status === 'Completed' && newStatus !== 'Completed') {
+                alert("This appointment is Completed and its status is permanently locked.");
+                return;
+            }
+
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const aptDateValue = apt.appointment_date || apt.date;
@@ -968,24 +973,26 @@ function AppointmentContent() {
                                         </td>
                                         <td className="py-2.5 px-4 text-sm text-center border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">
                                             <div className="relative group/status">
-                                                <span className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-tight border cursor-pointer hover:opacity-80 transition-all ${apt.status === 'Pending' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                                <span className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-tight border transition-all ${apt.status === 'Completed' ? 'cursor-default' : 'cursor-pointer hover:opacity-80'} ${apt.status === 'Pending' ? 'bg-amber-50 text-amber-600 border-amber-200' :
                                                     apt.status === 'In Progress' ? 'bg-blue-50 text-blue-600 border-blue-200' :
                                                         apt.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
                                                             'bg-red-50 text-red-600 border-red-200'
                                                     }`}>
                                                     {apt.status}
                                                 </span>
-                                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 hidden group-hover/status:flex flex-col bg-white border border-pink-100 rounded-xl shadow-xl z-20 py-1 min-w-[120px]">
-                                                    {['Pending', 'In Progress', 'Completed', 'Cancelled'].map(s => (
-                                                        <button
-                                                            key={s}
-                                                            onClick={() => updateStatus(apt.id, s as any)}
-                                                            className={`px-3 py-1.5 text-xs font-medium text-left hover:bg-pink-50 ${apt.status === s ? 'text-pink-600 font-bold' : 'text-gray-600'}`}
-                                                        >
-                                                            {s}
-                                                        </button>
-                                                    ))}
-                                                </div>
+                                                {apt.status !== 'Completed' && (
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 hidden group-hover/status:flex flex-col bg-white border border-pink-100 rounded-xl shadow-xl z-20 py-1 min-w-[120px]">
+                                                        {['Pending', 'In Progress', 'Completed', 'Cancelled'].map(s => (
+                                                            <button
+                                                                key={s}
+                                                                onClick={() => updateStatus(apt.id, s as any)}
+                                                                className={`px-3 py-1.5 text-xs font-medium text-left hover:bg-pink-50 ${apt.status === s ? 'text-pink-600 font-bold' : 'text-gray-600'}`}
+                                                            >
+                                                                {s}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="py-2.5 px-4 text-sm rounded-r-xl border border-transparent group-hover:border-pink-200 border-l-0 whitespace-nowrap">

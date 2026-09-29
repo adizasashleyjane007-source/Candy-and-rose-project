@@ -1,12 +1,6 @@
 import Link from 'next/link';
 import { CheckCircle2, CalendarHeart } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize a Server-only client to bypass RLS since the customer's phone isn't logged in
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { fulfillPaymentSuccess } from '@/lib/db';
 
 export default async function SuccessPage(props: any) {
   let appointmentId = null;
@@ -16,36 +10,12 @@ export default async function SuccessPage(props: any) {
       appointmentId = params?.ref;
   }
 
-  // Fallback: If webhook fails, or user is doing dev testing without Ngrok, we finalize here!
+  // Fallback / Return URL: fulfill payment success idempotently
   if (appointmentId) {
-      const { data: apt } = await supabase
-        .from('appointments')
-        .select('*')
-        .eq('id', appointmentId)
-        .single();
-
-      // Only perform the update if it hasn't somehow already been marked completed by the webhook
-      if (apt && apt.status !== 'Completed') {
-        const { error: aptError } = await supabase
-          .from('appointments')
-          .update({ status: 'Completed', source: 'PayMongo' })
-          .eq('id', appointmentId); 
-          
-        if (!aptError) {
-          const { error: billingError } = await supabase
-            .from('billing')
-            .insert({
-              appointment_id: appointmentId,
-              customer_id: apt.customer_id,
-              amount: apt.price || 0,
-              payment_method: 'GCash',
-              status: 'Completed',
-              notes: `Online Payment for ${apt.service_name || 'service'}`
-            });
-
-            if (billingError) console.error("Success Page Billing Insert Error:", JSON.stringify(billingError, null, 2));
-        }
-      }
+      await fulfillPaymentSuccess({
+        appointmentId,
+        paymentMethod: 'GCash',
+      });
   }
 
   return (

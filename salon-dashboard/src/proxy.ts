@@ -12,9 +12,9 @@
 
     const { pathname } = request.nextUrl;
     
-    // If the user is on the login page or other auth-related pages, let them proceed without checking auth here
-    // This prevents redirect loops.
-    if (pathname === "/login" || pathname === "/signup" || pathname.startsWith("/auth")) {
+    // If the user is on the login page or other auth-related pages or API routes, let them proceed without checking auth here
+    // This prevents redirect loops and API route HTML redirects.
+    if (pathname === "/login" || pathname === "/signup" || pathname.startsWith("/auth") || pathname.startsWith("/api")) {
       return response;
     }
 

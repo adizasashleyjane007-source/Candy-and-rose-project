@@ -13,6 +13,9 @@ import {
     Banknote,
     CreditCard,
     CheckCircle,
+    CheckCircle2,
+    XCircle,
+    AlertCircle,
     X,
     PhilippinePeso,
     Loader2,
@@ -21,7 +24,7 @@ import {
 import { useState, useEffect } from "react";
 import Pagination from "@/components/Pagination";
 import { addNotification } from "@/lib/notifications";
-import { Appointments, Billing, SettingsDB, type Appointment, type BillingRecord } from "@/lib/db";
+import { Appointments, Billing, SettingsDB, fulfillPaymentSuccess, type Appointment, type BillingRecord } from "@/lib/db";
 import { createClient } from "@/lib/supabase/client";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -44,6 +47,22 @@ export default function BillingPage() {
     const [checkoutUrl, setCheckoutUrl] = useState("");
     const [generatingQR, setGeneratingQR] = useState(false);
     const [isPrinting, setIsPrinting] = useState(false);
+
+    // Payment Success & Receipt Workflow Modal States
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [receiptModalStep, setReceiptModalStep] = useState<
+        'PAYMENT_SUCCESS' | 'SENDING' | 'RECEIPT_SUCCESS' | 'RECEIPT_ERROR' | 'MISSING_EMAIL'
+    >('PAYMENT_SUCCESS');
+    const [paymentSuccessData, setPaymentSuccessData] = useState<{
+        customerName: string;
+        customerEmail: string | null;
+        totalPaid: number;
+        paymentMethod: string;
+        cashReceived: number;
+        change: number;
+        appointmentId: string;
+    } | null>(null);
+
     const [salonInfo, setSalonInfo] = useState({
         name: "Candy And Rose Salon",
         address: "Blk and Lot, Dasmarinas Cavite",
@@ -161,6 +180,7 @@ export default function BillingPage() {
         setPaymentAmount(""); 
         setPaymentMethod("Cash");
         setSelectedBilling(null);
+        setReceiptModalStep('PAYMENT_SUCCESS');
     };
 
     const handleViewReceipt = async (apt: Appointment) => {
@@ -185,52 +205,30 @@ export default function BillingPage() {
         }
     };
 
-    const handleSendReceiptEmail = async (apt: Appointment, customCash?: number) => {
-        const customerEmail = (apt as any).customers?.email;
+    const handleSendReceiptEmail = async (apt: Appointment) => {
+        const customerEmail = apt.customers?.email || null;
         if (!customerEmail) {
-            addNotification("No Email Found", "Please update the customer profile with a valid email address.", "billing");
+            addNotification("No Email Found", "Receipt cannot be sent because this customer does not have a registered email address.", "billing");
             return;
         }
 
         setIsSendingEmail(apt.id!);
         try {
-            const { doc } = generateReceiptPDFBlob(customCash, apt);
-            if (!doc) throw new Error("Failed to generate PDF");
+            const response = await fetch("/api/send-receipt", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ appointmentId: apt.id })
+            });
 
-            const pdfBlob = doc.output('blob');
-            const fileName = `receipt-${apt.id}-${Date.now()}.pdf`;
-            
-            const supabase = createClient();
-            const { data, error } = await supabase.storage
-                .from('receipts')
-                .upload(fileName, pdfBlob, {
-                    contentType: 'application/pdf',
-                    cacheControl: '3600',
-                    upsert: false
-                });
-
-            if (error) throw error;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('receipts')
-                .getPublicUrl(fileName);
-
-            const subject = encodeURIComponent(`Receipt from ${salonInfo.name}`);
-            const body = encodeURIComponent(
-                `Hi ${apt.customers?.name || apt.customer_name || 'Valued Customer'},\n\n` +
-                `Thank you for visiting ${salonInfo.name}!\n\n` +
-                `You can download your receipt for your ${apt.service_name} here:\n${publicUrl}\n\n` +
-                `Date: ${new Date(apt.appointment_date).toLocaleDateString()}\n` +
-                `Total: ₱${(apt.price || 0).toLocaleString()}\n\n` +
-                `Best regards,\n${salonInfo.name} Team`
-            );
-
-            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${customerEmail}&su=${subject}&body=${body}`;
-            window.open(gmailUrl, "_blank");
-            addNotification("Success", "Receipt prepared! Opening Gmail...", "billing");
+            const result = await response.json();
+            if (response.ok && result.success) {
+                addNotification("Success", `Receipt sent successfully to ${customerEmail}.`, "billing");
+            } else {
+                addNotification("Error", result.message || "Unable to send the receipt.", "billing");
+            }
         } catch (error) {
             console.error("Failed to send receipt:", error);
-            addNotification("Error", "Failed to prepare receipt for Gmail.", "billing");
+            addNotification("Error", "Unable to send the receipt. Please try again.", "billing");
         } finally {
             setIsSendingEmail(null);
         }
@@ -239,35 +237,38 @@ export default function BillingPage() {
     const handleConfirmPayment = async (e: React.FormEvent) => {
         e.preventDefault();
         const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement;
-        const wantsPrint = submitter?.innerText.toLowerCase().includes('print') || submitter?.innerText.toLowerCase().includes('okay');
+        const wantsPrint = submitter?.innerText.toLowerCase().includes('print');
         
         if (!selectedApt) return;
         
         const currentTotal = totalWithTax;
-        if (parseInt(paymentAmount) < currentTotal) {
-            addNotification("Payment Error", "Insufficient payment amount to complete transaction.", "billing");
-            return;
+
+        // Cash Payment Validation
+        if (paymentMethod.toLowerCase() === 'cash') {
+            const enteredCash = parseFloat(paymentAmount);
+            if (isNaN(enteredCash) || enteredCash < currentTotal) {
+                addNotification("Payment Validation Error", "Please enter a valid cash amount equal to or greater than the total amount.", "billing");
+                return;
+            }
         }
 
         try {
-            // Update appointment status to Completed
-            await Appointments.update(selectedApt.id!, {
-                status: "Completed"
-            });
-
             const billAmount = totalWithTax;
             const cashRec = paymentMethod.toLowerCase() === 'cash' ? Number(paymentAmount) : totalWithTax;
+            const calcChange = Math.max(0, cashRec - billAmount);
 
-            // Create a billing record
-            await Billing.create({
-                appointment_id: selectedApt.id!,
-                customer_id: selectedApt.customer_id!,
+            // Fulfill payment success server-side idempotently
+            const res = await fulfillPaymentSuccess({
+                appointmentId: selectedApt.id!,
                 amount: billAmount,
-                cash_received: cashRec,
-                payment_method: paymentMethod,
-                status: "Paid",
+                cashReceived: cashRec,
+                paymentMethod: paymentMethod,
                 notes: `Payment for ${selectedApt.service_name || 'service'}`
             });
+
+            if (!res.success) {
+                throw new Error(res.error || "Payment fulfillment failed");
+            }
 
             addNotification("Success", "Payment confirmed successfully.", "billing");
             
@@ -275,16 +276,74 @@ export default function BillingPage() {
                 handlePrint(cashRec);
             }
             
-            // Auto open gmail if they click 'Ok' or 'Print' and have email? 
-            // Better to let them click the explicit button below or in the table.
-            
+            // Prepare success dashboard data
+            const custName = selectedApt.customers?.name || selectedApt.customer_name || "Valued Customer";
+            const custEmail = selectedApt.customers?.email || null;
+
+            setPaymentSuccessData({
+                customerName: custName,
+                customerEmail: custEmail,
+                totalPaid: billAmount,
+                paymentMethod: paymentMethod,
+                cashReceived: cashRec,
+                change: calcChange,
+                appointmentId: selectedApt.id!
+            });
+
+            // Transition from payment input modal to Payment Success Dashboard
             setSelectedApt(null);
             setShowReceipt(false);
             setPaymentAmount("");
+            setReceiptModalStep('PAYMENT_SUCCESS');
+            setShowSuccessModal(true);
+
+            // Refresh table data
+            loadData();
         } catch (error) {
             console.error("Payment failed:", error);
-            alert("Failed to confirm payment.");
+            addNotification("Error", "Failed to confirm payment.", "billing");
         }
+    };
+
+    const handleTriggerSendReceipt = async () => {
+        if (!paymentSuccessData || receiptModalStep === 'SENDING') return;
+
+        setReceiptModalStep('SENDING');
+
+        try {
+            const response = await fetch("/api/send-receipt", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    appointmentId: paymentSuccessData.appointmentId
+                })
+            });
+
+            const contentType = response.headers.get("content-type");
+            let result: any = {};
+            if (contentType && contentType.includes("application/json")) {
+                result = await response.json();
+            } else {
+                result = { success: false, message: `Server error (${response.status})` };
+            }
+
+            if (response.ok && result.success) {
+                setReceiptModalStep('RECEIPT_SUCCESS');
+            } else if (result.code === 'CUSTOMER_EMAIL_MISSING' || (result.message && result.message.includes("registered email address"))) {
+                setReceiptModalStep('MISSING_EMAIL');
+            } else {
+                setReceiptModalStep('RECEIPT_ERROR');
+            }
+        } catch (error: any) {
+            console.error("Error sending receipt:", error);
+            setReceiptModalStep('RECEIPT_ERROR');
+        }
+    };
+
+    const handleCloseSuccessModal = () => {
+        setShowSuccessModal(false);
+        setReceiptModalStep('PAYMENT_SUCCESS');
+        setPaymentSuccessData(null);
     };
 
     const generateReceiptPDFBlob = (customCash?: number, customApt?: Appointment | null) => {
@@ -767,7 +826,7 @@ export default function BillingPage() {
                                         {(selectedApt as any)?.customers?.email && (
                                             <button
                                                 type="button"
-                                                onClick={() => handleSendReceiptEmail(selectedApt, Number(paymentAmount))}
+                                                onClick={() => handleSendReceiptEmail(selectedApt)}
                                                 disabled={isSendingEmail === selectedApt.id}
                                                 className="flex-1 p-3.5 rounded-xl font-bold shadow-lg active:scale-95 transition-all bg-gray-900 text-white hover:bg-black flex items-center justify-center"
                                                 title="Send to Gmail"
@@ -783,6 +842,153 @@ export default function BillingPage() {
                 </div>
             )}
 
+
+            {/* Payment Success & Receipt Modal Workflow */}
+            {showSuccessModal && paymentSuccessData && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200 print:hidden">
+                    <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col border border-pink-100 overflow-hidden text-center p-6 sm:p-8">
+                        
+                        {/* STEP 1: PAYMENT SUCCESSFUL MODAL */}
+                        {receiptModalStep === 'PAYMENT_SUCCESS' && (
+                            <>
+                                <div className="w-14 h-14 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-emerald-100">
+                                    <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                                </div>
+
+                                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Payment Successful!</h3>
+
+                                <p className="text-gray-600 text-xs sm:text-sm mt-3 leading-relaxed">
+                                    The payment for,<br />
+                                    <span className="font-extrabold text-pink-600 text-base sm:text-lg block my-1">
+                                        &quot;{paymentSuccessData.customerName}&quot;
+                                    </span>
+                                    is successful!
+                                </p>
+
+                                <div className="bg-pink-50/50 border border-pink-100/80 rounded-2xl p-3.5 my-4 text-left text-xs space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-500 font-medium">Payment Method:</span>
+                                        <span className="font-bold text-gray-800">{paymentSuccessData.paymentMethod}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-500 font-medium">Total Paid:</span>
+                                        <span className="font-extrabold text-pink-600 text-sm">₱{paymentSuccessData.totalPaid.toLocaleString()}</span>
+                                    </div>
+                                    {paymentSuccessData.paymentMethod.toLowerCase() === 'cash' && (
+                                        <div className="flex justify-between items-center pt-1 border-t border-pink-100/50">
+                                            <span className="text-gray-500 font-medium">Change:</span>
+                                            <span className="font-bold text-emerald-600">₱{paymentSuccessData.change.toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <p className="text-gray-500 text-xs font-medium italic mb-5">
+                                    Thank you for booking with us!<br />Come again!
+                                </p>
+
+                                <div className="flex items-center gap-3 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleCloseSuccessModal}
+                                        className="flex-1 py-3 px-3 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-bold transition-all text-xs sm:text-sm shadow-sm active:scale-95"
+                                    >
+                                        Cancel
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleTriggerSendReceipt}
+                                        className="flex-1 py-3 px-3 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold transition-all text-xs sm:text-sm shadow-lg shadow-pink-500/20 flex items-center justify-center gap-1.5 active:scale-95"
+                                    >
+                                        <Mail className="w-4 h-4" />
+                                        <span>Send Receipt</span>
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {/* STEP 2: LOADING MODAL ("Sending Receipt...") */}
+                        {receiptModalStep === 'SENDING' && (
+                            <div className="py-4">
+                                <div className="w-16 h-16 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-5 border border-pink-100 shadow-inner">
+                                    <Loader2 className="w-9 h-9 animate-spin text-pink-500" />
+                                </div>
+
+                                <h3 className="text-xl font-bold text-gray-900 tracking-tight mb-2">Sending Receipt...</h3>
+                                <p className="text-gray-500 text-xs sm:text-sm leading-relaxed max-w-[260px] mx-auto">
+                                    Please wait while we send the receipt to the customer&apos;s email.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* STEP 3: SUCCESS MODAL ("Receipt Sent Successfully!") */}
+                        {receiptModalStep === 'RECEIPT_SUCCESS' && (
+                            <div className="py-2">
+                                <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100 shadow-sm">
+                                    <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+                                </div>
+
+                                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight mb-3">Receipt Sent Successfully!</h3>
+                                <p className="text-gray-600 text-xs sm:text-sm leading-relaxed mb-6 max-w-[270px] mx-auto">
+                                    The receipt was successfully sent to the customer&apos;s registered email.
+                                </p>
+
+                                <button
+                                    type="button"
+                                    onClick={handleCloseSuccessModal}
+                                    className="w-full py-3.5 px-4 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold transition-all text-sm shadow-lg shadow-pink-500/20 active:scale-95"
+                                >
+                                    OK
+                                </button>
+                            </div>
+                        )}
+
+                        {/* STEP 4: ERROR MODAL ("Unable to Send Receipt") */}
+                        {receiptModalStep === 'RECEIPT_ERROR' && (
+                            <div className="py-2">
+                                <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-rose-100 shadow-sm">
+                                    <XCircle className="w-10 h-10 text-rose-500" />
+                                </div>
+
+                                <h3 className="text-xl font-bold text-gray-900 tracking-tight mb-3">Unable to Send Receipt</h3>
+                                <p className="text-gray-600 text-xs sm:text-sm leading-relaxed mb-6 max-w-[270px] mx-auto">
+                                    Something went wrong while sending the receipt.<br />Please try again.
+                                </p>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setReceiptModalStep('PAYMENT_SUCCESS')}
+                                    className="w-full py-3.5 px-4 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold transition-all text-sm shadow-lg shadow-pink-500/20 active:scale-95"
+                                >
+                                    OK
+                                </button>
+                            </div>
+                        )}
+
+                        {/* STEP 5: MISSING EMAIL MODAL ("Unable to Send Receipt") */}
+                        {receiptModalStep === 'MISSING_EMAIL' && (
+                            <div className="py-2">
+                                <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-100 shadow-sm">
+                                    <AlertCircle className="w-10 h-10 text-amber-500" />
+                                </div>
+
+                                <h3 className="text-xl font-bold text-gray-900 tracking-tight mb-3">Unable to Send Receipt</h3>
+                                <p className="text-gray-600 text-xs sm:text-sm leading-relaxed mb-6 max-w-[270px] mx-auto">
+                                    This customer does not have a registered email address.
+                                </p>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setReceiptModalStep('PAYMENT_SUCCESS')}
+                                    className="w-full py-3.5 px-4 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold transition-all text-sm shadow-lg shadow-pink-500/20 active:scale-95"
+                                >
+                                    OK
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             <style jsx global>{`
                 @media print {

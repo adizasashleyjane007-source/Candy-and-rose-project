@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { fulfillPaymentSuccess } from '@/lib/db';
 
 // Initialize a supabase client for backend operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -36,40 +37,20 @@ export async function POST(req: Request) {
 
       console.log(`[PayMongo Webhook] Processing Paid Event for Appointment: ${appointmentId}, Amount: ${amountInPHP}`);
 
-      // 1. Update the Appointment Status to 'Completed'
-      const { data: aptData, error: aptError } = await supabase
-        .from('appointments')
-        .update({ status: 'Completed' })
-        .eq('id', appointmentId)
-        .select()
-        .single();
-        
-      if (aptError) {
-        console.error('[PayMongo Webhook] Error updating appointment:', aptError);
-        return NextResponse.json({ error: 'Failed to update appointment status' }, { status: 500 });
+      // Perform server-side payment fulfillment automation
+      const fulfillment = await fulfillPaymentSuccess({
+        appointmentId,
+        amount: amountInPHP,
+        paymentMethod: 'PayMongo',
+        notes: 'Paid via PayMongo Checkout Online',
+      });
+
+      if (!fulfillment.success) {
+        console.error('[PayMongo Webhook] Error fulfilling payment:', fulfillment.error);
+        return NextResponse.json({ error: fulfillment.error }, { status: 500 });
       }
 
-      // 2. Fetch the customer_id based on the appointment (to log for billing)
-      const customerId = aptData?.customer_id;
-
-      // 3. Create a Billing Record
-      const { error: billError } = await supabase
-        .from('billing')
-        .insert({
-          appointment_id: appointmentId,
-          customer_id: customerId,
-          amount: amountInPHP,
-          payment_method: 'PayMongo',
-          status: 'Paid',
-          notes: 'Paid via PayMongo Checkout Online',
-        });
-
-      if (billError) {
-        console.error('[PayMongo Webhook] Error creating billing record:', billError);
-        // We do not fail the request entirely since the main status update succeeded
-      }
-
-      return NextResponse.json({ received: true, status: 'success' });
+      return NextResponse.json({ received: true, status: 'success', alreadyCompleted: fulfillment.alreadyCompleted });
     }
 
     // Acknowledge other events too

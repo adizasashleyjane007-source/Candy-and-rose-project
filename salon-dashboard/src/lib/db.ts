@@ -372,6 +372,18 @@ export const Appointments = {
   },
 
   async update(id: string, payload: Partial<Omit<Appointment, "customers" | "staff" | "services">>) {
+    if (payload.status && payload.status !== "Completed") {
+      const { data: existing } = await supabase()
+        .from("appointments")
+        .select("status")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (existing && existing.status === "Completed") {
+        throw new Error("Forbidden: Once an appointment is Completed, its status is permanently locked.");
+      }
+    }
+
     const { data, error } = await supabase()
       .from("appointments")
       .update(payload)
@@ -939,3 +951,110 @@ export const PromotionsDB = {
     if (error) throw error;
   }
 };
+
+export async function fulfillPaymentSuccess(input: {
+  appointmentId: string;
+  amount?: number;
+  cashReceived?: number;
+  paymentMethod?: string;
+  notes?: string;
+}) {
+  const { appointmentId, amount, cashReceived, paymentMethod = "GCash", notes } = input;
+
+  if (!appointmentId) {
+    console.error("❌ [PAYMENT FULFILLMENT] Missing appointmentId.");
+    return { success: false, error: "Missing appointmentId" };
+  }
+
+  try {
+    const { data: apt, error: fetchError } = await supabase()
+      .from("appointments")
+      .select("*")
+      .eq("id", appointmentId)
+      .maybeSingle();
+
+    if (fetchError || !apt) {
+      console.error(`❌ [PAYMENT FULFILLMENT] Appointment not found: ${appointmentId}`, fetchError);
+      return { success: false, error: "Appointment not found" };
+    }
+
+    const isAlreadyCompleted = apt.status === "Completed";
+
+    // Update appointment status to 'Completed' if not already completed
+    if (!isAlreadyCompleted) {
+      const { error: updateError } = await supabase()
+        .from("appointments")
+        .update({
+          status: "Completed",
+          payment_method: paymentMethod || apt.payment_method || "GCash",
+        })
+        .eq("id", appointmentId);
+
+      if (updateError) {
+        console.error(`❌ [PAYMENT FULFILLMENT] Failed to update appointment status:`, updateError);
+        return { success: false, error: updateError.message };
+      }
+      console.log(`✅ [PAYMENT FULFILLMENT] Appointment ${appointmentId} status updated to Completed.`);
+    } else {
+      console.log(`ℹ️ [PAYMENT FULFILLMENT] Appointment ${appointmentId} was already Completed.`);
+    }
+
+    // Idempotent Billing Record Creation/Update
+    const { data: existingBilling } = await supabase()
+      .from("billing")
+      .select("*")
+      .eq("appointment_id", appointmentId)
+      .limit(1)
+      .maybeSingle();
+
+    const finalAmount = amount !== undefined && !isNaN(amount) && amount > 0 
+      ? amount 
+      : (apt.price || 0);
+
+    const finalCashReceived = cashReceived !== undefined && !isNaN(cashReceived) && cashReceived >= finalAmount
+      ? cashReceived
+      : finalAmount;
+
+    if (!existingBilling) {
+      const { error: billInsertErr } = await supabase()
+        .from("billing")
+        .insert({
+          appointment_id: appointmentId,
+          customer_id: apt.customer_id || null,
+          amount: finalAmount,
+          cash_received: finalCashReceived,
+          payment_method: paymentMethod || "GCash",
+          status: "Paid",
+          notes: notes || `Payment for ${apt.service_name || "service"}`,
+        });
+
+      if (billInsertErr) {
+        console.error(`❌ [PAYMENT FULFILLMENT] Billing insert error:`, billInsertErr);
+      } else {
+        console.log(`✅ [PAYMENT FULFILLMENT] Billing record created with status Paid.`);
+      }
+    } else if (existingBilling.status !== "Paid") {
+      await supabase()
+        .from("billing")
+        .update({
+          status: "Paid",
+          amount: finalAmount,
+          cash_received: finalCashReceived,
+          payment_method: paymentMethod || existingBilling.payment_method || "GCash",
+        })
+        .eq("id", existingBilling.id);
+      console.log(`✅ [PAYMENT FULFILLMENT] Existing billing record updated to Paid.`);
+    }
+
+    return {
+      success: true,
+      appointmentId,
+      status: "Completed",
+      alreadyCompleted: isAlreadyCompleted,
+    };
+  } catch (err: any) {
+    console.error(`❌ [PAYMENT FULFILLMENT] Server exception:`, err);
+    return { success: false, error: err?.message || "Server fulfillment exception" };
+  }
+}
+

@@ -147,6 +147,13 @@ export default function ProfilePage() {
     const finalReason = selectedReason === 'Others' ? otherReasonText.trim() : selectedReason;
     if (!finalReason) return;
 
+    const targetApt = appointments.find(a => a.id === cancelModalApptId);
+    if (targetApt && targetApt.status === 'Completed') {
+      alert("Completed appointments are permanently locked and cannot be cancelled.");
+      handleCloseCancelModal();
+      return;
+    }
+
     setSubmittingCancel(true);
     try {
       const { error } = await supabase
@@ -443,7 +450,7 @@ export default function ProfilePage() {
                           </div>
 
                           {/* Cancellation Button */}
-                          {activeTab === 'upcoming' && appt.status !== 'Cancelled' && (
+                          {activeTab === 'upcoming' && appt.status !== 'Cancelled' && appt.status !== 'Completed' && (
                             <button
                               onClick={() => handleOpenCancelModal(appt.id!)}
                               className="inline-flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-red-600 transition-colors border border-zinc-200 hover:border-red-200 bg-white px-4 py-2 rounded-full shadow-sm hover:shadow-red-50/50 cursor-pointer"

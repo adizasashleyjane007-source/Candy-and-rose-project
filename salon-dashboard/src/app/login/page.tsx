@@ -138,7 +138,16 @@ function LoginContent() {
         }),
       });
       
-      const result = await response.json();
+      const contentType = response.headers.get("content-type");
+      let result: any = {};
+      if (contentType && contentType.includes("application/json")) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        console.error("Non-JSON response from send-login-notification:", response.status, text);
+        result = { error: `Server error (${response.status})` };
+      }
+
       if (result.success || response.ok) {
         setCountdown(60);
         if (isAuto) {
@@ -149,9 +158,9 @@ function LoginContent() {
       } else {
         setOtpError(result.error || "Failed to rotate code. Please try again.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to resend OTP:", err);
-      setOtpError("Connection error. Code rotation failed.");
+      setOtpError(err?.message || "Connection error. Code rotation failed.");
     } finally {
       setIsResending(false);
     }
@@ -190,7 +199,16 @@ function LoginContent() {
             }),
           });
           
-          const result = await response.json();
+          const contentType = response.headers.get("content-type");
+          let result: any = {};
+          if (contentType && contentType.includes("application/json")) {
+            result = await response.json();
+          } else {
+            const text = await response.text();
+            console.error("Non-JSON response from send-login-notification:", response.status, text);
+            result = { error: `Server error (${response.status})` };
+          }
+
           if (result.success || response.ok) {
             setShowOtpModal(true);
             setCountdown(60); // Initialize countdown
@@ -203,9 +221,9 @@ function LoginContent() {
             setError(errorMsg);
             setLoading(false);
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error("Failed to initiate OTP flow:", err);
-          setError("Connection error. Please try again.");
+          setError(err?.message || "Connection error. Please try again.");
           setLoading(false);
         }
         return;
@@ -263,7 +281,15 @@ function LoginContent() {
         }),
       });
 
-      const result = await response.json();
+      const contentType = response.headers.get("content-type");
+      let result: any = {};
+      if (contentType && contentType.includes("application/json")) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        console.error("Non-JSON response from otp verify:", response.status, text);
+        result = { error: `Server error (${response.status})` };
+      }
 
       if (result.success) {
         setOtpSuccess(true);
@@ -281,9 +307,9 @@ function LoginContent() {
         setOtpError(result.error || "Invalid security code. Please try again.");
         setIsVerifyingOtp(false);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("OTP verification error:", err);
-      setOtpError("Connection error. Please try again.");
+      setOtpError(err?.message || "Connection error. Please try again.");
       setIsVerifyingOtp(false);
     }
   };

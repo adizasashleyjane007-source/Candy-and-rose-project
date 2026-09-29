@@ -10,6 +10,7 @@ type Review = {
   customer_name: string;
   rating: number;
   comment: string;
+  review?: string;
   status: string;
   created_at: string;
   review_images?: { image_url: string }[];

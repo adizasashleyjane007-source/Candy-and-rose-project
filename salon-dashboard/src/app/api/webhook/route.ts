@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { fulfillPaymentSuccess } from '@/lib/db';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string, 
@@ -17,43 +18,19 @@ export async function POST(req: Request) {
     const appointmentId = paymentData.attributes.metadata?.appointment_id;
     
     if (appointmentId) {
-      // 1. Fetch appointment details
-      const { data: apt } = await supabase
-        .from('appointments')
-        .select('*')
-        .eq('id', appointmentId)
-        .single();
+      const amountInCentavos = paymentData?.attributes?.amount || 0;
+      const amountPaid = amountInCentavos > 0 ? amountInCentavos / 100 : undefined;
 
-      if (apt) {
-        // 2. Update the appointment status
-        const { error: aptError } = await supabase
-          .from('appointments')
-          .update({ status: 'Completed', source: 'PayMongo' })
-          .eq('id', appointmentId); 
+      const fulfillment = await fulfillPaymentSuccess({
+        appointmentId,
+        amount: amountPaid,
+        paymentMethod: 'GCash',
+        notes: 'Online Payment via PayMongo',
+      });
 
-        if (aptError) {
-            console.error("Webhook Update Error:", aptError);
-            return new Response('Database Error', { status: 500 });
-        }
-
-        // 3. Create the billing record so it shows up in "Total Revenue"
-        // PayMongo gives amount in centavos, but fallback to apt.price just in case
-        const amountPaid = apt.price || (paymentData.attributes.amount / 100);
-        
-        const { error: billingError } = await supabase
-          .from('billing')
-          .insert({
-            appointment_id: appointmentId,
-            customer_id: apt.customer_id,
-            amount: amountPaid,
-            payment_method: 'GCash',
-            status: 'Completed',
-            notes: `Online Payment for ${apt.service_name || 'service'}`
-          });
-
-        if (billingError) {
-          console.error("Webhook Billing Insert Error:", billingError);
-        }
+      if (!fulfillment.success) {
+        console.error("Webhook Fulfillment Error:", fulfillment.error);
+        return new Response('Database Error', { status: 500 });
       }
     }
   }
