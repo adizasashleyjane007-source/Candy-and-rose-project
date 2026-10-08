@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { CheckCircle2, AlertCircle, X, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, AlertCircle, X, ChevronLeft, ChevronRight, ArrowLeft, Banknote, Smartphone, Check, Upload, Image, AlertTriangle } from 'lucide-react';
 import { supabase, type Service, type Staff, parseDurationToMinutes } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import type { NailDesignItem } from '@/lib/nail-designs';
@@ -46,6 +46,14 @@ function getTodayString(): string {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function getTodayYYYYMMDD(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
 }
 
 async function getCustomerDailyBookingCount(
@@ -129,15 +137,27 @@ export function BookingModal({
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerNotes, setCustomerNotes] = useState('');
 
-  const [step, setStep] = useState<'datetime' | 'details' | 'success'>('datetime');
+  const [step, setStep] = useState<'datetime' | 'details' | 'payment_select' | 'cash_confirm' | 'gcash_confirm' | 'success'>('datetime');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'GCash' | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [bookingReceipt, setBookingReceipt] = useState<any>(null);
 
+  // GCash Screenshot Verification States
+  const [gcashFilenameInput, setGcashFilenameInput] = useState('');
+  const [gcashFile, setGcashFile] = useState<File | null>(null);
+  const [gcashPreviewUrl, setGcashPreviewUrl] = useState<string | null>(null);
+  const [filenameError, setFilenameError] = useState('');
+
   useEffect(() => {
     if (!open) return;
     setStep('datetime');
+    setSelectedPaymentMethod(null);
     setErrorMsg('');
+    setFilenameError('');
+    setGcashFilenameInput('');
+    setGcashFile(null);
+    setGcashPreviewUrl(null);
     setLimitModalOpen(false);
     const now = new Date();
     setViewYear(now.getFullYear());
@@ -161,6 +181,20 @@ export function BookingModal({
       else if (profile?.phone) setCustomerPhone(profile.phone || '');
     }
   }, [user, profile, customer, open]);
+
+  // Derived Registered Customer Name & Sample Format Example
+  const registeredName = useMemo(() => {
+    return (customerName || customer?.full_name || customer?.name || profile?.full_name || profile?.name || user?.email?.split('@')[0] || 'Customer').trim();
+  }, [customerName, customer, profile, user]);
+
+  const sampleCustomerName = useMemo(() => {
+    const parts = registeredName.split(' ');
+    const clean = parts[0].replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    return clean || 'ZYHAN';
+  }, [registeredName]);
+
+  const todayYYYYMMDD = useMemo(() => getTodayYYYYMMDD(), []);
+  const sampleFilenameExample = `${sampleCustomerName}_${todayYYYYMMDD}`;
 
   if (!open) return null;
 
@@ -252,6 +286,91 @@ export function BookingModal({
     return `${monthShort} ${d}, ${y}`;
   };
 
+  // Filename Format Validation Logic
+  const validateFilenameFormat = (inputVal: string): { isValid: boolean; errorMsg?: string } => {
+    if (!inputVal || !inputVal.trim()) {
+      return {
+        isValid: false,
+        errorMsg: 'Please use the required format: CustomerName_Datetoday'
+      };
+    }
+
+    let rawName = inputVal.trim();
+
+    // Strip extension if present (.jpg, .jpeg, .png)
+    const extMatch = rawName.match(/\.(jpg|jpeg|png)$/i);
+    if (extMatch) {
+      rawName = rawName.slice(0, extMatch.index);
+    }
+
+    if (!rawName.includes('_')) {
+      return {
+        isValid: false,
+        errorMsg: 'Please use the required format: CustomerName_Datetoday'
+      };
+    }
+
+    const parts = rawName.split('_');
+    if (parts.length !== 2) {
+      return {
+        isValid: false,
+        errorMsg: 'Please use the required format: CustomerName_Datetoday'
+      };
+    }
+
+    const typedNamePart = parts[0].trim().toLowerCase();
+    const typedDatePart = parts[1].trim();
+
+    // Must match today's date YYYYMMDD
+    if (typedDatePart !== todayYYYYMMDD) {
+      return {
+        isValid: false,
+        errorMsg: `Please use the required format: CustomerName_Datetoday`
+      };
+    }
+
+    const firstNameClean = registeredName.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    const fullClean = registeredName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+    const isNameMatch = (
+      typedNamePart === firstNameClean ||
+      typedNamePart === fullClean ||
+      typedNamePart === registeredName.replace(/\s+/g, '').toLowerCase() ||
+      typedNamePart === registeredName.replace(/\s+/g, '_').toLowerCase()
+    );
+
+    if (!isNameMatch) {
+      return {
+        isValid: false,
+        errorMsg: `Please use the required format: CustomerName_Datetoday`
+      };
+    }
+
+    return { isValid: true };
+  };
+
+  const handleGcashFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    const ext = file.name.split('.').pop()?.toLowerCase();
+
+    if (!validTypes.includes(file.type) && !['jpg', 'jpeg', 'png'].includes(ext || '')) {
+      setFilenameError('Invalid file format. Only .jpg, .jpeg, and .png files are accepted.');
+      return;
+    }
+
+    setGcashFile(file);
+    setFilenameError('');
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setGcashPreviewUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Step 1: Click "NEXT STEP"
   const handleNextStep = async () => {
     if (!selectedDate) {
@@ -282,8 +401,8 @@ export function BookingModal({
     setStep('details');
   };
 
-  // Step 2: Confirm Booking Submit
-  const handleConfirmBooking = async (e: React.FormEvent) => {
+  // Step 2: Validate customer details and open payment selection modal
+  const handleCustomerDetailsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     if (!customerEmail.includes('@')) {
@@ -298,6 +417,61 @@ export function BookingModal({
       setErrorMsg('Please select a valid date.');
       return;
     }
+
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const currentUser = authUser || user;
+
+    if (!currentUser) {
+      setErrorMsg('Please log in to complete your booking.');
+      return;
+    }
+
+    try {
+      const activeCount = await getCustomerDailyBookingCount(selectedDate, currentUser, profile, customer);
+      if (activeCount >= 5) {
+        setLimitModalOpen(true);
+        return;
+      }
+    } catch (e) {
+      console.error('Failed checking booking limit:', e);
+    }
+
+    // Proceed to Payment Method Selection
+    setStep('payment_select');
+  };
+
+  // Submit GCash Verification with Filename Validation
+  const handleGCashConfirmSubmit = () => {
+    if (!gcashFile) {
+      setFilenameError('Please upload your GCash payment screenshot.');
+      return;
+    }
+
+    const validation = validateFilenameFormat(gcashFilenameInput);
+    if (!validation.isValid) {
+      setFilenameError(validation.errorMsg || 'Please use the required format: CustomerName_Datetoday');
+      return;
+    }
+
+    setFilenameError('');
+
+    // Saved filename uses actual customer registered name format
+    const cleanNameUpper = registeredName.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || 'CUSTOMER';
+    const savedFilename = `${cleanNameUpper}_${todayYYYYMMDD}.${gcashFile.name.split('.').pop()?.toLowerCase() || 'png'}`;
+
+    handleFinalizeBooking('GCash', {
+      filename: savedFilename,
+      previewUrl: gcashPreviewUrl,
+    });
+  };
+
+  // Finalize Appointment Creation with Selected Payment Method
+  const handleFinalizeBooking = async (
+    methodToSave: 'Cash' | 'GCash',
+    gcashData?: { filename: string; previewUrl: string | null }
+  ) => {
+    if (submitting) return;
+    setErrorMsg('');
     setSubmitting(true);
     try {
       // 1. Get authenticated Supabase user
@@ -313,7 +487,7 @@ export function BookingModal({
       // 2. Fetch customer record using user_id
       let customerRecord: { id: string; user_id?: string; name?: string; full_name?: string; email?: string; phone?: string } | null = null;
 
-      const { data: custByUid, error: custErr } = await supabase
+      const { data: custByUid } = await supabase
         .from('customers')
         .select('id, user_id, name, full_name, email, phone')
         .eq('user_id', currentUser.id)
@@ -361,9 +535,14 @@ export function BookingModal({
       const formattedTimeForDb = formatTimeForDB(selectedTime);
       const durationText = `${durationSummary} mins`;
 
-      const notesWithDesign = selectedDesign
+      let notesWithDesign = selectedDesign
         ? `${customerNotes.trim() ? customerNotes.trim() + ' | ' : ''}Selected Design: ${selectedDesign.name} (${selectedDesign.id})`
-        : (customerNotes.trim() || null);
+        : (customerNotes.trim() || '');
+
+      if (methodToSave === 'GCash' && gcashData) {
+        const gcashNote = `GCash Screenshot: ${gcashData.filename} | Payment Status: Pending Verification | Uploaded: ${new Date().toISOString()}`;
+        notesWithDesign = notesWithDesign ? `${notesWithDesign} | ${gcashNote}` : gcashNote;
+      }
 
       // Validate UUID format helper
       const isValidUUID = (str: string | null | undefined) =>
@@ -380,8 +559,10 @@ export function BookingModal({
         return;
       }
 
+      const paymentStatusVal = methodToSave === 'Cash' ? 'Pending' : 'Pending Verification';
+
       const appointmentPayload = {
-        customer_id: customerRecord.id, // Insert actual UUID from customers.id
+        customer_id: customerRecord.id,
         customer_name: customerName.trim() || customerRecord.full_name || customerRecord.name || 'Customer',
         service_id: validServiceId,
         service_name: serviceNames,
@@ -395,8 +576,8 @@ export function BookingModal({
         price: totalAmount,
         status: 'Pending',
         source: 'Online',
-        payment_method: 'Cash',
-        notes: notesWithDesign,
+        payment_method: methodToSave,
+        notes: notesWithDesign || null,
         design_id: selectedDesign?.id || null,
         design_name: selectedDesign?.name || null,
         design_image: selectedDesign?.image || null,
@@ -411,7 +592,7 @@ export function BookingModal({
       if (apptError) throw new Error(apptError.message || 'Failed to save appointment.');
 
       await supabase.from('notifications').insert({
-        title: `New Appointment from ${customerName.trim()}`,
+        title: `New Appointment (${methodToSave}) from ${customerName.trim()}`,
         message: `ID:${createdAppt.id}`,
         type: 'appointment',
         is_read: false
@@ -426,6 +607,10 @@ export function BookingModal({
         staffName: assignedStaffName,
         price: totalAmount,
         duration: durationText,
+        paymentMethod: methodToSave,
+        paymentStatus: paymentStatusVal,
+        screenshotFilename: gcashData?.filename,
+        screenshotUrl: gcashData?.previewUrl,
       });
 
       setStep('success');
@@ -445,7 +630,7 @@ export function BookingModal({
           ? 'max-w-[1360px] min-h-[615px] lg:h-[628px] overflow-y-auto lg:overflow-hidden'
           : step === 'details'
           ? 'max-w-[840px] min-h-[620px] lg:h-[640px] overflow-y-auto lg:overflow-hidden'
-          : 'max-w-[540px] overflow-y-auto'
+          : 'max-w-[560px] overflow-y-auto'
       } max-h-[94vh] rounded-[24px] sm:rounded-[28px] bg-white shadow-2xl animate-scale-in border border-neutral-100 my-auto flex flex-col justify-between transition-all duration-200`}>
         
         {/* Top-Right Circular Close Button */}
@@ -701,7 +886,7 @@ export function BookingModal({
           </div>
         )}
 
-        {/* STEP 2: CUSTOMER DETAILS FORM */}
+        {/* STEP 2: CUSTOMER DETAILS FORM (UNCHANGED DESIGN) */}
         {step === 'details' && (
           <div className="w-full px-8 sm:px-12 md:px-14 py-6 sm:py-7 flex-1 flex flex-col justify-between">
             <div>
@@ -730,7 +915,7 @@ export function BookingModal({
                 </div>
               )}
 
-              <form onSubmit={handleConfirmBooking} className="space-y-3 sm:space-y-3.5">
+              <form onSubmit={handleCustomerDetailsSubmit} className="space-y-3 sm:space-y-3.5">
                 {/* FULL NAME - Fixed / Read-only */}
                 <div>
                   <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-pink-500">
@@ -817,7 +1002,7 @@ export function BookingModal({
                     disabled={submitting}
                     className="h-[44px] rounded-full bg-pink-500 hover:bg-pink-600 px-8 sm:px-9 text-xs sm:text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all disabled:opacity-60"
                   >
-                    {submitting ? 'Confirming...' : 'Confirm Booking'}
+                    Confirm Booking
                   </button>
                 </div>
               </form>
@@ -825,51 +1010,431 @@ export function BookingModal({
           </div>
         )}
 
-        {/* STEP 3: BOOKING SUCCESS RECEIPT */}
+        {/* STEP 3: SELECT PAYMENT METHOD MODAL */}
+        {step === 'payment_select' && (
+          <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between max-w-[560px] mx-auto w-full">
+            <div>
+              <button
+                type="button"
+                onClick={() => setStep('details')}
+                className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-pink-500 hover:text-pink-600 transition-colors mb-4"
+              >
+                <ArrowLeft size={14} />
+                <span>Back to Customer Details</span>
+              </button>
+
+              <div className="mb-5 text-center sm:text-left">
+                <h2 className="font-serif text-2xl sm:text-[28px] text-neutral-900 font-normal">
+                  Select Payment Method
+                </h2>
+                <p className="text-xs sm:text-sm text-neutral-500 mt-1">
+                  Choose how you would like to pay for your appointment.
+                </p>
+              </div>
+
+              {/* Appointment Summary Box */}
+              <div className="rounded-2xl border border-pink-100 bg-pink-50/40 p-4 mb-6 text-xs sm:text-sm space-y-2">
+                <div className="flex justify-between items-center text-neutral-700">
+                  <span className="font-medium text-neutral-500">Service:</span>
+                  <span className="font-bold text-neutral-900 text-right">{serviceNames}</span>
+                </div>
+                <div className="flex justify-between items-center text-neutral-700">
+                  <span className="font-medium text-neutral-500">Date &amp; Time:</span>
+                  <span className="font-bold text-pink-500">{formatSummaryDate(selectedDate)} at {selectedTime}</span>
+                </div>
+                <div className="flex justify-between items-center text-neutral-700">
+                  <span className="font-medium text-neutral-500">Staff Member:</span>
+                  <span className="font-bold text-neutral-900">{assignedStaffName}</span>
+                </div>
+                <div className="flex justify-between items-center border-t border-pink-200/60 pt-2 text-sm">
+                  <span className="font-bold text-neutral-900">Total Price:</span>
+                  <span className="font-bold text-pink-500 text-base">₱{totalAmount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Payment Options Grid */}
+              <div className="space-y-3">
+                {/* OPTION 1: CASH */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethod('Cash')}
+                  className={`w-full p-4 rounded-2xl text-left transition-all duration-200 flex items-center justify-between border cursor-pointer ${
+                    selectedPaymentMethod === 'Cash'
+                      ? 'border-2 border-pink-500 bg-pink-50/60 shadow-md shadow-pink-500/10 scale-[1.01]'
+                      : 'border-neutral-200 bg-white hover:border-pink-300 hover:bg-pink-50/20'
+                  }`}
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className={`h-11 w-11 rounded-xl flex items-center justify-center transition-colors ${
+                      selectedPaymentMethod === 'Cash' ? 'bg-pink-500 text-white' : 'bg-neutral-100 text-neutral-600'
+                    }`}>
+                      <Banknote size={22} />
+                    </div>
+                    <div>
+                      <div className="font-serif font-semibold text-base text-neutral-900">Cash</div>
+                      <div className="text-xs text-neutral-500 mt-0.5">Pay at the salon</div>
+                    </div>
+                  </div>
+                  <div className={`h-6 w-6 rounded-full border flex items-center justify-center transition-colors ${
+                    selectedPaymentMethod === 'Cash' ? 'border-pink-500 bg-pink-500 text-white' : 'border-neutral-300 bg-white'
+                  }`}>
+                    {selectedPaymentMethod === 'Cash' && <Check size={14} strokeWidth={3} />}
+                  </div>
+                </button>
+
+                {/* OPTION 2: GCASH */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethod('GCash')}
+                  className={`w-full p-4 rounded-2xl text-left transition-all duration-200 flex items-center justify-between border cursor-pointer ${
+                    selectedPaymentMethod === 'GCash'
+                      ? 'border-2 border-pink-500 bg-pink-50/60 shadow-md shadow-pink-500/10 scale-[1.01]'
+                      : 'border-neutral-200 bg-white hover:border-pink-300 hover:bg-pink-50/20'
+                  }`}
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className={`h-11 w-11 rounded-xl flex items-center justify-center transition-colors ${
+                      selectedPaymentMethod === 'GCash' ? 'bg-pink-500 text-white' : 'bg-neutral-100 text-neutral-600'
+                    }`}>
+                      <Smartphone size={22} />
+                    </div>
+                    <div>
+                      <div className="font-serif font-semibold text-base text-neutral-900 flex items-center gap-2">
+                        <span>GCash</span>
+                        <span className="text-[10px] font-sans font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">E-Wallet</span>
+                      </div>
+                      <div className="text-xs text-neutral-500 mt-0.5">Pay using GCash</div>
+                    </div>
+                  </div>
+                  <div className={`h-6 w-6 rounded-full border flex items-center justify-center transition-colors ${
+                    selectedPaymentMethod === 'GCash' ? 'border-pink-500 bg-pink-500 text-white' : 'border-neutral-300 bg-white'
+                  }`}>
+                    {selectedPaymentMethod === 'GCash' && <Check size={14} strokeWidth={3} />}
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom Action Buttons */}
+            <div className="pt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setStep('details')}
+                className="h-[46px] rounded-full bg-neutral-100 px-6 sm:px-7 text-xs font-bold uppercase tracking-wider text-neutral-700 hover:bg-neutral-200 transition-colors"
+              >
+                BACK
+              </button>
+              <button
+                type="button"
+                disabled={!selectedPaymentMethod}
+                onClick={() => {
+                  if (selectedPaymentMethod === 'Cash') setStep('cash_confirm');
+                  else if (selectedPaymentMethod === 'GCash') setStep('gcash_confirm');
+                }}
+                className="h-[46px] rounded-full bg-pink-500 hover:bg-pink-600 px-8 sm:px-9 text-xs sm:text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer"
+              >
+                CONTINUE
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4: CASH PAYMENT CONFIRMATION FLOW */}
+        {step === 'cash_confirm' && (
+          <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between max-w-[540px] mx-auto w-full">
+            <div>
+              <button
+                type="button"
+                onClick={() => setStep('payment_select')}
+                disabled={submitting}
+                className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-pink-500 hover:text-pink-600 transition-colors mb-4"
+              >
+                <ArrowLeft size={14} />
+                <span>Back to Payment Selection</span>
+              </button>
+
+              <div className="mb-5 text-center sm:text-left">
+                <h2 className="font-serif text-2xl sm:text-[28px] text-neutral-900 font-normal">
+                  Confirm Cash Payment
+                </h2>
+                <p className="text-xs sm:text-sm text-neutral-600 mt-2 leading-relaxed">
+                  You selected <strong className="text-neutral-900 font-bold">Cash</strong> as your payment method.
+                </p>
+                <p className="text-xs sm:text-sm text-neutral-500 mt-1">
+                  Payment will be collected at the salon.
+                </p>
+              </div>
+
+              {errorMsg && (
+                <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-600">
+                  <AlertCircle size={16} />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              {/* Summary Box */}
+              <div className="rounded-2xl border border-neutral-200 bg-neutral-50/80 p-5 space-y-3 text-xs sm:text-sm">
+                <div className="flex justify-between items-center text-neutral-600">
+                  <span>Payment Method</span>
+                  <span className="font-bold text-neutral-900">Cash</span>
+                </div>
+                <div className="flex justify-between items-center text-neutral-600">
+                  <span>Salon Location</span>
+                  <span className="font-medium text-neutral-800">Dasmarinas, Cavite</span>
+                </div>
+                <div className="flex justify-between items-center border-t border-neutral-200 pt-3 text-base">
+                  <span className="font-bold text-neutral-900">Total Amount</span>
+                  <span className="font-bold text-pink-500 text-lg">₱{totalAmount.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Action Buttons */}
+            <div className="pt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => setStep('payment_select')}
+                className="h-[46px] rounded-full bg-neutral-100 px-6 sm:px-7 text-xs font-bold uppercase tracking-wider text-neutral-700 hover:bg-neutral-200 transition-colors disabled:opacity-50"
+              >
+                BACK
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => handleFinalizeBooking('Cash')}
+                className="h-[46px] rounded-full bg-pink-500 hover:bg-pink-600 px-8 sm:px-9 text-xs sm:text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all disabled:opacity-60 flex items-center gap-2 cursor-pointer"
+              >
+                {submitting ? 'Confirming...' : 'CONFIRM BOOKING'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 5: GCASH PAYMENT SCREENSHOT VERIFICATION FLOW */}
+        {step === 'gcash_confirm' && (
+          <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between max-w-[560px] mx-auto w-full">
+            <div>
+              <button
+                type="button"
+                onClick={() => setStep('payment_select')}
+                disabled={submitting}
+                className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-pink-500 hover:text-pink-600 transition-colors mb-3"
+              >
+                <ArrowLeft size={14} />
+                <span>Back to Payment Selection</span>
+              </button>
+
+              <div className="mb-4 text-center sm:text-left">
+                <h2 className="font-serif text-2xl sm:text-[28px] text-neutral-900 font-normal">
+                  GCash Payment Screenshot
+                </h2>
+                <p className="text-xs sm:text-sm text-neutral-600 mt-1 leading-relaxed">
+                  Please upload your GCash payment screenshot and name the file using the required format below.
+                </p>
+              </div>
+
+              {/* Format Requirement Banner */}
+              <div className="rounded-2xl border border-pink-200 bg-pink-50/50 p-4 mb-4 text-xs space-y-1.5">
+                <div className="font-bold text-pink-600 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <AlertTriangle size={14} />
+                  <span>Required Filename Format:</span>
+                </div>
+                <div className="font-mono font-bold text-neutral-900 text-sm bg-white py-1 px-3 rounded-lg border border-pink-200 inline-block shadow-xs">
+                  CustomerName_Datetoday
+                </div>
+                <div className="text-neutral-500 text-[11px] pt-1">
+                  Example for today: <strong className="font-mono text-neutral-800 font-bold">{sampleFilenameExample}</strong>
+                </div>
+              </div>
+
+              {/* Validation Error Message */}
+              {(errorMsg || filenameError) && (
+                <div className="mb-4 rounded-xl bg-red-50 border border-red-200 p-3.5 text-xs font-semibold text-red-600 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-red-700">
+                    <AlertCircle size={16} />
+                    <span>Invalid filename</span>
+                  </div>
+                  <p className="text-[11px] font-normal text-red-600 pl-5">
+                    {filenameError || errorMsg || 'Please use the required format: CustomerName_Datetoday'}
+                  </p>
+                </div>
+              )}
+
+              {/* Inputs Section */}
+              <div className="space-y-3.5 mb-4">
+                {/* Filename Input */}
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-pink-500">
+                    Enter Screenshot Filename *
+                  </label>
+                  <input
+                    type="text"
+                    value={gcashFilenameInput}
+                    onChange={(e) => {
+                      setGcashFilenameInput(e.target.value);
+                      if (filenameError) setFilenameError('');
+                    }}
+                    placeholder={`e.g. ${sampleFilenameExample}`}
+                    className="h-[46px] w-full rounded-xl border border-neutral-200 bg-white px-4 text-xs sm:text-sm font-mono text-neutral-900 outline-none transition-all focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20"
+                  />
+                </div>
+
+                {/* File Upload Input */}
+                <div>
+                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-pink-500">
+                    Upload Screenshot (.jpg, .jpeg, .png) *
+                  </label>
+                  <label className="flex items-center justify-center gap-3 border-2 border-dashed border-neutral-300 hover:border-pink-400 bg-neutral-50 hover:bg-pink-50/20 rounded-xl p-3.5 cursor-pointer transition-colors">
+                    <Upload size={18} className="text-pink-500" />
+                    <span className="text-xs font-medium text-neutral-700 truncate">
+                      {gcashFile ? gcashFile.name : 'Click to upload screenshot (.jpg, .jpeg, .png)'}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                      onChange={handleGcashFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Screenshot Image Preview */}
+                {gcashPreviewUrl && (
+                  <div className="rounded-xl border border-neutral-200 bg-white p-2.5 flex items-center gap-3">
+                    <img
+                      src={gcashPreviewUrl}
+                      alt="GCash Screenshot Preview"
+                      className="h-14 w-14 rounded-lg object-cover border border-neutral-200"
+                    />
+                    <div className="text-xs text-neutral-600 min-w-0 flex-1">
+                      <span className="font-bold text-neutral-800 block truncate">{gcashFile?.name}</span>
+                      <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">Screenshot Attached</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Total Price & Security Notice */}
+                <div className="rounded-xl bg-neutral-50 p-3 text-xs text-neutral-600 space-y-1 border border-neutral-100">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-neutral-500">Appointment Total:</span>
+                    <span className="font-bold text-pink-500 text-base">₱{totalAmount.toLocaleString()}</span>
+                  </div>
+                  <p className="text-[11px] text-neutral-500 pt-1 leading-normal">
+                    Security Notice: Payment status will remain <strong className="text-amber-600 font-bold uppercase">Pending Verification</strong> until salon admin confirms payment.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Action Buttons */}
+            <div className="pt-3 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => setStep('payment_select')}
+                className="h-[46px] rounded-full bg-neutral-100 px-6 sm:px-7 text-xs font-bold uppercase tracking-wider text-neutral-700 hover:bg-neutral-200 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                BACK
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={handleGCashConfirmSubmit}
+                className="h-[46px] rounded-full bg-pink-500 hover:bg-pink-600 px-8 sm:px-9 text-xs sm:text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all disabled:opacity-60 flex items-center gap-2 cursor-pointer"
+              >
+                {submitting ? 'Confirming...' : 'CONFIRM BOOKING'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 6: BOOKING CONFIRMED RECEIPT MODAL */}
         {step === 'success' && bookingReceipt && (
-          <div className="p-8 text-center sm:p-12 max-w-lg mx-auto">
-            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-pink-50 text-pink-500 shadow-sm">
+          <div className="p-8 text-center sm:p-10 max-w-lg mx-auto w-full">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-pink-50 text-pink-500 shadow-sm border border-pink-100">
               <CheckCircle2 size={36} />
             </div>
-            <h2 className="font-serif text-2xl sm:text-3xl text-neutral-900">Booking Confirmed!</h2>
-            <p className="mt-2 text-sm text-neutral-500">
-              Thank you, {bookingReceipt.customerName}. Your appointment has been scheduled.
+            <h2 className="font-serif text-2xl sm:text-3xl text-neutral-900 font-normal">Booking Confirmed</h2>
+            <p className="mt-1 text-xs sm:text-sm text-neutral-500">
+              Your appointment has been successfully booked.
             </p>
 
-            <div className="mt-6 rounded-2xl border border-pink-100 bg-pink-50/40 p-5 text-left text-xs space-y-2.5">
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Appointment ID:</span>
-                <span className="font-mono font-bold text-neutral-800">{bookingReceipt.id.slice(0, 8)}</span>
+            <div className="mt-6 rounded-2xl border border-pink-100 bg-pink-50/40 p-5 text-left text-xs space-y-3">
+              <div className="flex justify-between items-center border-b border-pink-100 pb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">Appointment ID</span>
+                <span className="font-mono font-bold text-neutral-800">#{bookingReceipt.id.slice(0, 8)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Service:</span>
-                <span className="font-bold text-neutral-800">{bookingReceipt.serviceNames}</span>
+
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-0.5">SERVICE</span>
+                <span className="font-bold text-neutral-900 text-sm">{bookingReceipt.serviceNames}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Date &amp; Time:</span>
-                <span className="font-bold text-pink-500">{formatSummaryDate(bookingReceipt.date)} at {bookingReceipt.time}</span>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-0.5">DATE &amp; TIME</span>
+                  <span className="font-bold text-pink-500 text-xs sm:text-sm">{formatSummaryDate(bookingReceipt.date)} at {bookingReceipt.time}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-0.5">STAFF MEMBER</span>
+                  <span className="font-bold text-neutral-900 text-xs sm:text-sm">{bookingReceipt.staffName}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Stylist:</span>
-                <span className="font-bold text-neutral-800">{bookingReceipt.staffName}</span>
+
+              <div className="grid grid-cols-2 gap-2 border-t border-pink-200/60 pt-2.5">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-0.5">PAYMENT METHOD</span>
+                  <span className="font-bold text-neutral-900 uppercase text-xs">{bookingReceipt.paymentMethod}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-0.5">PAYMENT STATUS</span>
+                  <span className={`font-bold text-xs uppercase ${
+                    bookingReceipt.paymentStatus === 'Paid'
+                      ? 'text-emerald-600'
+                      : bookingReceipt.paymentStatus === 'Pending Verification'
+                      ? 'text-amber-600'
+                      : 'text-amber-600'
+                  }`}>
+                    {bookingReceipt.paymentStatus}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Duration:</span>
-                <span className="font-bold text-neutral-800">{bookingReceipt.duration}</span>
-              </div>
-              <div className="flex justify-between border-t border-pink-200/60 pt-2 text-sm">
-                <span className="font-bold text-neutral-900">Total:</span>
-                <span className="font-bold text-pink-500">₱{Number(bookingReceipt.price).toLocaleString()}</span>
+
+              {bookingReceipt.screenshotFilename && (
+                <div className="border-t border-pink-200/60 pt-2 text-[11px]">
+                  <span className="text-neutral-400 font-bold uppercase tracking-wider block mb-0.5">VERIFIED FILENAME</span>
+                  <span className="font-mono font-bold text-neutral-800">{bookingReceipt.screenshotFilename}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between border-t border-pink-200/60 pt-2.5 text-sm">
+                <span className="font-bold text-neutral-900">TOTAL PRICE</span>
+                <span className="font-bold text-pink-500 text-base">₱{Number(bookingReceipt.price).toLocaleString()}</span>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-8 w-full rounded-full bg-pink-500 hover:bg-pink-600 py-3.5 text-xs font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all"
-            >
-              Done
-            </button>
+            <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  if (typeof window !== 'undefined') {
+                    window.location.href = '/profile';
+                  }
+                }}
+                className="w-full sm:flex-1 rounded-full bg-pink-500 hover:bg-pink-600 py-3.5 text-xs font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all cursor-pointer"
+              >
+                VIEW MY APPOINTMENT
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full sm:w-auto px-6 rounded-full border border-neutral-200 bg-white hover:bg-neutral-50 py-3.5 text-xs font-bold uppercase tracking-widest text-neutral-700 transition-all cursor-pointer"
+              >
+                DONE
+              </button>
+            </div>
           </div>
         )}
 

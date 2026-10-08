@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, ChevronDown, User, Settings, LogOut, Menu, Check, Trash2, Loader2 } from "lucide-react";
+import { Bell, ChevronDown, User, Settings, LogOut, Menu, Check, Trash2, Loader2, X, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -18,6 +18,7 @@ export default function Header() {
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
+    const [logoutError, setLogoutError] = useState("");
 
     const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -430,35 +431,73 @@ export default function Header() {
                 />
             )}
             {showLogoutConfirm && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-pink-100 flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
-                        <div className="w-14 h-14 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-4">
-                            <LogOut className="w-6 h-6 animate-pulse" />
+                <div 
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in"
+                    onClick={() => {
+                        if (!loggingOut) {
+                            setShowLogoutConfirm(false);
+                            setLogoutError("");
+                        }
+                    }}
+                >
+                    <div 
+                        className="relative bg-white rounded-[24px] sm:rounded-[28px] p-6 sm:p-8 max-w-[400px] w-full shadow-2xl border border-pink-100/60 flex flex-col items-center text-center transition-all duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Upper-Right Close "×" Button */}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setShowLogoutConfirm(false);
+                                setLogoutError("");
+                            }}
+                            disabled={loggingOut}
+                            aria-label="Close"
+                            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-800 transition-colors cursor-pointer disabled:opacity-40"
+                        >
+                            <X size={16} />
+                        </button>
+
+                        <div className="w-14 h-14 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center mb-4 border border-pink-100/80 shadow-xs">
+                            <LogOut className="w-6 h-6 ml-0.5" />
                         </div>
-                        <h3 className="text-lg font-bold text-gray-900">Are you sure you want to log out?</h3>
-                        <p className="text-xs text-gray-500 mt-2">
-                            You will receive a security notification email with your logout date and time details.
+                        <h2 className="font-serif text-2xl sm:text-3xl font-normal text-neutral-900 tracking-tight">Logout</h2>
+                        <p className="text-xs sm:text-sm text-neutral-600 font-sans mt-2 leading-relaxed">
+                            Are you sure you want to logout?
                         </p>
-                        <div className="flex gap-3 w-full mt-6">
+
+                        {logoutError && (
+                            <div className="mt-4 w-full flex items-center gap-2 rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-600 text-left border border-red-100">
+                                <AlertCircle size={16} className="shrink-0" />
+                                <span>{logoutError}</span>
+                            </div>
+                        )}
+
+                        <div className="flex gap-3 w-full mt-7">
                             <button
+                                type="button"
                                 disabled={loggingOut}
-                                onClick={() => setShowLogoutConfirm(false)}
-                                className="flex-1 py-2.5 px-4 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors text-sm disabled:opacity-50 transition-all duration-200 active:scale-95"
+                                onClick={() => {
+                                    setShowLogoutConfirm(false);
+                                    setLogoutError("");
+                                }}
+                                className="flex-1 h-[46px] border border-neutral-200/80 text-neutral-700 font-bold rounded-full hover:bg-neutral-100 transition-colors text-xs sm:text-sm uppercase tracking-wider disabled:opacity-40 transition-all duration-200 active:scale-95 cursor-pointer bg-neutral-50"
                             >
-                                No
+                                Cancel
                             </button>
                             <button
+                                type="button"
                                 disabled={loggingOut}
                                 onClick={handleLogout}
-                                className="flex-1 py-2.5 px-4 bg-rose-500 text-white font-semibold rounded-xl hover:bg-rose-600 transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all duration-200 active:scale-95 shadow-md shadow-rose-100"
+                                className="flex-1 h-[46px] bg-pink-500 text-white font-bold rounded-full hover:bg-pink-600 transition-all text-xs sm:text-sm uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60 transition-all duration-200 active:scale-95 shadow-lg shadow-pink-500/25 cursor-pointer"
                             >
                                 {loggingOut ? (
                                     <>
-                                        <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                                        <Loader2 className="w-4 h-4 animate-spin" />
                                         Logging out...
                                     </>
                                 ) : (
-                                    "Yes"
+                                    "Okay"
                                 )}
                             </button>
                         </div>

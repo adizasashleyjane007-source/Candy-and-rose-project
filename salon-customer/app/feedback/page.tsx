@@ -22,8 +22,20 @@ export default function FeedbackPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    supabase.from('feedback').select('*').order('created_at', { ascending: false })
-      .then(({ data }) => setReviews((data || []) as Feedback[]));
+    supabase.from('reviews').select('*').order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) {
+          const mapped = data.map(r => ({
+            id: r.id,
+            user_id: r.customer_id,
+            user_name: r.customer_name,
+            rating: r.rating,
+            comment: r.review,
+            created_at: r.created_at
+          }));
+          setReviews(mapped as Feedback[]);
+        }
+      });
   }, []);
 
   const submit = async (e: FormEvent) => {
@@ -32,18 +44,42 @@ export default function FeedbackPage() {
     setSubmitting(true);
     const userName = profile?.full_name || profile?.name || user.email?.split('@')[0] || 'Candy & Rose guest';
     
-    const { data } = await supabase
-      .from('feedback')
+    // Look up customer id if available
+    let custId = null;
+    try {
+      const { data: custData } = await supabase
+        .from('customers')
+        .select('id')
+        .or(`user_id.eq.${user.id},email.ilike.${user.email?.trim().toLowerCase()}`)
+        .maybeSingle();
+      if (custData) custId = custData.id;
+    } catch {}
+
+    const { data, error } = await supabase
+      .from('reviews')
       .insert({
-        user_id: user.id,
-        user_name: userName,
+        customer_id: custId,
+        customer_name: userName,
         rating,
-        comment
+        review: comment,
+        status: 'approved'
       })
       .select()
       .maybeSingle();
 
-    if (data) setReviews((cur) => [data as Feedback, ...cur]);
+    if (error) {
+      console.error('Failed to submit review:', error);
+    } else if (data) {
+      setReviews((cur) => [{
+        id: data.id,
+        user_id: data.customer_id,
+        user_name: data.customer_name,
+        rating: data.rating,
+        comment: data.review,
+        created_at: data.created_at
+      } as Feedback, ...cur]);
+    }
+
     setComment('');
     setRating(0);
     setSubmitting(false);

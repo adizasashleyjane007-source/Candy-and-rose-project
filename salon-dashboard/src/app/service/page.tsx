@@ -437,20 +437,7 @@ export default function ServicePage() {
                                 {paginatedServices.map((svc) => (
                                     <tr key={svc.id} className="bg-gray-50/50 hover:bg-pink-50/50 transition-all shadow-sm group">
                                         <td className="py-2.5 px-4 text-sm font-semibold text-gray-900 rounded-l-xl border border-transparent group-hover:border-pink-200 border-r-0">
-                                            <div className="flex items-center gap-3">
-                                                {svc.image_url ? (
-                                                    <img
-                                                        src={svc.image_url}
-                                                        alt={svc.name}
-                                                        className="w-9 h-9 rounded-xl object-cover border border-pink-100 flex-shrink-0 shadow-sm"
-                                                    />
-                                                ) : (
-                                                    <div className="w-9 h-9 rounded-xl bg-pink-100/70 border border-pink-200/50 flex items-center justify-center flex-shrink-0 text-pink-500 shadow-sm">
-                                                        <ImageIcon className="w-4 h-4" />
-                                                    </div>
-                                                )}
-                                                <span className="truncate">{svc.name}</span>
-                                            </div>
+                                            <span className="truncate">{svc.name}</span>
                                         </td>
                                         <td className="py-2.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0">{svc.category}</td>
                                         <td className="py-2.5 px-4 text-sm font-semibold text-gray-900 border border-transparent group-hover:border-pink-200 border-x-0">₱{(Number(svc.price) || 0).toLocaleString()}</td>

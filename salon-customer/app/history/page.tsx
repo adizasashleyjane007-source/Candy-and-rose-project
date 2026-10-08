@@ -1,16 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { 
-  History, Calendar, Clock, Scissors, Sparkles, 
-  CheckCircle2, XCircle, AlertCircle, Plus, ArrowRight, 
-  RotateCcw, MessageSquareHeart, Search, Filter, Trash2, 
-  ChevronRight, ShieldCheck, DollarSign, X
+  Calendar, Clock, Scissors, 
+  Sparkles, AlertCircle, Plus, 
+  ArrowRight, Trash2, X
 } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, type Appointment } from '@/lib/supabase';
+import Link from 'next/link';
 
 const CANCELLATION_REASONS = [
   'Busy',
@@ -22,58 +21,49 @@ const CANCELLATION_REASONS = [
 export default function HistoryPage() {
   const { user, profile, customer } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'upcoming' | 'completed' | 'cancelled'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [loadingAppts, setLoadingAppts] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<'CURRENT' | 'COMPLETED' | 'CANCELLED'>('CURRENT');
 
-  // Cancel appointment modal states
+  // Cancel appointment states
   const [cancelModalApptId, setCancelModalApptId] = useState<string | null>(null);
   const [selectedReason, setSelectedReason] = useState<string>('');
   const [otherReasonText, setOtherReasonText] = useState<string>('');
   const [submittingCancel, setSubmittingCancel] = useState(false);
 
   const loadAppointments = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
+    if (!user) return;
+    setLoadingAppts(true);
     try {
-      // Find customer record by user_id or email
-      let custId = customer?.id;
-      if (!custId && user.email) {
-        const { data: cust } = await supabase
-          .from('customers')
-          .select('id')
-          .or(`user_id.eq.${user.id},email.ilike.${user.email.trim().toLowerCase()}`)
-          .maybeSingle();
-        custId = cust?.id;
-      }
+      // Find customer record by email
+      const { data: cust } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('email', user.email)
+        .maybeSingle();
 
       let query = supabase.from('appointments').select('*');
-      if (custId) {
-        query = query.or(`customer_id.eq.${custId},customer_name.eq.${profile?.full_name || user.email?.split('@')[0]}`);
+      if (cust?.id) {
+        query = query.or(`customer_id.eq.${cust.id},customer_name.eq.${profile?.full_name || user.email?.split('@')[0]}`);
       } else {
         query = query.eq('customer_name', profile?.full_name || user.email?.split('@')[0]);
       }
 
-      const { data, error } = await query.order('appointment_date', { ascending: false }).order('created_at', { ascending: false });
-      if (error) {
-        console.error('Error fetching appointments:', error);
-      }
+      const { data } = await query.order('created_at', { ascending: false });
       if (data) {
         setAppointments(data as Appointment[]);
       }
     } catch (e) {
       console.error('Failed to load appointments:', e);
     } finally {
-      setLoading(false);
+      setLoadingAppts(false);
     }
   };
 
   useEffect(() => {
-    loadAppointments();
-  }, [user, profile]);
+    if (user) {
+      loadAppointments();
+    }
+  }, [user, profile, customer]);
 
   const handleOpenCancelModal = (apptId: string) => {
     setCancelModalApptId(apptId);
@@ -92,6 +82,13 @@ export default function HistoryPage() {
     const finalReason = selectedReason === 'Others' ? otherReasonText.trim() : selectedReason;
     if (!finalReason) return;
 
+    const targetApt = appointments.find(a => a.id === cancelModalApptId);
+    if (targetApt && targetApt.status === 'Completed') {
+      alert("Completed appointments are permanently locked and cannot be cancelled.");
+      handleCloseCancelModal();
+      return;
+    }
+
     setSubmittingCancel(true);
     try {
       const { error } = await supabase
@@ -104,6 +101,7 @@ export default function HistoryPage() {
 
       if (error) throw new Error(error.message);
       
+      // Update locally
       setAppointments((cur) =>
         cur.map((a) => (a.id === cancelModalApptId ? { ...a, status: 'Cancelled', cancellation_reason: finalReason } : a))
       );
@@ -120,53 +118,30 @@ export default function HistoryPage() {
     }
   };
 
-  // Metrics
-  const totalBookings = appointments.length;
-  const completedBookings = appointments.filter((a) => a.status === 'Completed').length;
-  const upcomingBookings = appointments.filter((a) => a.status === 'Scheduled' || a.status === 'Pending').length;
-  const totalSpent = appointments
-    .filter((a) => a.status === 'Completed' || a.status === 'Scheduled')
-    .reduce((sum, a) => sum + Number(a.price || 0), 0);
-
-  // Filtered Appointments
-  const filteredAppointments = appointments.filter((appt) => {
-    // Status filter
-    if (activeFilter === 'upcoming' && appt.status !== 'Scheduled' && appt.status !== 'Pending') {
-      return false;
-    }
-    if (activeFilter === 'completed' && appt.status !== 'Completed') {
-      return false;
-    }
-    if (activeFilter === 'cancelled' && appt.status !== 'Cancelled') {
-      return false;
-    }
-
-    // Search query filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const serviceMatch = (appt.service_name || '').toLowerCase().includes(q);
-      const staffMatch = (appt.staff_name || '').toLowerCase().includes(q);
-      const dateMatch = (appt.appointment_date || appt.date || '').toLowerCase().includes(q);
-      const statusMatch = (appt.status || '').toLowerCase().includes(q);
-      return serviceMatch || staffMatch || dateMatch || statusMatch;
-    }
-
-    return true;
+  const shownAppts = appointments.filter((a) => {
+    if (activeFilter === 'CURRENT') return a.status === 'Pending' || a.status === 'Scheduled';
+    if (activeFilter === 'COMPLETED') return a.status === 'Completed';
+    if (activeFilter === 'CANCELLED') return a.status === 'Cancelled';
+    return false;
   });
+
+  const launchBooking = () => {
+    window.location.href = '/services';
+  };
 
   if (!user) {
     return (
       <SalonLayout>
         <main className="bg-zinc-50 min-h-[75vh] flex items-center justify-center p-6">
           <div className="max-w-md w-full bg-white rounded-3xl border border-zinc-200/80 p-8 text-center shadow-xl">
-            <AlertCircle className="mx-auto text-pink-600 mb-4 animate-bounce" size={44} />
-            <h2 className="font-serif text-2xl text-zinc-900 mb-2">Access Your History</h2>
-            <p className="text-xs text-zinc-500 mb-6 leading-relaxed">
-              Please sign in to your Candy & Rose account to review your appointment history, past visits, and upcoming beauty rituals.
+            <AlertCircle className="mx-auto text-pink-600 mb-4 animate-bounce" size={40} />
+            <h2 className="font-serif text-2xl text-zinc-900 mb-2">Access Restrained</h2>
+            <p className="text-sm text-zinc-500 mb-6 leading-relaxed">
+              Please sign in to your Candy & Rose account to review your profile, view appointment logs, or schedule new rituals.
             </p>
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('open-auth'))}
-              className="inline-flex items-center gap-2 rounded-full bg-pink-600 px-8 py-3.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-pink-700 transition-all shadow-md shadow-pink-600/20 active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-full bg-pink-600 px-8 py-3.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-pink-700 transition-colors shadow-md shadow-pink-600/20 active:scale-95"
             >
               Sign In Now <ArrowRight size={14} />
             </button>
@@ -178,256 +153,171 @@ export default function HistoryPage() {
 
   return (
     <SalonLayout>
-      <main className="bg-zinc-50/50 min-h-screen py-12 sm:py-16 px-4 sm:px-6 lg:px-10">
-        <div className="mx-auto max-w-7xl">
+      <main className="bg-zinc-50/50 min-h-screen py-16 px-6 lg:px-10">
+        <div className="mx-auto max-w-6xl">
           {/* HEADER SECTION */}
-          <div className="mb-10 border-b border-zinc-200/70 pb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+          <div className="mb-12 border-b border-zinc-200/60 pb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-pink-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-pink-700 border border-pink-200/50">
-                  <History size={12} className="text-pink-600" /> Appointment Records
-                </span>
-              </div>
-              <h1 className="font-serif text-3xl sm:text-5xl font-medium text-zinc-950 leading-tight">
-                Appointment <span className="font-serif italic text-pink-600 font-normal">History</span>
+              <h1 className="font-serif text-[32px] font-normal text-zinc-950 leading-tight">
+                Appointment History
               </h1>
-              <p className="text-xs sm:text-sm text-zinc-500 mt-2 max-w-xl">
-                Track all your past salon visits, upcoming appointments, pricing receipts, and beauty rituals in one convenient place.
-              </p>
             </div>
             
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href="/profile"
-                className="inline-flex items-center gap-2 rounded-full bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-700 px-5 py-3.5 text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
+            <div className="flex items-center gap-3 self-start md:self-center">
+              <button
+                onClick={launchBooking}
+                className="inline-flex items-center gap-2.5 rounded-full bg-pink-600 hover:bg-pink-700 text-white px-7 py-3 text-xs font-bold uppercase tracking-widest transition-all duration-300 shadow-md shadow-pink-600/20"
               >
-                Edit Profile
-              </Link>
-              <Link
-                href="/services"
-                className="inline-flex items-center gap-2.5 rounded-full bg-pink-600 hover:bg-pink-700 text-white px-6 py-3.5 text-xs font-bold uppercase tracking-widest transition-all duration-300 shadow-md shadow-pink-600/20 active:scale-95"
-              >
-                <Plus size={15} /> Book New Ritual
-              </Link>
+                <Plus size={15} /> Select Services & Book
+              </button>
             </div>
           </div>
 
-          {/* STATS OVERVIEW */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-sm">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Total Bookings</p>
-              <p className="font-serif text-2xl sm:text-3xl font-bold text-zinc-900 mt-1">{totalBookings}</p>
-              <p className="text-[10px] text-zinc-400 mt-1">Lifetime salon appointments</p>
-            </div>
+          <div className="flex flex-col md:flex-row gap-8 items-start">
+            {/* SIDEBAR FILTERS */}
+            <aside className="w-full md:w-56 shrink-0 flex flex-row md:flex-col gap-2 overflow-x-auto pb-2 md:pb-0" style={{ scrollbarWidth: 'none' }}>
+              {['CURRENT', 'COMPLETED', 'CANCELLED'].map((filter) => {
+                const isActive = activeFilter === filter;
+                return (
+                  <button
+                    key={filter}
+                    onClick={() => setActiveFilter(filter as any)}
+                    className={`text-xs font-bold uppercase tracking-widest px-6 py-4 rounded-full transition-all whitespace-nowrap text-left ${
+                      isActive 
+                        ? 'bg-pink-600 text-white shadow-md shadow-pink-600/20' 
+                        : 'bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 border border-zinc-200/80'
+                    }`}
+                  >
+                    {filter}
+                  </button>
+                );
+              })}
+            </aside>
 
-            <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-sm">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Completed</p>
-              <p className="font-serif text-2xl sm:text-3xl font-bold text-zinc-900 mt-1">{completedBookings}</p>
-              <p className="text-[10px] text-zinc-400 mt-1">Fulfilled beauty sessions</p>
-            </div>
+            {/* APPOINTMENT LOGS */}
+            <section className="flex-1 w-full bg-white rounded-3xl border border-zinc-200/80 p-6 sm:p-8 shadow-sm flex flex-col justify-between min-h-[500px]">
+              <div>
+                <h3 className="font-serif text-xl font-medium text-zinc-900 mb-6 border-b border-zinc-100 pb-4">
+                  {activeFilter === 'CURRENT' && 'Upcoming Bookings'}
+                  {activeFilter === 'COMPLETED' && 'Completed Appointments'}
+                  {activeFilter === 'CANCELLED' && 'Cancelled Appointments'}
+                  <span className="text-zinc-400 text-sm ml-2">({shownAppts.length})</span>
+                </h3>
 
-            <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-sm">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-pink-600">Upcoming</p>
-              <p className="font-serif text-2xl sm:text-3xl font-bold text-zinc-900 mt-1">{upcomingBookings}</p>
-              <p className="text-[10px] text-zinc-400 mt-1">Scheduled & pending rituals</p>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-sm">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Total Spent</p>
-              <p className="font-serif text-2xl sm:text-3xl font-bold text-zinc-900 mt-1">₱{totalSpent.toLocaleString()}</p>
-              <p className="text-[10px] text-zinc-400 mt-1">Self-care investment</p>
-            </div>
-          </div>
-
-          {/* CONTROLS & FILTERS */}
-          <div className="bg-white rounded-3xl border border-zinc-200/80 p-6 sm:p-8 shadow-sm mb-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-100 pb-6 mb-6">
-              {/* Tab filters */}
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => setActiveFilter('all')}
-                  className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
-                    activeFilter === 'all'
-                      ? 'bg-zinc-900 text-white shadow-sm'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  All ({appointments.length})
-                </button>
-                <button
-                  onClick={() => setActiveFilter('upcoming')}
-                  className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
-                    activeFilter === 'upcoming'
-                      ? 'bg-pink-600 text-white shadow-sm'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  Upcoming ({upcomingBookings})
-                </button>
-                <button
-                  onClick={() => setActiveFilter('completed')}
-                  className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
-                    activeFilter === 'completed'
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  Completed ({completedBookings})
-                </button>
-                <button
-                  onClick={() => setActiveFilter('cancelled')}
-                  className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
-                    activeFilter === 'cancelled'
-                      ? 'bg-red-600 text-white shadow-sm'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  Cancelled ({appointments.filter(a => a.status === 'Cancelled').length})
-                </button>
-              </div>
-
-              {/* Search input */}
-              <div className="relative w-full md:w-72">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" size={15} />
-                <input
-                  type="text"
-                  placeholder="Search service, stylist..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-full border border-zinc-200 bg-zinc-50/50 text-xs text-zinc-800 placeholder:text-zinc-400 outline-none focus:border-pink-500 focus:bg-white transition-all"
-                />
-              </div>
-            </div>
-
-            {/* APPOINTMENT LIST */}
-            {loading ? (
-              <div className="py-24 text-center text-zinc-400">
-                <Sparkles className="animate-spin mx-auto text-pink-500 mb-3" size={28} />
-                <p className="text-xs font-medium">Loading your appointment history...</p>
-              </div>
-            ) : filteredAppointments.length > 0 ? (
-              <div className="space-y-4">
-                {filteredAppointments.map((appt) => {
-                  const isUpcoming = appt.status === 'Pending' || appt.status === 'Scheduled';
-                  const isCompleted = appt.status === 'Completed';
-                  const isCancelled = appt.status === 'Cancelled';
-
-                  return (
-                    <div
-                      key={appt.id}
-                      className="rounded-2xl border border-zinc-100 bg-zinc-50/40 p-5 sm:p-6 transition-all hover:bg-white hover:border-pink-200 hover:shadow-md group flex flex-col lg:flex-row lg:items-center justify-between gap-6"
-                    >
-                      {/* Left: Info */}
-                      <div className="space-y-3 flex-1">
-                        <div className="flex flex-wrap items-center gap-2.5">
-                          {/* Status Badge */}
-                          <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
-                            isCompleted
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : isCancelled
-                              ? 'bg-red-50 text-red-700 border border-red-200'
-                              : isUpcoming
-                              ? 'bg-pink-50 text-pink-700 border border-pink-200'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200'
-                          }`}>
-                            {appt.status}
-                          </span>
-
-                          {appt.payment_method && (
-                            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded border border-zinc-200 bg-white text-zinc-600 uppercase">
-                              {appt.payment_method}
+                {/* List container */}
+                {loadingAppts ? (
+                  <div className="py-20 text-center text-zinc-400 text-xs">
+                    <Sparkles className="animate-spin mx-auto text-pink-500 mb-3" size={24} />
+                    Loading appointment records...
+                  </div>
+                ) : shownAppts.length > 0 ? (
+                  <div className="space-y-4 max-h-[550px] overflow-y-auto pr-1">
+                    {shownAppts.map((appt) => (
+                      <div 
+                        key={appt.id}
+                        className="rounded-2xl border border-zinc-100 bg-zinc-50/50 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 hover:border-pink-100 transition-colors"
+                      >
+                        <div className="space-y-2">
+                          {/* Badge Status & Payment Badges */}
+                          <div className="flex flex-wrap items-center gap-2.5">
+                            <span className={`text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                              appt.status === 'Scheduled' || appt.status === 'Completed'
+                                ? 'bg-green-50 text-green-700 border border-green-200/50'
+                                : appt.status === 'Cancelled'
+                                ? 'bg-red-50 text-red-700 border border-red-200/50'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200/50'
+                            }`}>
+                              {appt.status}
                             </span>
-                          )}
-
-                          <span className="text-[10px] text-zinc-400">
-                            ID: #{appt.id?.slice(0, 8)}
-                          </span>
-                        </div>
-
-                        <div>
-                          <h3 className="font-serif text-xl font-bold text-zinc-900 group-hover:text-pink-600 transition-colors">
-                            {appt.service_name || 'Signature Ritual'}
-                          </h3>
-                        </div>
-
-                        {/* Details Grid */}
-                        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-zinc-600">
-                          <span className="flex items-center gap-1.5 font-medium">
-                            <Calendar size={14} className="text-pink-500" />
-                            {appt.appointment_date || appt.date}
-                          </span>
-                          <span className="flex items-center gap-1.5 font-medium">
-                            <Clock size={14} className="text-pink-500" />
-                            {appt.appointment_time || appt.time}
-                          </span>
-                          {appt.staff_name && (
-                            <span className="flex items-center gap-1.5 font-medium">
-                              <Scissors size={14} className="text-pink-500" />
-                              Stylist: {appt.staff_name}
-                            </span>
-                          )}
-                        </div>
-
-                        {appt.notes && (
-                          <div className="rounded-xl bg-white border border-zinc-100 p-3 text-xs text-zinc-500 italic max-w-2xl">
-                            Special Note: &ldquo;{appt.notes}&rdquo;
+                            {appt.payment_method && (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded border border-pink-200 bg-pink-50 text-pink-700 uppercase">
+                                {appt.payment_method}
+                              </span>
+                            )}
                           </div>
-                        )}
-                      </div>
 
-                      {/* Right: Price & Actions */}
-                      <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between lg:justify-center gap-4 border-t lg:border-t-0 border-zinc-100 pt-4 lg:pt-0 shrink-0">
-                        <div className="text-left lg:text-right">
-                          <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Price</span>
-                          <span className="font-serif text-2xl font-bold text-zinc-950">₱{Number(appt.price || 0).toLocaleString()}</span>
+                          <h4 className="font-serif text-lg font-semibold text-zinc-900 leading-tight">
+                            {appt.service_name || 'Signature Ritual'}
+                          </h4>
+
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-zinc-500">
+                            <span className="flex items-center gap-1">
+                              <Calendar size={13} className="text-pink-500" />
+                              {appt.appointment_date || appt.date}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock size={13} className="text-pink-500" />
+                              {appt.appointment_time || appt.time}
+                            </span>
+                            {appt.staff_name && (
+                              <span className="flex items-center gap-1">
+                                <Scissors size={13} className="text-pink-500" />
+                                Stylist: {appt.staff_name}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Payment Method & Payment Status Display */}
+                          <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-zinc-600">
+                            <span className="font-medium">Payment Method: <strong className="font-bold text-zinc-900 uppercase">{appt.payment_method || 'Cash'}</strong></span>
+                            <span className="text-zinc-300">•</span>
+                            <span className="font-medium">Payment Status: <strong className={`font-bold uppercase ${
+                              (appt.payment_method === 'GCash' && appt.status !== 'Cancelled') || (appt as any).payment_status === 'Paid'
+                                ? 'text-emerald-600'
+                                : 'text-amber-600'
+                            }`}>
+                              {(appt as any).payment_status ? (appt as any).payment_status : (appt.payment_method === 'GCash' && appt.status !== 'Cancelled' ? 'Paid' : 'Pending')}
+                            </strong></span>
+                          </div>
+
+                          {appt.notes && (
+                            <p className="text-[11px] leading-relaxed text-zinc-400 italic mt-1">
+                              Note: &ldquo;{appt.notes}&rdquo;
+                            </p>
+                          )}
                         </div>
 
-                        <div className="flex items-center gap-2 flex-wrap justify-end">
-                          {isCompleted && (
-                            <Link
-                              href="/feedback"
-                              className="inline-flex items-center gap-1.5 rounded-full bg-pink-50 hover:bg-pink-100 text-pink-700 border border-pink-200 px-3.5 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors"
-                            >
-                              <MessageSquareHeart size={13} /> Review
-                            </Link>
-                          )}
+                        <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 border-t sm:border-t-0 border-zinc-100 pt-3 sm:pt-0">
+                          <div className="text-left sm:text-right">
+                            <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider block">Price Paid</span>
+                            <span className="font-serif text-xl font-bold text-zinc-950">₱{Number(appt.price || 0).toLocaleString()}</span>
+                          </div>
 
-                          <Link
-                            href="/services"
-                            className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900 hover:bg-pink-600 text-white px-4 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors shadow-sm"
-                          >
-                            <RotateCcw size={13} /> Book Again
-                          </Link>
-
-                          {isUpcoming && appt.status !== 'Cancelled' && (
+                          {/* Cancellation Button */}
+                          {activeFilter === 'CURRENT' && appt.status !== 'Cancelled' && appt.status !== 'Completed' && (
                             <button
                               onClick={() => handleOpenCancelModal(appt.id!)}
-                              className="inline-flex items-center gap-1 rounded-full border border-zinc-200 hover:border-red-200 hover:text-red-600 bg-white px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-zinc-500 transition-colors shadow-sm cursor-pointer"
+                              className="inline-flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-red-600 transition-colors border border-zinc-200 hover:border-red-200 bg-white px-4 py-2 rounded-full shadow-sm hover:shadow-red-50/50 cursor-pointer"
                             >
                               <Trash2 size={12} /> Cancel
                             </button>
                           )}
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-20 text-zinc-400">
+                    <Calendar size={32} className="mx-auto text-zinc-300 mb-3" />
+                    <p className="text-xs">No {activeFilter.toLowerCase()} appointments found.</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="py-20 text-center text-zinc-400">
-                <Calendar className="mx-auto text-zinc-300 mb-3" size={40} />
-                <p className="font-serif text-lg text-zinc-700">No appointment records found</p>
-                <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto">
-                  {searchQuery ? `No appointments matching "${searchQuery}".` : 'You do not have any appointment records in this category yet.'}
+
+              {/* Quick Book Callout */}
+              <div className="mt-8 rounded-2xl bg-pink-50/40 border border-pink-100/30 p-5 text-center">
+                <h4 className="font-serif text-base font-semibold text-zinc-900">Schedule your next visit</h4>
+                <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed max-w-sm mx-auto">
+                  Browse our packages or separate services menus and book appointments with your favorite styling specialists.
                 </p>
-                <Link
-                  href="/services"
-                  className="mt-5 inline-flex items-center gap-2 rounded-full bg-pink-600 text-white px-6 py-3 text-xs font-bold uppercase tracking-widest hover:bg-pink-700 transition-colors shadow-md shadow-pink-600/20"
+                <button
+                  onClick={launchBooking}
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-zinc-950 text-white hover:bg-pink-600 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-colors shadow active:scale-95"
                 >
-                  <Plus size={14} /> Schedule an Appointment
-                </Link>
+                  Book New Appointment <ArrowRight size={13} />
+                </button>
               </div>
-            )}
+            </section>
           </div>
         </div>
 

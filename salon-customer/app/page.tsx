@@ -482,39 +482,66 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="mx-auto max-w-7xl px-6 lg:px-10">
-            {reviewsLoading ? (
-              <div className="py-16 text-center text-xs sm:text-sm text-zinc-500 font-medium">Loading reviews...</div>
-            ) : fetchedReviews.length === 0 ? (
-              <div className="py-16 text-center text-xs sm:text-sm text-zinc-500 font-medium">No reviews yet.</div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {fetchedReviews.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-6 shadow-md flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex gap-1 text-pink-500 mb-3">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} size={15} className={i < (Number(item.rating) || 5) ? "fill-pink-500 text-pink-500" : "fill-transparent text-zinc-700"} />
-                        ))}
-                      </div>
-                      <p className="text-xs sm:text-sm text-zinc-200 leading-relaxed font-normal italic mb-4">
-                        &quot;{item.review || item.comment || ''}&quot;
-                      </p>
-                    </div>
-                    <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between">
-                      <span className="text-xs font-medium text-white">{item.customer_name || item.name || 'Customer'}</span>
-                      <span className="text-[10px] text-zinc-500">
-                        {new Date(item.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </span>
-                    </div>
+          {/* Continuous Two-Row Marquee Carousel */}
+          {(() => {
+            const defaultHomepageReviews = [
+              { id: 'def-1', customer_name: 'Sofia M.', rating: 5, review: 'The most beautiful salon experience I have ever had. Every detail feels intentional.', created_at: '2026-09-15' },
+              { id: 'def-2', customer_name: 'Amelia R.', rating: 5, review: 'Candy and Rose has become my monthly reset. The team remembers the little things and gets it exactly right.', created_at: '2026-09-20' },
+              { id: 'def-3', customer_name: 'Nina K.', rating: 5, review: 'From the warm welcome to the final mirror moment, this is care at its most thoughtful.', created_at: '2026-09-28' },
+              { id: 'def-4', customer_name: 'Jessica L.', rating: 5, review: 'Immaculate ambiance and top tier nail services. I always leave feeling refreshed!', created_at: '2026-10-01' },
+              { id: 'def-5', customer_name: 'Rachel B.', rating: 5, review: 'The attention to detail and customer service is unmatched in Cavite. Highly recommend!', created_at: '2026-10-04' },
+              { id: 'def-6', customer_name: 'Emma W.', rating: 5, review: 'Absolute perfection every single time. My go-to salon for all beauty rituals.', created_at: '2026-10-06' },
+            ];
+
+            const allReviews = (fetchedReviews && fetchedReviews.length > 0) ? fetchedReviews : defaultHomepageReviews;
+            
+            const rawTop = allReviews.filter((_, i) => i % 2 === 0);
+            const rawBottom = allReviews.filter((_, i) => i % 2 !== 0);
+
+            const ensureMinLength = (arr: any[], min = 6) => {
+              if (!arr || arr.length === 0) return [];
+              let res = [...arr];
+              while (res.length < min) {
+                res = [...res, ...arr];
+              }
+              return res;
+            };
+
+            const topRow = ensureMinLength(rawTop.length > 0 ? rawTop : allReviews, 6);
+            const bottomRow = ensureMinLength(rawBottom.length > 0 ? rawBottom : allReviews, 6);
+
+            return (
+              <div className="w-full overflow-hidden space-y-6 py-2">
+                {/* TOP ROW: RIGHT -> LEFT */}
+                <div className="flex w-max animate-marquee-left gap-6 hover:[animation-play-state:paused]">
+                  <div className="flex gap-6 shrink-0">
+                    {topRow.map((item, idx) => (
+                      <HomepageTestimonialCard key={`top-1-${item.id}-${idx}`} item={item} />
+                    ))}
                   </div>
-                ))}
+                  <div className="flex gap-6 shrink-0" aria-hidden="true">
+                    {topRow.map((item, idx) => (
+                      <HomepageTestimonialCard key={`top-2-${item.id}-${idx}`} item={item} />
+                    ))}
+                  </div>
+                </div>
+
+                {/* BOTTOM ROW: LEFT -> RIGHT */}
+                <div className="flex w-max animate-marquee-right gap-6 hover:[animation-play-state:paused]">
+                  <div className="flex gap-6 shrink-0">
+                    {bottomRow.map((item, idx) => (
+                      <HomepageTestimonialCard key={`bot-1-${item.id}-${idx}`} item={item} />
+                    ))}
+                  </div>
+                  <div className="flex gap-6 shrink-0" aria-hidden="true">
+                    {bottomRow.map((item, idx) => (
+                      <HomepageTestimonialCard key={`bot-2-${item.id}-${idx}`} item={item} />
+                    ))}
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+            );
+          })()}
         </section>
 
         {/* 6. BOTTOM CTA SECTION */}
@@ -548,5 +575,42 @@ export default function Home() {
 
       </main>
     </SalonLayout>
+  );
+}
+
+function HomepageTestimonialCard({ item }: { item: any }) {
+  return (
+    <div className="w-80 sm:w-96 shrink-0 rounded-2xl bg-zinc-900/90 border border-zinc-800 p-6 shadow-md flex flex-col justify-between select-none">
+      <div>
+        <div className="flex gap-1 text-pink-500 mb-3">
+          {[...Array(5)].map((_, i) => (
+            <Star
+              key={i}
+              size={15}
+              className={
+                i < (Number(item.rating) || 5)
+                  ? "fill-pink-500 text-pink-500"
+                  : "fill-transparent text-zinc-700"
+              }
+            />
+          ))}
+        </div>
+        <p className="text-xs sm:text-sm text-zinc-200 leading-relaxed font-normal italic mb-4">
+          &quot;{item.review || item.comment || ''}&quot;
+        </p>
+      </div>
+      <div className="pt-3 border-t border-zinc-800/80 flex items-center justify-between">
+        <span className="text-xs font-medium text-white">
+          {item.customer_name || item.name || 'Customer'}
+        </span>
+        <span className="text-[10px] text-zinc-500">
+          {new Date(item.created_at || Date.now()).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })}
+        </span>
+      </div>
+    </div>
   );
 }

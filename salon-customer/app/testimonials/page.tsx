@@ -14,7 +14,7 @@ type Review = {
   comment?: string;
   review?: string;
   created_at: string;
-  review_images?: { image_url: string }[];
+  review_image?: string | null;
 };
 
 export default function TestimonialsPage() {
@@ -44,7 +44,7 @@ export default function TestimonialsPage() {
     try {
       const { data, error } = await supabase
         .from('reviews')
-        .select('*, review_images(image_url)')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -83,7 +83,11 @@ export default function TestimonialsPage() {
     
     // Check types
     for (const file of files) {
-      if (file.type !== 'image/jpeg' && file.type !== 'image/png') {
+      const mime = file.type ? file.type.toLowerCase() : '';
+      const name = file.name.toLowerCase();
+      const isValid = mime === 'image/jpeg' || mime === 'image/jpg' || mime === 'image/png' ||
+        name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png');
+      if (!isValid) {
         setError('Only JPG, JPEG, and PNG images are allowed.');
         return;
       }
@@ -131,49 +135,53 @@ export default function TestimonialsPage() {
         if (custData) custId = custData.id;
       }
 
+      let imageUrl: string | null = null;
+
+      if (selectedImages.length > 0) {
+        const file = selectedImages[0];
+        const fileExt = file.name.split('.').pop() || 'jpg';
+        const fileName = `review-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('review-images')
+          .upload(fileName, file, { upsert: true });
+
+        if (uploadError) {
+          console.error('Image upload failed:', uploadError);
+          throw new Error(`Image upload failed: ${uploadError.message}`);
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from('review-images')
+          .getPublicUrl(fileName);
+
+        if (publicUrlData?.publicUrl) {
+          imageUrl = publicUrlData.publicUrl;
+        }
+      }
+
       const { data: newReviewData, error } = await supabase.from('reviews').insert([
         {
           customer_id: custId,
           customer_name: name.trim() || user?.email?.split('@')[0] || 'Anonymous',
           rating,
           review: reviewText.trim(),
+          review_image: imageUrl,
           status: 'approved',
         }
       ]).select('id').single();
 
       if (error) throw error;
+      
+      await fetchReviews();
 
-      if (newReviewData && selectedImages.length > 0) {
-        for (let i = 0; i < selectedImages.length && i < 3; i++) {
-          const file = selectedImages[i];
-          if (file.type !== 'image/jpeg' && file.type !== 'image/png') continue;
-          if (file.size > 5 * 1024 * 1024) continue;
-          
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${newReviewData.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('review-images')
-            .upload(fileName, file);
-
-          if (!uploadError) {
-            const { data: publicUrlData } = supabase.storage
-              .from('review-images')
-              .getPublicUrl(fileName);
-
-            await supabase.from('review_images').insert([{
-              review_id: newReviewData.id,
-              image_url: publicUrlData.publicUrl
-            }]);
-          }
-        }
-      }
       setSuccess(true);
       setTimeout(() => {
         setShowModal(false);
         setSuccess(false);
         setRating(0);
         setReviewText('');
+        setSelectedImages([]);
       }, 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to submit review.');
@@ -260,20 +268,17 @@ export default function TestimonialsPage() {
                     </div>
                     <p className="text-zinc-700 leading-relaxed italic mb-6">"{review.review || review.comment}"</p>
                     
-                    {review.review_images && review.review_images.length > 0 && (
+                    {review.review_image && (
                       <div className="flex gap-3 mb-6">
-                        {review.review_images.map((img, i) => (
-                          <button 
-                            key={i} 
-                            onClick={() => {
-                              setLightboxImages(review.review_images!.map(r => r.image_url));
-                              setLightboxIndex(i);
-                            }}
-                            className="w-16 h-16 rounded-xl overflow-hidden border border-zinc-200 hover:border-pink-400 transition-colors focus:outline-none"
-                          >
-                            <img src={img.image_url} alt="Review photo" className="w-full h-full object-cover" />
-                          </button>
-                        ))}
+                        <button 
+                          onClick={() => {
+                            setLightboxImages([review.review_image!]);
+                            setLightboxIndex(0);
+                          }}
+                          className="w-16 h-16 rounded-xl overflow-hidden border border-zinc-200 hover:border-pink-400 transition-colors focus:outline-none"
+                        >
+                          <img src={review.review_image} alt="Review photo" className="w-full h-full object-cover" />
+                        </button>
                       </div>
                     )}
 

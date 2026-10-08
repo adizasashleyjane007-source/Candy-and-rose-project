@@ -9,28 +9,75 @@ import {
     X, Loader2, Save, HelpCircle, RefreshCw, ZoomIn, ZoomOut,
     Eye, Sliders, Layers3, Sparkle, Maximize2, MousePointer, Award,
     ChevronRight, Settings2, SlidersHorizontal, BookOpen, Layers2, Scissors, Paintbrush, Copy,
-    Undo, Redo, RotateCcw, RotateCw
+    Undo, Redo, RotateCcw, RotateCw, Gem, SparklesIcon
 } from "lucide-react";
 import Header from "@/components/Header";
-import { StudioConfigurations, Storage, NailDesigns, type StudioConfiguration } from "@/lib/db";
+import { StudioConfigurations, Storage, NailDesigns, Services, type StudioConfiguration } from "@/lib/db";
 import { addNotification } from "@/lib/notifications";
 
-// ─── CONSTANTS & DATA ────────────────────────────────────────────────────────
+// ─── CANDY & ROSE SERVICE DEFINITIONS (SOURCE OF TRUTH) ──────────────────────
 
-// Surface Textures
-const NAIL_TEXTURES = [
-    { id: "glossy", name: "High Gloss", description: "Glass-like mirror specular shine", icon: <Droplets className="w-4 h-4" /> },
-    { id: "matte", name: "Classic Matte", description: "Velvety non-reflective diffused finish", icon: <Sun className="w-4 h-4 opacity-50" /> },
-    { id: "glitter", name: "Sparkling Glitter", description: "Micro-sparkle shimmer light reflections", icon: <Sparkles className="w-4 h-4" /> },
-    { id: "pearlescent", name: "Pearlescent", description: "Iridescent multi-tone sheen", icon: <Sun className="w-4 h-4" /> },
-    { id: "gel", name: "UV Gel Coat", description: "Thick glossy protective topcoat shine", icon: <Layers className="w-4 h-4" /> },
-    { id: "chrome", name: "Chrome Mirror", description: "Metallic liquid chrome reflection", icon: <Sparkle className="w-4 h-4" /> },
-    { id: "jelly", name: "Jelly / Glass", description: "Translucent tinted glass look", icon: <Droplets className="w-4 h-4 text-pink-400" /> },
-    { id: "cateye", name: "Velvet Cat-Eye", description: "Magnetic diagonal light beam sheen", icon: <Eye className="w-4 h-4" /> },
+export interface NailArtService {
+    id: string;
+    name: string;
+    category: "BASIC" | "CLASSIC" | "ADVANCED";
+    perNailPrice: number;
+    fullSetPrice: number;
+    description: string;
+}
+
+export const CANDY_ROSE_NAIL_ART_SERVICES: NailArtService[] = [
+    // BASIC NAIL ART
+    { id: "french-tip", name: "French Tip", category: "BASIC", perNailPrice: 20, fullSetPrice: 200, description: "Classic smile line or modern angled tip color accent" },
+    { id: "glitter-finish", name: "Glitter Finish", category: "BASIC", perNailPrice: 10, fullSetPrice: 100, description: "Micro-sparkle shimmer overlay" },
+    { id: "cat-eye", name: "Cat Eye", category: "BASIC", perNailPrice: 10, fullSetPrice: 100, description: "Magnetic diagonal light beam sheen" },
+    { id: "dots-lines", name: "Dots / Lines / Simple Design", category: "BASIC", perNailPrice: 10, fullSetPrice: 100, description: "Minimalist dots, linear rows & simple geometric accents" },
+
+    // CLASSIC NAIL ART
+    { id: "marble", name: "Marble", category: "CLASSIC", perNailPrice: 25, fullSetPrice: 250, description: "Organic fluid liquid marble blend" },
+    { id: "ombre", name: "Ombre", category: "CLASSIC", perNailPrice: 30, fullSetPrice: 300, description: "Smooth vertical gradient from cuticle to tip" },
+    { id: "hand-paint-simple", name: "Hand Paint — Simple", category: "CLASSIC", perNailPrice: 20, fullSetPrice: 200, description: "Clean hand-drawn floral or line art" },
+    { id: "paint-glitter", name: "Paint + Glitter", category: "CLASSIC", perNailPrice: 15, fullSetPrice: 150, description: "Hand-painted motifs paired with sparkle glitter accent" },
+
+    // ADVANCED NAIL ART
+    { id: "3d-nail-art", name: "3D Nail Art", category: "ADVANCED", perNailPrice: 50, fullSetPrice: 500, description: "Sculpted 3D gel art & dimensional charms" },
+    { id: "chrome", name: "Chrome", category: "ADVANCED", perNailPrice: 25, fullSetPrice: 250, description: "Liquid mirror chrome & glazed metallic sheen" },
+    { id: "foil-art", name: "Foil Art", category: "ADVANCED", perNailPrice: 20, fullSetPrice: 200, description: "24K metallic foil flakes & leaf placements" },
+    { id: "hand-paint-intricate", name: "Hand Paint — Intricate", category: "ADVANCED", perNailPrice: 50, fullSetPrice: 500, description: "Detailed artisan painted artwork & fine details" },
+    { id: "mermaid-embossed", name: "Mermaid / Embossed", category: "ADVANCED", perNailPrice: 30, fullSetPrice: 300, description: "Textured sea shell, mermaid scales & embossed gel" }
 ];
 
-// Ink Pigment Library Categorized
-const PIGMENT_LIBRARY = {
+export interface StoneService {
+    id: string;
+    name: string;
+    price: number;
+    description: string;
+    previewIcon: string;
+}
+
+export const CANDY_ROSE_STONES_SERVICES: StoneService[] = [
+    { id: "none", name: "No Stones", price: 0, description: "Clean polish surface", previewIcon: "✨" },
+    { id: "simple-cuticle", name: "Simple Cuticle", price: 10, description: "Dainty stone cluster along cuticle line", previewIcon: "💎" },
+    { id: "quarter-coverage", name: "¼ Coverage", price: 20, description: "Quarter nail crystal accent placement", previewIcon: "💧" },
+    { id: "half-coverage", name: "½ Coverage", price: 50, description: "Half nail stone embellishment spread", previewIcon: "👑" },
+    { id: "full-nail", name: "Full Nail", price: 100, description: "Full nail encrusted luxury stones", previewIcon: "💖" },
+    { id: "scatter", name: "Scatter", price: 20, description: "Artistic scattered rhinestone drops", previewIcon: "🌟" },
+    { id: "charm", name: "Charm", price: 10, description: "Single statement charm element", previewIcon: "🎀" }
+];
+
+export const CANDY_ROSE_REMOVAL_SERVICES = [
+    { id: "soft-gel-our", name: "Soft Gel Removal — Our Work", price: 100 },
+    { id: "soft-gel-other", name: "Soft Gel Removal — Not Our Work", price: 200 }
+];
+
+// Finishes
+export const NAIL_FINISHES = [
+    { id: "glossy", name: "Glossy", description: "Glass-like mirror specular shine", icon: <Droplets className="w-4 h-4 text-pink-500" /> },
+    { id: "matte", name: "Matte", description: "Velvety non-reflective diffused finish", icon: <Sun className="w-4 h-4 text-gray-400 opacity-60" /> }
+];
+
+// Ink Pigment Library Categorized into 7 Clean Groups
+export const PIGMENT_LIBRARY = {
     nudes: {
         name: "Nudes & Neutrals",
         colors: [
@@ -61,23 +108,31 @@ const PIGMENT_LIBRARY = {
             { name: "Seafoam Shimmer", hex: "#99f6e4" },
         ]
     },
-    vibrant: {
-        name: "Bold Pinks & Reds",
+    pinks: {
+        name: "Pinks",
         colors: [
-            { name: "Electric Magenta", hex: "#ec4899" },
+            { name: "Candy Pink", hex: "#ec4899" },
             { name: "Hot Fuchsia", hex: "#d946ef" },
-            { name: "Crimson Velvet", hex: "#dc2626" },
-            { name: "Scarlet Kiss", hex: "#ef4444" },
-            { name: "Coral Pop", hex: "#f97316" },
             { name: "Bubblegum", hex: "#f43f5e" },
-            { name: "Ruby Red", hex: "#991b1b" },
-            { name: "Cherry Jam", hex: "#be123c" },
-            { name: "Neon Orchid", hex: "#a855f7" },
-            { name: "Passion Pink", hex: "#e11d48" },
+            { name: "Rose Bloom", hex: "#e11d48" },
+            { name: "Soft Magenta", hex: "#f472b6" },
+            { name: "Blush Satin", hex: "#fda4af" },
+            { name: "Neon Pink", hex: "#ff007f" },
         ]
     },
-    royal: {
-        name: "Royal & Deep Darks",
+    reds: {
+        name: "Reds",
+        colors: [
+            { name: "Crimson Velvet", hex: "#dc2626" },
+            { name: "Scarlet Kiss", hex: "#ef4444" },
+            { name: "Ruby Red", hex: "#991b1b" },
+            { name: "Cherry Jam", hex: "#be123c" },
+            { name: "Burnt Ochre", hex: "#c2410c" },
+            { name: "Coral Pop", hex: "#f97316" },
+        ]
+    },
+    darks: {
+        name: "Dark Colors",
         colors: [
             { name: "Midnight Navy", hex: "#1e3a8a" },
             { name: "Plum Royal", hex: "#581c87" },
@@ -85,54 +140,23 @@ const PIGMENT_LIBRARY = {
             { name: "Blackberry", hex: "#311042" },
             { name: "Wine Burgundy", hex: "#4c0519" },
             { name: "Obsidian Black", hex: "#111827" },
-            { name: "Sapphire Blue", hex: "#1d4ed8" },
-            { name: "Deep Amethyst", hex: "#4c1d95" },
-            { name: "Forest Cypress", hex: "#14532d" },
             { name: "Charcoal Slate", hex: "#374151" },
         ]
     },
-    metallic: {
-        name: "Chrome & Metallics",
+    metallics: {
+        name: "Metallics",
         colors: [
             { name: "Liquid Rose Gold", hex: "#e0a96d" },
             { name: "Pure Gold", hex: "#ffd700" },
             { name: "Mirror Silver", hex: "#e2e8f0" },
             { name: "Champagne Shimmer", hex: "#fef3c7" },
             { name: "Copper Bronze", hex: "#b45309" },
-            { name: "Holo Pewter", hex: "#94a3b8" },
             { name: "Pearl White", hex: "#f8fafc" },
-            { name: "Gilded Amber", hex: "#d97706" },
-        ]
-    },
-    earthy: {
-        name: "Earthy & Terracotta",
-        colors: [
-            { name: "Cinnamon Spice", hex: "#9a3412" },
-            { name: "Burnt Ochre", hex: "#c2410c" },
-            { name: "Dusty Rose", hex: "#fda4af" },
-            { name: "Olive Moss", hex: "#4d7c0f" },
-            { name: "Mustard Silk", hex: "#ca8a04" },
-            { name: "Desert Clay", hex: "#d97706" },
-            { name: "Warm Terracotta", hex: "#b45309" },
-            { name: "Terracotta Clay", hex: "#7c2d12" },
         ]
     }
 };
 
-// Multi-Color Distribution Modes
-const MULTI_COLOR_MODES = [
-    { id: "solid", name: "Solid 1-Color", colorsNeeded: 1, desc: "Single rich base tone across the nail" },
-    { id: "french", name: "French Tip Color Accent", colorsNeeded: 2, desc: "Classic, V-cut, or curved nail tip color" },
-    { id: "ombre", name: "2-Color Ombré", colorsNeeded: 2, desc: "Smooth vertical gradient from cuticle to tip" },
-    { id: "split", name: "2-Color Split", colorsNeeded: 2, desc: "Dual vertical or diagonal color split" },
-    { id: "aura", name: "2-Color Radiant Aura", colorsNeeded: 2, desc: "Radiant glowing central blush bloom" },
-    { id: "tri-gradient", name: "3-Color Tri-Gradient", colorsNeeded: 3, desc: "Smooth 3-shade vertical ombré transition" },
-    { id: "tri-aura", name: "3-Color Sunset Aura", colorsNeeded: 3, desc: "Tri-layer central radiant aura bloom" },
-    { id: "tri-stripes", name: "3-Color Multi-Band", colorsNeeded: 3, desc: "3 horizontal color accent bands" },
-    { id: "marble", name: "3-Color Marbled Swirl", colorsNeeded: 3, desc: "Organic fluid liquid marble blend" }
-];
-
-// Nail Tip Style Variations
+// Tip Style variations for French Tip service
 const TIP_STYLES = [
     { id: "classic-french", name: "Classic Curved Smile Tip" },
     { id: "deep-v", name: "Deep V-Cut Tip" },
@@ -154,7 +178,7 @@ const SHAPE_PATH_MAP: Record<string, string> = {
     "Duck": "M15,10 C30,10 70,10 85,10 L95,100 L5,100 Z"
 };
 
-// High-Res Online Icon / Gem asset URLs from Flaticon/Icons8
+// High-Res Online Gem/Charm assets
 const CHARM_ASSET_LIBRARY: Record<string, string> = {
     "diamond-round": "https://img.icons8.com/color/96/diamond.png",
     "teardrop-gem": "https://img.icons8.com/color/96/ruby-gemstone.png",
@@ -165,193 +189,94 @@ const CHARM_ASSET_LIBRARY: Record<string, string> = {
     "gold-stud": "https://img.icons8.com/color/96/pyramid.png",
     "rhinestone-cluster": "https://img.icons8.com/color/96/queen-crown.png",
     "gold-foil": "https://img.icons8.com/color/96/sparkles.png",
-    "silver-dust": "https://img.icons8.com/color/96/star--v1.png",
-    "holo-glitter": "https://img.icons8.com/color/96/christmas-star.png",
-    "chunky-glitter": "https://img.icons8.com/color/96/starburst.png",
-    "ribbon-bow": "https://img.icons8.com/color/96/pink-bow.png",
-    "dainty-knot": "https://img.icons8.com/color/96/ribbon.png",
-    "sakura-flower": "https://img.icons8.com/color/96/cherry-blossom.png",
-    "daisy-flower": "https://img.icons8.com/color/96/daisy.png",
-    "mini-rose": "https://img.icons8.com/color/96/rose.png",
-    "tulip-flower": "https://img.icons8.com/color/96/tulip.png",
-    "petal-5": "https://img.icons8.com/color/96/hibiscus.png",
-    "twin-cherries": "https://img.icons8.com/color/96/cherries.png",
-    "strawberry": "https://img.icons8.com/color/96/strawberry.png",
     "sparkling-star": "https://img.icons8.com/color/96/sparkle.png",
-    "star-4point": "https://img.icons8.com/color/96/four-pointed-star.png",
-    "crescent-moon": "https://img.icons8.com/color/96/crescent-moon.png",
-    "sunbeam": "https://img.icons8.com/color/96/sun--v1.png",
     "chrome-heart": "https://img.icons8.com/color/96/hearts.png",
     "butterfly-charm": "https://img.icons8.com/color/96/butterfly.png",
-    "dot-single": "https://img.icons8.com/color/96/circle.png",
-    "dot-trio": "https://img.icons8.com/color/96/dots.png",
-    "dot-line": "https://img.icons8.com/color/96/more.png",
-    "pearl-row": "https://img.icons8.com/color/96/pearl-necklace.png",
+    "ribbon-bow": "https://img.icons8.com/color/96/pink-bow.png",
+    "sakura-flower": "https://img.icons8.com/color/96/cherry-blossom.png",
 };
 
-// Gem & Decorative Element Categories
-const CHARM_CATEGORIES = [
-    {
-        id: "gems",
-        name: "Gems & Crystals",
-        items: [
-            { id: "diamond-round", name: "3D Solitaire Diamond", preview: "💎" },
-            { id: "teardrop-gem", name: "3D Teardrop Crystal", preview: "💧" },
-            { id: "emerald-cut", name: "3D Emerald Cut Gem", preview: "🟩" },
-            { id: "marquise-gem", name: "3D Marquise Crystal", preview: "💠" },
-            { id: "heart-gem", name: "3D Rhinestone Heart", preview: "💖" },
-            { id: "pearl-bead", name: "3D Luxe Pearl Bead", preview: "⚪" },
-            { id: "gold-stud", name: "3D Golden Pyramid Stud", preview: "🟡" },
-            { id: "rhinestone-cluster", name: "3D Crown Gem Cluster", preview: "👑" },
-        ]
-    },
-    {
-        id: "glitters",
-        name: "Glitters & Foils",
-        items: [
-            { id: "gold-foil", name: "24K Gold Foil Flakes", preview: "✨" },
-            { id: "silver-dust", name: "Silver Dust Shimmer", preview: "⭐" },
-            { id: "holo-glitter", name: "Holo Star Sequins", preview: "🌟" },
-            { id: "chunky-glitter", name: "Chunky Hex Glitter", preview: "❇️" },
-        ]
-    },
-    {
-        id: "dots",
-        name: "Dots & Accents",
-        items: [
-            { id: "dot-single", name: "Accent Dot", preview: "⚫" },
-            { id: "dot-trio", name: "Polka Dots", preview: "⁖" },
-            { id: "dot-line", name: "Linear Dots Row", preview: "⋯" },
-            { id: "pearl-row", name: "Pearl Ribbon Line", preview: "📿" }
-        ]
-    },
-    {
-        id: "bows",
-        name: "Ribbons & Bows",
-        items: [
-            { id: "ribbon-bow", name: "3D Satin Silk Bow", preview: "🎀" },
-            { id: "dainty-knot", name: "3D Luxe Ribbon Knot", preview: "🎗️" },
-        ]
-    },
-    {
-        id: "flowers",
-        name: "Flowers & Floral",
-        items: [
-            { id: "sakura-flower", name: "3D Cherry Blossom (Sakura)", preview: "🌸" },
-            { id: "daisy-flower", name: "3D White Daisy", preview: "🌼" },
-            { id: "mini-rose", name: "3D Velvet Red Rose", preview: "🌹" },
-            { id: "tulip-flower", name: "3D Spring Tulip", preview: "🌷" },
-            { id: "petal-5", name: "3D 5-Petal Gem Flower", preview: "🌺" },
-        ]
-    },
-    {
-        id: "fruits",
-        name: "Cherries & Cute",
-        items: [
-            { id: "twin-cherries", name: "3D Twin Cherries", preview: "🍒" },
-            { id: "strawberry", name: "3D Sweet Strawberry", preview: "🍓" },
-        ]
-    },
-    {
-        id: "stars",
-        name: "Stars & Celestial",
-        items: [
-            { id: "sparkling-star", name: "3D North Star Sparkle", preview: "✦" },
-            { id: "star-4point", name: "3D 4-Point Diamond Star", preview: "✧" },
-            { id: "crescent-moon", name: "3D Gold Crescent Moon", preview: "🌙" },
-            { id: "sunbeam", name: "3D Celestial Sunburst", preview: "☀️" },
-        ]
-    },
-    {
-        id: "hearts",
-        name: "Hearts & Butterflies",
-        items: [
-            { id: "chrome-heart", name: "3D Chrome Heart", preview: "♥️" },
-            { id: "butterfly-charm", name: "3D Flutter Butterfly", preview: "🦋" },
-        ]
-    }
-];
-
-// Presets Gallery
+// Candy & Rose Presets
 const SALON_PRESETS = [
     {
         id: "french-classic",
         name: "French Tip Classic",
-        category: "Timeless",
+        category: "BASIC",
+        serviceId: "french-tip",
         shape: "Almond",
         length: 2.0,
         texture: "glossy",
-        colorMode: "french",
-        colors: { primary: "#fce7f3", secondary: "#ffffff", tertiary: "#e2e8f0" },
+        colors: { primary: "#fce7f3", secondary: "#ffffff" },
         frenchHeight: 25,
         tipStyle: "classic-french",
-        charms: [
-            { id: "c1", type: "pearl-bead", x: 400, y: 720, scale: 0.9, rotation: 0, color: "#ffffff", opacity: 1, zIndex: 1 }
-        ]
-    },
-    {
-        id: "velvet-aurora",
-        name: "Velvet Aurora Ombré",
-        category: "Trending",
-        shape: "Coffin",
-        length: 2.5,
-        texture: "cateye",
-        colorMode: "ombre",
-        colors: { primary: "#c084fc", secondary: "#f472b6", tertiary: "#93c5fd" },
-        charms: [
-            { id: "c1", type: "sparkling-star", x: 400, y: 450, scale: 1.2, rotation: 0, color: "#ffffff", opacity: 0.9, zIndex: 1 },
-            { id: "c2", type: "diamond-round", x: 400, y: 550, scale: 0.8, rotation: 0, color: "#e2e8f0", opacity: 1, zIndex: 2 }
-        ]
-    },
-    {
-        id: "glazed-donut",
-        name: "Glazed Donut Chrome",
-        category: "Celebrity",
-        shape: "Oval",
-        length: 1.8,
-        texture: "chrome",
-        colorMode: "solid",
-        colors: { primary: "#f8fafc", secondary: "#e0a96d", tertiary: "#cbd5e1" },
+        stoneStyle: "none",
         charms: []
     },
     {
-        id: "cherry-blossom",
-        name: "Cherry Blossom Pop",
-        category: "Floral",
+        id: "velvet-ombre",
+        name: "Sunset Ombre",
+        category: "CLASSIC",
+        serviceId: "ombre",
+        shape: "Coffin",
+        length: 2.2,
+        texture: "glossy",
+        colors: { primary: "#f472b6", secondary: "#c084fc" },
+        stoneStyle: "simple-cuticle",
+        charms: [
+            { id: "c1", type: "pearl-bead", x: 400, y: 760, scale: 0.9, rotation: 0, color: "#ffffff", opacity: 1, zIndex: 1 }
+        ]
+    },
+    {
+        id: "glazed-chrome",
+        name: "Glazed Chrome Luxe",
+        category: "ADVANCED",
+        serviceId: "chrome",
+        shape: "Oval",
+        length: 1.8,
+        texture: "glossy",
+        colors: { primary: "#f8fafc", secondary: "#e0a96d" },
+        stoneStyle: "none",
+        charms: []
+    },
+    {
+        id: "cat-eye-velvet",
+        name: "Cat Eye Velvet Glow",
+        category: "BASIC",
+        serviceId: "cat-eye",
         shape: "Almond",
         length: 2.0,
         texture: "glossy",
-        colorMode: "aura",
-        colors: { primary: "#ffe5ec", secondary: "#f43f5e", tertiary: "#ec4899" },
+        colors: { primary: "#93c5fd", secondary: "#ffffff" },
+        stoneStyle: "scatter",
         charms: [
-            { id: "c1", type: "sakura-flower", x: 400, y: 500, scale: 1.3, rotation: 20, color: "#ffffff", opacity: 1, zIndex: 1 },
-            { id: "c2", type: "gold-foil", x: 450, y: 430, scale: 0.9, rotation: 45, color: "#ffd700", opacity: 0.8, zIndex: 2 }
+            { id: "c1", type: "sparkling-star", x: 400, y: 480, scale: 1.1, rotation: 0, color: "#ffffff", opacity: 0.9, zIndex: 1 }
         ]
     },
     {
         id: "golden-marble",
         name: "Golden Marble Noir",
-        category: "Luxury",
+        category: "CLASSIC",
+        serviceId: "marble",
         shape: "Stiletto",
-        length: 2.8,
+        length: 2.5,
         texture: "glossy",
-        colorMode: "marble",
         colors: { primary: "#111827", secondary: "#ffd700", tertiary: "#475569" },
-        charms: [
-            { id: "c1", type: "gold-stud", x: 400, y: 780, scale: 1.0, rotation: 0, color: "#ffd700", opacity: 1, zIndex: 1 }
-        ]
+        stoneStyle: "quarter-coverage",
+        charms: []
     },
     {
-        id: "twin-cherries-accent",
-        name: "Cherry Glaze Accent",
-        category: "Playful",
-        shape: "Squoval",
-        length: 1.5,
-        texture: "jelly",
-        colorMode: "solid",
-        colors: { primary: "#fce7f3", secondary: "#dc2626", tertiary: "#14532d" },
+        id: "3d-sculpted-luxe",
+        name: "3D Artisan Sculpted",
+        category: "ADVANCED",
+        serviceId: "3d-nail-art",
+        shape: "Ballerina",
+        length: 2.6,
+        texture: "glossy",
+        colors: { primary: "#fbcfe8", secondary: "#ec4899" },
+        stoneStyle: "full-nail",
         charms: [
-            { id: "c1", type: "twin-cherries", x: 400, y: 480, scale: 1.4, rotation: -10, color: "#dc2626", opacity: 1, zIndex: 1 }
+            { id: "c1", type: "diamond-round", x: 400, y: 520, scale: 1.3, rotation: 15, color: "#ffffff", opacity: 1, zIndex: 1 },
+            { id: "c2", type: "rhinestone-cluster", x: 400, y: 640, scale: 1.1, rotation: 0, color: "#ffd700", opacity: 1, zIndex: 2 }
         ]
     }
 ];
@@ -385,8 +310,7 @@ const PolishBottle = ({ color, active, size = "w-7 h-9", label }: { color: strin
     </div>
 );
 
-// ─── HYPER-REALISTIC 3D VECTOR RENDERER FALLBACKS ────────────────────────────
-
+// Procedural Vector Charm Fallbacks
 function drawVectorCharm(ctx: CanvasRenderingContext2D, type: string, scale: number, color: string) {
     const s = scale * 20;
     ctx.save();
@@ -412,49 +336,6 @@ function drawVectorCharm(ctx: CanvasRenderingContext2D, type: string, scale: num
             ctx.moveTo(-s * 0.85, -s * 0.3); ctx.lineTo(s * 0.85, s * 0.3);
             ctx.moveTo(-s * 0.85, s * 0.3); ctx.lineTo(s * 0.85, -s * 0.3);
             ctx.stroke();
-            ctx.beginPath(); ctx.rect(-s * 0.3, -s * 0.3, s * 0.6, s * 0.6);
-            ctx.fillStyle = "rgba(255, 255, 255, 0.6)"; ctx.fill(); ctx.stroke();
-            break;
-
-        case "teardrop-gem":
-            ctx.beginPath(); ctx.moveTo(0, -s * 1.1);
-            ctx.bezierCurveTo(s * 0.9, -s * 0.2, s * 0.95, s * 0.7, 0, s * 1.05);
-            ctx.bezierCurveTo(-s * 0.95, s * 0.7, -s * 0.9, -s * 0.2, 0, -s * 1.1);
-            const tearGrad = ctx.createRadialGradient(-s * 0.2, -s * 0.4, s * 0.1, 0, 0, s);
-            tearGrad.addColorStop(0, "#ffffff"); tearGrad.addColorStop(0.5, color || "#93c5fd"); tearGrad.addColorStop(1, "#1d4ed8");
-            ctx.fillStyle = tearGrad; ctx.fill();
-            ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 1.5; ctx.stroke();
-            break;
-
-        case "ribbon-bow":
-        case "dainty-knot":
-            ctx.beginPath(); ctx.ellipse(-s * 0.65, -s * 0.1, s * 0.6, s * 0.45, -Math.PI / 8, 0, Math.PI * 2);
-            ctx.fillStyle = color || "#ec4899"; ctx.fill();
-            ctx.beginPath(); ctx.ellipse(s * 0.65, -s * 0.1, s * 0.6, s * 0.45, Math.PI / 8, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath(); ctx.arc(0, 0, s * 0.28, 0, Math.PI * 2);
-            ctx.fillStyle = color || "#ec4899"; ctx.fill();
-            break;
-
-        case "sakura-flower":
-        case "flower":
-            for (let i = 0; i < 5; i++) {
-                ctx.save(); ctx.rotate((i * Math.PI * 2) / 5);
-                ctx.beginPath(); ctx.ellipse(0, -s * 0.65, s * 0.38, s * 0.55, 0, 0, Math.PI * 2);
-                ctx.fillStyle = color || "#fbcfe8"; ctx.fill(); ctx.restore();
-            }
-            ctx.beginPath(); ctx.arc(0, 0, s * 0.3, 0, Math.PI * 2);
-            ctx.fillStyle = "#ffd700"; ctx.fill();
-            break;
-
-        case "twin-cherries":
-            ctx.fillStyle = "#dc2626";
-            ctx.beginPath(); ctx.arc(-s * 0.38, s * 0.3, s * 0.42, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(s * 0.38, s * 0.4, s * 0.42, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = "#15803d"; ctx.lineWidth = 2.5;
-            ctx.beginPath(); ctx.moveTo(-s * 0.38, -s * 0.05); ctx.quadraticCurveTo(0, -s * 0.7, 0, -s * 0.9);
-            ctx.moveTo(s * 0.38, 0.05); ctx.quadraticCurveTo(0, -s * 0.7, 0, -s * 0.9);
-            ctx.stroke();
             break;
 
         case "pearl-bead":
@@ -464,26 +345,9 @@ function drawVectorCharm(ctx: CanvasRenderingContext2D, type: string, scale: num
             ctx.fillStyle = pearlGrad; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.stroke();
             break;
 
-        case "gold-stud":
-            ctx.beginPath(); ctx.moveTo(0, -s * 0.75); ctx.lineTo(s * 0.75, 0); ctx.lineTo(0, s * 0.75); ctx.lineTo(-s * 0.75, 0);
-            ctx.closePath(); ctx.fillStyle = "#ffd700"; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.stroke();
-            break;
-
-        case "butterfly-charm":
-            ctx.beginPath(); ctx.ellipse(-s * 0.55, -s * 0.45, s * 0.55, s * 0.4, -Math.PI / 4, 0, Math.PI * 2);
-            ctx.fillStyle = color || "#c084fc"; ctx.fill();
-            ctx.beginPath(); ctx.ellipse(s * 0.55, -s * 0.45, s * 0.55, s * 0.4, Math.PI / 4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath(); ctx.ellipse(0, 0, s * 0.12, s * 0.6, 0, 0, Math.PI * 2);
-            ctx.fillStyle = "#111827"; ctx.fill();
-            break;
-
         default:
-            for (let p = 0; p < 4; p++) {
-                ctx.save(); ctx.rotate((p * Math.PI) / 2);
-                ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(s * 0.15, -s * 0.3, 0, -s * 1.1);
-                ctx.fillStyle = color || "#ffd700"; ctx.fill(); ctx.restore();
-            }
+            ctx.beginPath(); ctx.arc(0, 0, s * 0.5, 0, Math.PI * 2);
+            ctx.fillStyle = color || "#ffd700"; ctx.fill();
             break;
     }
 
@@ -512,8 +376,6 @@ const PrecisionNailStudio = forwardRef((
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const artCanvasRef = useRef<HTMLCanvasElement>(null);
     const masterBufferRef = useRef<HTMLCanvasElement>(null);
-
-    // Online Libraries Cached Image Ref
     const charmImageCache = useRef<Record<string, HTMLImageElement>>({});
 
     const [isPainting, setIsPainting] = useState(false);
@@ -539,7 +401,6 @@ const PrecisionNailStudio = forwardRef((
         }
     }));
 
-    // Preloads / gets charm image from cached library
     const getCharmImage = (type: string) => {
         const url = CHARM_ASSET_LIBRARY[type];
         if (!url) return null;
@@ -548,9 +409,7 @@ const PrecisionNailStudio = forwardRef((
             const img = new Image();
             img.crossOrigin = "anonymous";
             img.src = url;
-            img.onload = () => {
-                renderStudio(); // Force draw when loaded
-            };
+            img.onload = () => { renderStudio(); };
             charmImageCache.current[type] = img;
         }
         return charmImageCache.current[type];
@@ -565,7 +424,8 @@ const PrecisionNailStudio = forwardRef((
 
         const {
             shape: selectedShape, length: selectedLength, primaryColor, secondaryColor, tertiaryColor, tipColor,
-            colorMode, tipStyle, texture: selectedTexture, frenchHeight, auraSpread, marbleIntensity, charms: placedCharms
+            nailArtStyle, stoneStyle, tipStyle, texture: selectedTexture, frenchHeight, charms: placedCharms,
+            patternIntensity, magneticPosition, chromeFinish, foilPlacement
         } = design;
 
         ctx.clearRect(0, 0, 800, 1000);
@@ -604,19 +464,13 @@ const PrecisionNailStudio = forwardRef((
         ctx.scale(baseW / 100, baseH / 100);
         ctx.translate(-50, -50);
 
-        // Draw Multi-Color Base Layers
-        switch (colorMode) {
-            case "solid":
-                ctx.fillStyle = primaryColor;
-                ctx.fill(path2d);
-                break;
-
-            case "french":
+        // ── Render Nail Art Base & Style Shaders ──
+        switch (nailArtStyle) {
+            case "french-tip":
                 ctx.fillStyle = primaryColor;
                 ctx.fill(path2d);
                 ctx.save();
                 ctx.clip(path2d);
-
                 const actualTipColor = tipColor || secondaryColor || "#ffffff";
                 const tipY = 100 - frenchHeight;
 
@@ -648,64 +502,53 @@ const PrecisionNailStudio = forwardRef((
             case "ombre":
                 const omGrad = ctx.createLinearGradient(50, 0, 50, 100);
                 omGrad.addColorStop(0, primaryColor);
-                omGrad.addColorStop(1, secondaryColor);
+                omGrad.addColorStop(1, secondaryColor || "#f472b6");
                 ctx.fillStyle = omGrad;
                 ctx.fill(path2d);
                 break;
 
-            case "split":
-                ctx.save();
-                ctx.clip(path2d);
-                ctx.fillStyle = primaryColor; ctx.fillRect(0, 0, 50, 100);
-                ctx.fillStyle = secondaryColor; ctx.fillRect(50, 0, 50, 100);
-                ctx.restore();
-                break;
-
-            case "aura":
+            case "cat-eye":
                 ctx.fillStyle = primaryColor;
                 ctx.fill(path2d);
                 ctx.save();
                 ctx.clip(path2d);
-                const auraGrad = ctx.createRadialGradient(50, 50, 2, 50, 50, auraSpread);
-                auraGrad.addColorStop(0, secondaryColor);
-                auraGrad.addColorStop(1, "transparent");
-                ctx.fillStyle = auraGrad;
-                ctx.fillRect(0, 0, 100, 100);
+                ctx.globalAlpha = 0.65;
+                const angleRad = ((magneticPosition || 45) * Math.PI) / 180;
+                const catGrad = ctx.createLinearGradient(0, 100, 100, 0);
+                catGrad.addColorStop(0, "transparent");
+                catGrad.addColorStop(0.45, secondaryColor || "rgba(255,255,255,0.95)");
+                catGrad.addColorStop(0.55, secondaryColor || "rgba(255,255,255,0.95)");
+                catGrad.addColorStop(1, "transparent");
+                ctx.fillStyle = catGrad; ctx.fillRect(0, 0, 100, 100);
                 ctx.restore();
                 break;
 
-            case "tri-gradient":
-                const triGrad = ctx.createLinearGradient(50, 0, 50, 100);
-                triGrad.addColorStop(0, primaryColor);
-                triGrad.addColorStop(0.5, secondaryColor);
-                triGrad.addColorStop(1, tertiaryColor);
-                ctx.fillStyle = triGrad;
-                ctx.fill(path2d);
-                break;
-
-            case "tri-aura":
+            case "glitter-finish":
+            case "paint-glitter":
                 ctx.fillStyle = primaryColor;
                 ctx.fill(path2d);
                 ctx.save();
                 ctx.clip(path2d);
-                const triAura1 = ctx.createRadialGradient(50, 50, 2, 50, 50, auraSpread * 0.8);
-                triAura1.addColorStop(0, tertiaryColor);
-                triAura1.addColorStop(1, "transparent");
-                ctx.fillStyle = triAura1; ctx.fillRect(0, 0, 100, 100);
-
-                const triAura2 = ctx.createRadialGradient(50, 50, 15, 50, 50, auraSpread);
-                triAura2.addColorStop(0, secondaryColor);
-                triAura2.addColorStop(1, "transparent");
-                ctx.fillStyle = triAura2; ctx.fillRect(0, 0, 100, 100);
+                ctx.globalAlpha = 0.45; ctx.fillStyle = secondaryColor || "#ffd700";
+                for (let g = 0; g < 50; g++) {
+                    const gx = (g * 17) % 90 + 5;
+                    const gy = (g * 23) % 90 + 5;
+                    ctx.beginPath(); ctx.arc(gx, gy, 1.4, 0, Math.PI * 2); ctx.fill();
+                }
                 ctx.restore();
                 break;
 
-            case "tri-stripes":
+            case "dots-lines":
+                ctx.fillStyle = primaryColor;
+                ctx.fill(path2d);
                 ctx.save();
                 ctx.clip(path2d);
-                ctx.fillStyle = primaryColor; ctx.fillRect(0, 0, 100, 33);
-                ctx.fillStyle = secondaryColor; ctx.fillRect(0, 33, 100, 34);
-                ctx.fillStyle = tertiaryColor; ctx.fillRect(0, 67, 100, 33);
+                ctx.strokeStyle = secondaryColor || "#111827"; ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let d = 20; d <= 80; d += 20) {
+                    ctx.arc(50, d, 2.5, 0, Math.PI * 2);
+                }
+                ctx.fillStyle = secondaryColor || "#111827"; ctx.fill();
                 ctx.restore();
                 break;
 
@@ -714,65 +557,116 @@ const PrecisionNailStudio = forwardRef((
                 ctx.fill(path2d);
                 ctx.save();
                 ctx.clip(path2d);
-                ctx.strokeStyle = secondaryColor; ctx.lineWidth = marbleIntensity / 5; ctx.globalAlpha = 0.6;
+                ctx.strokeStyle = secondaryColor || "#ffd700";
+                ctx.lineWidth = (patternIntensity || 50) / 10; ctx.globalAlpha = 0.65;
                 ctx.beginPath(); ctx.moveTo(-10, 20); ctx.bezierCurveTo(40, 80, 80, 10, 110, 90); ctx.stroke();
-                ctx.strokeStyle = tertiaryColor; ctx.lineWidth = marbleIntensity / 7; ctx.globalAlpha = 0.7;
+                ctx.strokeStyle = tertiaryColor || "#475569";
+                ctx.lineWidth = (patternIntensity || 50) / 14; ctx.globalAlpha = 0.7;
                 ctx.beginPath(); ctx.moveTo(110, 10); ctx.bezierCurveTo(60, 40, 30, 90, -10, 70); ctx.stroke();
                 ctx.restore();
                 break;
 
-            default:
+            case "chrome":
+                ctx.fillStyle = primaryColor;
+                ctx.fill(path2d);
+                ctx.save();
+                ctx.clip(path2d);
+                ctx.globalAlpha = 0.55;
+                const chrGrad = ctx.createLinearGradient(0, 0, 100, 100);
+                chrGrad.addColorStop(0, "#ffffff"); chrGrad.addColorStop(0.3, "transparent");
+                chrGrad.addColorStop(0.7, secondaryColor || "#e0a96d"); chrGrad.addColorStop(1, "transparent");
+                ctx.fillStyle = chrGrad; ctx.fillRect(0, 0, 100, 100);
+                ctx.restore();
+                break;
+
+            case "foil-art":
+                ctx.fillStyle = primaryColor;
+                ctx.fill(path2d);
+                ctx.save();
+                ctx.clip(path2d);
+                ctx.fillStyle = secondaryColor || "#ffd700"; ctx.globalAlpha = 0.8;
+                for (let f = 0; f < 12; f++) {
+                    const fx = (f * 29) % 80 + 10;
+                    const fy = (f * 37) % 80 + 10;
+                    ctx.beginPath(); ctx.rect(fx, fy, (f % 3) * 3 + 4, (f % 2) * 4 + 3); ctx.fill();
+                }
+                ctx.restore();
+                break;
+
+            case "mermaid-embossed":
+                ctx.fillStyle = primaryColor;
+                ctx.fill(path2d);
+                ctx.save();
+                ctx.clip(path2d);
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.7)"; ctx.lineWidth = 2.5;
+                for (let r = 20; r <= 80; r += 15) {
+                    ctx.beginPath(); ctx.arc(50, 100, r, Math.PI, 0); ctx.stroke();
+                }
+                ctx.restore();
+                break;
+
+            default: // Solid or Hand Paint
                 ctx.fillStyle = primaryColor;
                 ctx.fill(path2d);
                 break;
         }
 
-        // Texture Shaders
+        // ── Render Topcoat Finish Shader ──
         ctx.save();
         ctx.clip(path2d);
-        if (selectedTexture === "glossy" || selectedTexture === "gel") {
-            ctx.globalAlpha = 0.2;
+        if (selectedTexture === "glossy") {
+            ctx.globalAlpha = 0.22;
             const glassGrad = ctx.createLinearGradient(0, 0, 100, 100);
-            glassGrad.addColorStop(0, "rgba(255,255,255,0.85)");
+            glassGrad.addColorStop(0, "rgba(255,255,255,0.9)");
             glassGrad.addColorStop(0.4, "transparent");
             ctx.fillStyle = glassGrad; ctx.fillRect(0, 0, 100, 100);
-            ctx.globalAlpha = 0.35; ctx.fillStyle = "white"; ctx.beginPath();
+            ctx.globalAlpha = 0.38; ctx.fillStyle = "white"; ctx.beginPath();
             ctx.ellipse(30, 30, 12, 35, Math.PI / 6, 0, Math.PI * 2); ctx.fill();
         } else if (selectedTexture === "matte") {
-            ctx.globalAlpha = 0.12; ctx.fillStyle = "black"; ctx.fillRect(0, 0, 100, 100);
-        } else if (selectedTexture === "glitter") {
-            ctx.globalAlpha = 0.3; ctx.fillStyle = "white";
-            for (let g = 0; g < 45; g++) {
-                const gx = (g * 17) % 90 + 5;
-                const gy = (g * 23) % 90 + 5;
-                ctx.beginPath(); ctx.arc(gx, gy, 1.2, 0, Math.PI * 2); ctx.fill();
-            }
-        } else if (selectedTexture === "pearlescent") {
-            ctx.globalAlpha = 0.25;
-            const pGrad = ctx.createLinearGradient(0, 0, 100, 0);
-            pGrad.addColorStop(0, "rgba(255,192,203,0.5)");
-            pGrad.addColorStop(0.5, "rgba(255,255,255,0.8)");
-            pGrad.addColorStop(1, "rgba(221,160,221,0.5)");
-            ctx.fillStyle = pGrad; ctx.fillRect(0, 0, 100, 100);
-        } else if (selectedTexture === "chrome") {
-            ctx.globalAlpha = 0.45;
-            const chrGrad = ctx.createLinearGradient(0, 0, 100, 100);
-            chrGrad.addColorStop(0, "#ffffff"); chrGrad.addColorStop(0.3, "transparent");
-            chrGrad.addColorStop(0.7, "#ffffff"); chrGrad.addColorStop(1, "transparent");
-            ctx.fillStyle = chrGrad; ctx.fillRect(0, 0, 100, 100);
-        } else if (selectedTexture === "jelly") {
-            ctx.globalAlpha = 0.15; ctx.fillStyle = "white";
-            ctx.fillRect(0, 0, 100, 100);
-        } else if (selectedTexture === "cateye") {
-            ctx.globalAlpha = 0.5;
-            const catGrad = ctx.createLinearGradient(0, 100, 100, 0);
-            catGrad.addColorStop(0, "transparent");
-            catGrad.addColorStop(0.45, "rgba(255,255,255,0.95)");
-            catGrad.addColorStop(0.55, "rgba(255,255,255,0.95)");
-            catGrad.addColorStop(1, "transparent");
-            ctx.fillStyle = catGrad; ctx.fillRect(0, 0, 100, 100);
+            ctx.globalAlpha = 0.15; ctx.fillStyle = "black"; ctx.fillRect(0, 0, 100, 100);
         }
         ctx.restore();
+
+        // ── Render Stones Service Overlay ──
+        if (stoneStyle && stoneStyle !== "none") {
+            ctx.save();
+            ctx.clip(path2d);
+            ctx.shadowBlur = 4; ctx.shadowColor = "rgba(0,0,0,0.3)";
+            const stoneColor = "#ffffff";
+
+            if (stoneStyle === "simple-cuticle") {
+                for (let i = 0; i < 5; i++) {
+                    ctx.beginPath(); ctx.arc(30 + i * 10, 88, 2.5, 0, Math.PI * 2);
+                    ctx.fillStyle = stoneColor; ctx.fill();
+                }
+            } else if (stoneStyle === "quarter-coverage") {
+                for (let i = 0; i < 7; i++) {
+                    ctx.beginPath(); ctx.arc(20 + (i % 3) * 12, 70 + Math.floor(i / 3) * 10, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = stoneColor; ctx.fill();
+                }
+            } else if (stoneStyle === "half-coverage") {
+                for (let i = 0; i < 15; i++) {
+                    ctx.beginPath(); ctx.arc(15 + (i % 5) * 14, 50 + Math.floor(i / 5) * 12, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = stoneColor; ctx.fill();
+                }
+            } else if (stoneStyle === "full-nail") {
+                for (let i = 0; i < 28; i++) {
+                    ctx.beginPath(); ctx.arc(12 + (i % 6) * 13, 20 + Math.floor(i / 6) * 13, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = stoneColor; ctx.fill();
+                }
+            } else if (stoneStyle === "scatter") {
+                const positions = [[25, 30], [65, 40], [35, 60], [70, 75], [45, 80], [20, 70]];
+                positions.forEach(([sx, sy]) => {
+                    ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = stoneColor; ctx.fill();
+                });
+            } else if (stoneStyle === "charm") {
+                ctx.beginPath(); ctx.arc(50, 50, 5, 0, Math.PI * 2);
+                ctx.fillStyle = stoneColor; ctx.fill();
+                ctx.strokeStyle = "#ffd700"; ctx.lineWidth = 1.5; ctx.stroke();
+            }
+            ctx.restore();
+        }
 
         ctx.strokeStyle = "rgba(0,0,0,0.15)"; ctx.lineWidth = 1.5;
         ctx.stroke(path2d);
@@ -785,7 +679,7 @@ const PrecisionNailStudio = forwardRef((
             ctx.drawImage(artCanvas, 0, 0);
         }
 
-        // Draw Placed Gems / Charms (Dynamic Image Loader with 3D Vector Fallback)
+        // Draw Placed Gems / Charms
         placedCharms.forEach((charm) => {
             ctx.save();
             ctx.translate(charm.x, charm.y);
@@ -800,14 +694,12 @@ const PrecisionNailStudio = forwardRef((
 
             const img = getCharmImage(charm.type);
             if (img && img.complete && img.naturalWidth !== 0) {
-                // Hyper-realistic PNG rendering
                 const dim = charm.scale * 42;
                 ctx.shadowBlur = dim * 0.35;
                 ctx.shadowColor = "rgba(0,0,0,0.3)";
                 ctx.shadowOffsetY = dim * 0.12;
 
                 if (charm.color && charm.color.toLowerCase() !== "#ffffff" && charm.color.toLowerCase() !== "#fff") {
-                    // Create offscreen tint buffer
                     const tintCanvas = document.createElement("canvas");
                     tintCanvas.width = img.naturalWidth;
                     tintCanvas.height = img.naturalHeight;
@@ -818,18 +710,15 @@ const PrecisionNailStudio = forwardRef((
                         tCtx.fillStyle = charm.color;
                         tCtx.fillRect(0, 0, tintCanvas.width, tintCanvas.height);
                     }
-                    // Draw base image
                     ctx.drawImage(img, -dim / 2, -dim / 2, dim, dim);
-                    // Draw color overlay blended
                     ctx.save();
-                    ctx.globalAlpha = 0.45; // tint blend opacity
+                    ctx.globalAlpha = 0.45;
                     ctx.drawImage(tintCanvas, -dim / 2, -dim / 2, dim, dim);
                     ctx.restore();
                 } else {
                     ctx.drawImage(img, -dim / 2, -dim / 2, dim, dim);
                 }
             } else {
-                // Procedural 3D Vector rendering fallback
                 drawVectorCharm(ctx, charm.type, charm.scale, charm.color);
             }
 
@@ -1022,17 +911,17 @@ const PrecisionNailStudio = forwardRef((
         renderStudio();
     };
 
-    const activeTextureObj = NAIL_TEXTURES.find(t => t.id === designs[activeFinger]?.texture);
-    const textureName = activeTextureObj?.name || "High Gloss";
+    const activeService = CANDY_ROSE_NAIL_ART_SERVICES.find(s => s.id === designs[activeFinger]?.nailArtStyle);
+    const serviceName = activeService?.name || "French Tip";
 
     return (
         <div className="relative w-full h-full min-h-[580px] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white via-pink-50/40 to-pink-100/30 rounded-[2.5rem] border-4 border-white shadow-2xl shadow-pink-200/50 flex flex-col items-center justify-center overflow-hidden group">
-            {/* Canvas Header: Live Preview Badge & Active Specs */}
+            {/* Canvas Header */}
             <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none z-10">
                 <div className="pointer-events-auto">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 backdrop-blur-md border border-emerald-500/20 text-emerald-600 rounded-full text-[10px] font-extrabold uppercase tracking-wider shadow-sm">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        Live Preview
+                        Live Canvas Studio
                     </span>
                 </div>
 
@@ -1046,8 +935,8 @@ const PrecisionNailStudio = forwardRef((
                     <span className="px-2.5 py-1 bg-white/90 backdrop-blur-md border border-pink-100 text-gray-700 rounded-xl text-[11px] font-bold shadow-sm">
                         {designs[activeFinger]?.length.toFixed(1)} cm
                     </span>
-                    <span className="px-2.5 py-1 bg-white/90 backdrop-blur-md border border-pink-100 text-gray-700 rounded-xl text-[11px] font-bold shadow-sm">
-                        {textureName}
+                    <span className="px-2.5 py-1 bg-white/90 backdrop-blur-md border border-pink-100 text-pink-600 rounded-xl text-[11px] font-bold shadow-sm">
+                        {serviceName}
                     </span>
                 </div>
             </div>
@@ -1066,12 +955,12 @@ const PrecisionNailStudio = forwardRef((
 
             <canvas ref={artCanvasRef} width={800} height={1000} className="hidden" />
 
-            {/* Floating Editor & Zoom Toolbar Dock */}
+            {/* Floating Editor Dock */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-xl border border-white/90 rounded-full shadow-2xl shadow-pink-900/10 z-20 max-w-[95%] overflow-x-auto scrollbar-none">
                 <button
                     onClick={() => setActiveTool("charm-select")}
                     className={`px-3 py-2 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold active:scale-95 ${activeTool === "charm-select" ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md shadow-pink-200" : "text-gray-600 hover:bg-pink-50 hover:text-pink-600"}`}
-                    title="Select & Move Charms"
+                    title="Select & Move Stones/Charms"
                     aria-label="Select tool"
                 >
                     <MousePointer className="w-4 h-4" />
@@ -1162,16 +1051,19 @@ const PrecisionNailStudio = forwardRef((
 export interface FingerDesign {
     shape: string;
     length: number;
-    texture: string;
-    colorMode: string;
+    texture: "glossy" | "matte";
+    nailArtStyle: string;
+    stoneStyle: string;
     primaryColor: string;
     secondaryColor: string;
     tertiaryColor: string;
     tipColor: string;
     tipStyle: string;
     frenchHeight: number;
-    auraSpread: number;
-    marbleIntensity: number;
+    patternIntensity: number;
+    magneticPosition: number;
+    chromeFinish: string;
+    foilPlacement: string;
     charms: any[];
 }
 
@@ -1179,15 +1071,18 @@ const DEFAULT_FINGER_DESIGN: FingerDesign = {
     shape: "Almond",
     length: 2.0,
     texture: "glossy",
-    colorMode: "french",
+    nailArtStyle: "french-tip",
+    stoneStyle: "none",
     primaryColor: "#fce7f3",
     secondaryColor: "#ffffff",
-    tertiaryColor: "#3b82f6",
+    tertiaryColor: "#e2e8f0",
     tipColor: "#ffffff",
     tipStyle: "classic-french",
     frenchHeight: 25,
-    auraSpread: 45,
-    marbleIntensity: 60,
+    patternIntensity: 50,
+    magneticPosition: 45,
+    chromeFinish: "glossy",
+    foilPlacement: "scatter",
     charms: []
 };
 
@@ -1195,41 +1090,41 @@ const BLANK_FINGER_DESIGN: FingerDesign = {
     shape: "Almond",
     length: 2.0,
     texture: "glossy",
-    colorMode: "solid",
+    nailArtStyle: "french-tip",
+    stoneStyle: "none",
     primaryColor: "#ffffff",
     secondaryColor: "#ffffff",
     tertiaryColor: "#ffffff",
     tipColor: "#ffffff",
     tipStyle: "classic-french",
     frenchHeight: 25,
-    auraSpread: 45,
-    marbleIntensity: 60,
+    patternIntensity: 50,
+    magneticPosition: 45,
+    chromeFinish: "glossy",
+    foilPlacement: "scatter",
     charms: []
 };
 
-// ─── MAIN REDESIGNED NAIL STUDIO PAGE ────────────────────────────────────────
+// ─── MAIN CANDY & ROSE NAIL STUDIO PAGE ──────────────────────────────────────
 
 export default function NailsStudioPage() {
-    const [mobileTab, setMobileTab] = useState<"palette" | "canvas" | "charms" | "finishes">("canvas");
-    const [leftPanelTab, setLeftPanelTab] = useState<"color" | "tip">("color");
-    const [rightPanelTab, setRightPanelTab] = useState<"shape" | "charms">("shape");
+    const [mobileTab, setMobileTab] = useState<"style" | "canvas" | "details">("canvas");
+    const [nailArtCategoryTab, setNailArtCategoryTab] = useState<"BASIC" | "CLASSIC" | "ADVANCED">("BASIC");
 
     // Multi-Finger State
     const [designs, setDesigns] = useState<Record<string, FingerDesign>>({
-        Thumb: { ...BLANK_FINGER_DESIGN },
-        Index: { ...DEFAULT_FINGER_DESIGN },
-        Middle: { ...BLANK_FINGER_DESIGN },
-        Ring: { ...BLANK_FINGER_DESIGN },
-        Pinky: { ...BLANK_FINGER_DESIGN }
+        Thumb: { ...BLANK_FINGER_DESIGN, nailArtStyle: "french-tip" },
+        Index: { ...DEFAULT_FINGER_DESIGN, nailArtStyle: "french-tip" },
+        Middle: { ...BLANK_FINGER_DESIGN, nailArtStyle: "french-tip" },
+        Ring: { ...BLANK_FINGER_DESIGN, nailArtStyle: "french-tip" },
+        Pinky: { ...BLANK_FINGER_DESIGN, nailArtStyle: "french-tip" }
     });
     const [activeFinger, setActiveFinger] = useState<string>("Index");
     const activeDesign = designs[activeFinger];
 
-    // History Stack for Undo/Redo
+    // History Stack
     const [historyStack, setHistoryStack] = useState<Record<string, FingerDesign>[]>([]);
     const [historyIndex, setHistoryIndex] = useState<number>(-1);
-
-    // Canvas Zoom Level State
     const [zoomLevel, setZoomLevel] = useState<number>(1.0);
 
     useEffect(() => {
@@ -1273,40 +1168,16 @@ export default function NailsStudioPage() {
         });
     };
 
-    const applyToAllFingers = () => {
-        const next = {
-            Thumb: { ...activeDesign },
-            Index: { ...activeDesign },
-            Middle: { ...activeDesign },
-            Ring: { ...activeDesign },
-            Pinky: { ...activeDesign }
-        };
-        setDesigns(next);
-        pushHistory(next);
-        addNotification("Design Copied", `Applied ${activeFinger} design to all fingers.`, "system");
-    };
-
-    // Active Color Target
-    const [activeColorTarget, setActiveColorTarget] = useState<"primary" | "secondary" | "tertiary" | "tip" | "brush" | "charm">("primary");
-    const [pigmentTab, setPigmentTab] = useState<keyof typeof PIGMENT_LIBRARY>("vibrant");
+    // Color Targets
+    const [activeColorTarget, setActiveColorTarget] = useState<"primary" | "secondary" | "tertiary" | "tip" | "brush">("primary");
+    const [pigmentTab, setPigmentTab] = useState<keyof typeof PIGMENT_LIBRARY>("pinks");
     const [customColor, setCustomColor] = useState("#ffffff");
 
-    // Gems & Charms State
-    const [charmCategoryTab, setCharmCategoryTab] = useState("gems");
+    // Stones & Placement State
     const [selectedCharmType, setSelectedCharmType] = useState("diamond-round");
     const [charmScale, setCharmScale] = useState(1.0);
     const [charmColor, setCharmColor] = useState("#ffffff");
     const [activeCharmId, setActiveCharmId] = useState<string | null>(null);
-
-    const charmPreviews = useMemo(() => {
-        const map: Record<string, string> = {};
-        CHARM_CATEGORIES.forEach(cat => {
-            cat.items.forEach(item => {
-                map[item.id] = item.preview;
-            });
-        });
-        return map;
-    }, []);
 
     // Tools
     const [activeTool, setActiveTool] = useState("charm-select");
@@ -1326,20 +1197,48 @@ export default function NailsStudioPage() {
 
     const [isSaving, setIsSaving] = useState(false);
 
-    const handleSaveToSupabase = async () => {
-        setIsSaving(true);
-        try {
-            await StudioConfigurations.create({
-                config_name: `Design-${new Date().getTime()}`,
-                settings: designs
-            });
-            addNotification("Saved", "Nail design saved to database successfully!", "system");
-        } catch (e: any) {
-            console.error(e);
-            addNotification("Error", "Failed to save design.", "system");
+    // Dynamic Price Computation
+    const { estimatedTotal, fullSetEquivalent, fingerPricingBreakdown } = useMemo(() => {
+        let total = 0;
+        const breakdown: Record<string, { nailArtName: string; nailArtPrice: number; stoneName: string; stonePrice: number }> = {};
+        
+        const firstArtStyle = designs.Thumb?.nailArtStyle;
+        let isAllSameArt = true;
+
+        Object.entries(designs).forEach(([finger, d]) => {
+            if (d.nailArtStyle !== firstArtStyle) isAllSameArt = false;
+
+            const artService = CANDY_ROSE_NAIL_ART_SERVICES.find(s => s.id === d.nailArtStyle);
+            const stoneService = CANDY_ROSE_STONES_SERVICES.find(s => s.id === d.stoneStyle);
+
+            const nailArtPrice = artService?.perNailPrice || 0;
+            const stonePrice = stoneService?.price || 0;
+
+            total += nailArtPrice + stonePrice;
+
+            breakdown[finger] = {
+                nailArtName: artService?.name || "French Tip",
+                nailArtPrice,
+                stoneName: stoneService?.name || "No Stones",
+                stonePrice
+            };
+        });
+
+        // Full set equivalent calculation
+        let fullSetEq = 0;
+        if (isAllSameArt && firstArtStyle) {
+            const artService = CANDY_ROSE_NAIL_ART_SERVICES.find(s => s.id === firstArtStyle);
+            if (artService) {
+                const totalStonesPrice = Object.values(designs).reduce((acc, d) => {
+                    const st = CANDY_ROSE_STONES_SERVICES.find(s => s.id === d.stoneStyle);
+                    return acc + (st?.price || 0);
+                }, 0);
+                fullSetEq = artService.fullSetPrice + totalStonesPrice;
+            }
         }
-        setIsSaving(false);
-    };
+
+        return { estimatedTotal: total, fullSetEquivalent: fullSetEq, fingerPricingBreakdown: breakdown };
+    }, [designs]);
 
     // Modals
     const [showPresetsModal, setShowPresetsModal] = useState(false);
@@ -1356,29 +1255,23 @@ export default function NailsStudioPage() {
         else if (activeColorTarget === "tertiary") updateDesign({ tertiaryColor: hex });
         else if (activeColorTarget === "tip") updateDesign({ tipColor: hex });
         else if (activeColorTarget === "brush") setBrushColor(hex);
-        else if (activeColorTarget === "charm") {
-            setCharmColor(hex);
-            if (activeCharmId) {
-                updateDesign({ charms: activeDesign.charms.map((c: any) => c.id === activeCharmId ? { ...c, color: hex } : c) });
-            }
-        }
     };
 
     const handleApplyPreset = (preset: typeof SALON_PRESETS[0]) => {
         updateDesign({
             shape: preset.shape,
             length: preset.length,
-            texture: preset.texture,
-            colorMode: preset.colorMode,
+            texture: preset.texture as any,
+            nailArtStyle: preset.serviceId,
+            stoneStyle: preset.stoneStyle,
             primaryColor: preset.colors.primary,
             secondaryColor: preset.colors.secondary,
-            tertiaryColor: preset.colors.tertiary,
             frenchHeight: preset.frenchHeight || activeDesign.frenchHeight,
             tipStyle: preset.tipStyle || activeDesign.tipStyle,
             charms: preset.charms || []
         });
         setShowPresetsModal(false);
-        addNotification("Preset Applied", `Loaded '${preset.name}' design to ${activeFinger}.`, "system");
+        addNotification("Preset Applied", `Loaded '${preset.name}' onto ${activeFinger}.`, "system");
     };
 
     const handleApplyToAll = () => {
@@ -1392,10 +1285,8 @@ export default function NailsStudioPage() {
         });
         setDesigns(newDesigns);
         pushHistory(newDesigns);
-        addNotification("Applied to All", `The ${activeFinger} design was applied to all fingers.`, "system");
+        addNotification("Applied to All", `The ${activeFinger} design was applied to all 5 fingers.`, "system");
     };
-
-    const activeCharm = useMemo(() => activeDesign.charms.find((c: any) => c.id === activeCharmId), [activeDesign.charms, activeCharmId]);
 
     const handleConfirmSave = async () => {
         if (!saveDesignName.trim()) {
@@ -1411,35 +1302,42 @@ export default function NailsStudioPage() {
             if (blob) {
                 try {
                     const file = new File([blob], `nail-${Date.now()}.png`, { type: "image/png" });
-                    publicUrl = await Storage.upload('nails', file, `ai-design-${Date.now()}`);
+                    publicUrl = await Storage.upload('nails', file, `candy-rose-design-${Date.now()}`);
                 } catch {
-                    console.warn("Storage fallback used.");
+                    console.warn("Storage upload fallback used.");
                 }
             }
+
+            const currentArtService = CANDY_ROSE_NAIL_ART_SERVICES.find(s => s.id === activeDesign.nailArtStyle);
 
             await NailDesigns.create({
                 name: saveDesignName,
                 image_url: publicUrl,
-                category: "Custom Studio",
-                description: `Multi-finger custom design from Studio.`,
+                category: currentArtService?.category || "BASIC",
+                description: `Custom Candy & Rose Nail Art Design — ${currentArtService?.name || 'French Tip'}`,
+                price: estimatedTotal,
                 is_trending: true
             });
 
             const config: StudioConfiguration = {
                 config_name: saveDesignName,
                 settings: {
-                    version: 2,
-                    designs
+                    version: 3,
+                    salon: "Candy & Rose Salon",
+                    designs,
+                    estimatedTotal,
+                    fullSetEquivalent,
+                    savedAt: new Date().toISOString()
                 }
             };
             await StudioConfigurations.create(config);
 
-            addNotification("Saved!", `'${saveDesignName}' added to library & recommendations.`, "system");
+            addNotification("Design Saved!", `'${saveDesignName}' was saved with complete pricing and configuration.`, "system");
             setShowSaveModal(false);
             setSaveDesignName("");
         } catch (err) {
             console.error("Save failed:", err);
-            alert("Failed to save design.");
+            alert("Failed to save design configuration.");
         } finally {
             setIsSaving(false);
         }
@@ -1447,39 +1345,41 @@ export default function NailsStudioPage() {
 
     const tutorialSteps = [
         {
-            title: "Welcome to Precision Nail Studio!",
-            description: "Design bespoke nails with tip colors, multi-color gradients, rich pigment libraries, and 3D charms.",
-            highlight: "Get started by selecting nail shape & texture finish."
+            title: "Welcome to Candy & Rose Nail Studio!",
+            description: "Customize real Candy & Rose salon nail services with precision per-nail and full-set pricing.",
+            highlight: "Explore 13 Nail Art styles grouped under BASIC, CLASSIC, and ADVANCED."
         },
         {
-            title: "Coloring Nail Tips & Gradient Layouts",
-            description: "Easily color the tip of your nail with Classic French, V-Cut, or Diagonal Tip styles.",
-            highlight: "Pick shades from 6 curated pigment collections or hex color picker."
+            title: "Stones & Detail Accents",
+            description: "Select from Cuticle Stones, ¼ Coverage, ½ Coverage, Full Encrusted, Scatter drops, or Charms.",
+            highlight: "Every stone selection dynamically updates per-nail pricing in real-time."
         },
         {
-            title: "3D Gems & Decorative Charms",
-            description: "Click to place hyper-realistic 3D diamonds, satin ribbons, sakura flowers, cherries, stars, and glitter foil.",
-            highlight: "Drag, scale, rotate, and tint placed charms with precision controls."
+            title: "Color Pigment Palette",
+            description: "Pick shades from 6 curated palettes or custom hex picker to color tips, gradients, and base coats.",
+            highlight: "Match polish colors directly on live 2D/3D nail models."
         },
         {
-            title: "5-Finger Set & Recommendation Save",
-            description: "Switch to 5-Finger Set preview or export high-resolution PNGs to save to your salon recommendations library.",
-            highlight: "Ready to unleash your nail artistry!"
+            title: "Design Summary & Save",
+            description: "Review your per-finger cost breakdown and Full Set Equivalent before saving your bespoke design configuration.",
+            highlight: "Saved designs link directly with salon customer bookings!"
         }
     ];
 
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-        colorLayout: true,
-        frenchTip: false,
+        nailArtStyle: true,
         pigments: true,
         shapeLength: true,
-        topcoat: true,
-        charms: true,
+        finish: true,
+        stones: true,
+        summary: true,
     });
 
     const toggleSection = (key: string) => {
         setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
     };
+
+    const currentNailArtService = CANDY_ROSE_NAIL_ART_SERVICES.find(s => s.id === activeDesign.nailArtStyle);
 
     return (
         <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-pink-50/70 via-white to-purple-50/60 overflow-y-auto overflow-x-hidden w-full max-w-full relative">
@@ -1495,9 +1395,9 @@ export default function NailsStudioPage() {
                     <div className="flex items-center gap-3">
                         <div>
                             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-                                Nail Design Studio
+                                Candy & Rose Nail Studio
                             </h2>
-                            <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Precision shapes, tip styling, gradient layouts & 3D charms</p>
+                            <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Customize real salon nail services, stones, shapes & per-nail pricing</p>
                         </div>
                     </div>
 
@@ -1528,13 +1428,13 @@ export default function NailsStudioPage() {
                     </div>
                 </div>
 
-                {/* MOBILE / TABLET TAB SELECTOR BAR */}
+                {/* MOBILE TAB SELECTOR BAR */}
                 <div className="lg:hidden flex items-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-md rounded-2xl border border-pink-100 mb-4 shadow-sm">
                     <button
-                        onClick={() => setMobileTab("palette")}
-                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${mobileTab === "palette" ? "bg-pink-500 text-white shadow-md" : "text-gray-600"}`}
+                        onClick={() => setMobileTab("style")}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${mobileTab === "style" ? "bg-pink-500 text-white shadow-md" : "text-gray-600"}`}
                     >
-                        Color & Tips
+                        Nail Art Style
                     </button>
                     <button
                         onClick={() => setMobileTab("canvas")}
@@ -1543,180 +1443,203 @@ export default function NailsStudioPage() {
                         Canvas
                     </button>
                     <button
-                        onClick={() => setMobileTab("finishes")}
-                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${mobileTab === "finishes" ? "bg-pink-500 text-white shadow-md" : "text-gray-600"}`}
+                        onClick={() => setMobileTab("details")}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${mobileTab === "details" ? "bg-pink-500 text-white shadow-md" : "text-gray-600"}`}
                     >
-                        Shape & Charms
+                        Stones & Summary
                     </button>
                 </div>
 
                 {/* THREE-COLUMN WORKSPACE STRUCTURE */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 lg:gap-6 items-start transition-all duration-300">
 
-                    {/* COLUMN 1 (LEFT): Collapsible Dropdown Forms for Colors & Tips */}
-                    <div className={`lg:col-span-3 space-y-3 sm:space-y-4 ${mobileTab !== "palette" ? "hidden lg:block" : "block"}`}>
+                    {/* COLUMN 1 (LEFT): NAIL ART STYLE & PIGMENTS */}
+                    <div className={`lg:col-span-3 space-y-3 sm:space-y-4 ${mobileTab !== "style" ? "hidden lg:block" : "block"}`}>
 
-                        {/* DROPDOWN 1: Multi-Color & Gradient Layout */}
+                        {/* SECTION: NAIL ART STYLE */}
                         <div className="backdrop-blur-md bg-white/75 rounded-2xl border border-white/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                             <button
-                                onClick={() => toggleSection("colorLayout")}
+                                onClick={() => toggleSection("nailArtStyle")}
                                 className="w-full px-4 py-3 sm:py-3.5 bg-white/60 hover:bg-pink-50/40 flex items-center justify-between transition-all"
                             >
                                 <div className="flex items-center gap-2">
                                     <Palette className="w-4 h-4 text-pink-500" />
-                                    <span className="text-xs sm:text-sm font-bold text-gray-700 uppercase tracking-wider">Color & Layout</span>
+                                    <span className="text-xs sm:text-sm font-bold text-gray-700 uppercase tracking-wider">Nail Art Style</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] sm:text-xs font-bold text-pink-600 bg-pink-100/80 px-2.5 py-0.5 rounded-full truncate max-w-[120px]">
-                                        {MULTI_COLOR_MODES.find(m => m.id === activeDesign.colorMode)?.name}
+                                    <span className="text-[10px] sm:text-xs font-bold text-pink-600 bg-pink-100/80 px-2.5 py-0.5 rounded-full truncate max-w-[130px]">
+                                        {currentNailArtService?.name}
                                     </span>
-                                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${openSections.colorLayout ? "rotate-180 text-pink-500" : ""}`} />
+                                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${openSections.nailArtStyle ? "rotate-180 text-pink-500" : ""}`} />
                                 </div>
                             </button>
 
-                            {openSections.colorLayout && (
-                                <div className="p-3.5 sm:p-4 border-t border-pink-50/80 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                                    {/* Modes */}
-                                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-                                        {MULTI_COLOR_MODES.map(mode => (
+                            {openSections.nailArtStyle && (
+                                <div className="p-3.5 sm:p-4 border-t border-pink-50/80 space-y-3.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    {/* Category Sub-Tabs: BASIC, CLASSIC, ADVANCED */}
+                                    <div className="flex p-1 bg-gray-100/80 rounded-xl gap-1">
+                                        {(["BASIC", "CLASSIC", "ADVANCED"] as const).map(cat => (
                                             <button
-                                                key={mode.id}
-                                                onClick={() => updateDesign({ colorMode: mode.id })}
-                                                className={`p-2 sm:p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-0.5 ${activeDesign.colorMode === mode.id ? "bg-pink-500 border-pink-500 text-white shadow-md shadow-pink-200" : "bg-white border-pink-50 text-gray-700 hover:bg-pink-50/60"}`}
+                                                key={cat}
+                                                onClick={() => setNailArtCategoryTab(cat)}
+                                                className={`flex-1 py-1.5 rounded-lg text-[10px] sm:text-xs font-black transition-all ${nailArtCategoryTab === cat ? "bg-pink-500 text-white shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
                                             >
-                                                <span className="text-[10px] sm:text-xs font-bold leading-tight">{mode.name}</span>
-                                                <span className={`text-[8px] sm:text-[9px] ${activeDesign.colorMode === mode.id ? "text-pink-100" : "text-gray-400"}`}>{mode.colorsNeeded}c</span>
+                                                {cat}
                                             </button>
                                         ))}
                                     </div>
 
-                                    {/* Target Slot Row */}
-                                    <div className="p-2.5 sm:p-3 bg-pink-50/40 rounded-xl border border-pink-100/60 space-y-1.5">
-                                        <label className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-wider block">Target Color Slot</label>
-                                        <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-                                            <button
-                                                onClick={() => setActiveColorTarget("primary")}
-                                                className={`p-1.5 sm:p-2 rounded-xl border flex flex-col items-center gap-1 transition-all ${activeColorTarget === "primary" ? "bg-white border-pink-500 shadow-sm ring-2 ring-pink-200" : "bg-white/60 border-transparent hover:bg-white"}`}
-                                            >
-                                                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border shadow-inner" style={{ backgroundColor: activeDesign.primaryColor }} />
-                                                <span className="text-[8px] sm:text-[9px] font-bold text-gray-700">1. Base</span>
-                                            </button>
-
-                                            <button
-                                                onClick={() => setActiveColorTarget("tip")}
-                                                className={`p-1.5 sm:p-2 rounded-xl border flex flex-col items-center gap-1 transition-all ${activeColorTarget === "tip" ? "bg-white border-pink-500 shadow-sm ring-2 ring-pink-200" : "bg-white/60 border-transparent hover:bg-white"}`}
-                                            >
-                                                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border shadow-inner" style={{ backgroundColor: activeDesign.tipColor }} />
-                                                <span className="text-[8px] sm:text-[9px] font-bold text-gray-700">Tip</span>
-                                            </button>
-
-                                            <button
-                                                onClick={() => setActiveColorTarget("secondary")}
-                                                disabled={activeDesign.colorMode === "solid"}
-                                                className={`p-1.5 sm:p-2 rounded-xl border flex flex-col items-center gap-1 transition-all ${activeColorTarget === "secondary" ? "bg-white border-pink-500 shadow-sm ring-2 ring-pink-200" : "bg-white/60 border-transparent hover:bg-white disabled:opacity-40"}`}
-                                            >
-                                                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border shadow-inner" style={{ backgroundColor: activeDesign.secondaryColor }} />
-                                                <span className="text-[8px] sm:text-[9px] font-bold text-gray-700">2. Accent</span>
-                                            </button>
-
-                                            <button
-                                                onClick={() => setActiveColorTarget("tertiary")}
-                                                disabled={!activeDesign.colorMode.startsWith("tri") && activeDesign.colorMode !== "marble"}
-                                                className={`p-1.5 sm:p-2 rounded-xl border flex flex-col items-center gap-1 transition-all ${activeColorTarget === "tertiary" ? "bg-white border-pink-500 shadow-sm ring-2 ring-pink-200" : "bg-white/60 border-transparent hover:bg-white disabled:opacity-40"}`}
-                                            >
-                                                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border shadow-inner" style={{ backgroundColor: activeDesign.tertiaryColor }} />
-                                                <span className="text-[8px] sm:text-[9px] font-bold text-gray-700">3. Tri</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* DROPDOWN 2: French Tip Style & Coverage */}
-                        <div className="backdrop-blur-md bg-white/75 rounded-2xl border border-white/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-                            <button
-                                onClick={() => toggleSection("frenchTip")}
-                                className="w-full px-4 py-3 sm:py-3.5 bg-white/60 hover:bg-pink-50/40 flex items-center justify-between transition-all"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Scissors className="w-4 h-4 text-pink-500" />
-                                    <span className="text-xs sm:text-sm font-bold text-gray-700 uppercase tracking-wider">French & Tips</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] sm:text-xs font-bold text-pink-600 bg-pink-100/80 px-2.5 py-0.5 rounded-full truncate max-w-[120px]">
-                                        {(activeDesign.frenchHeight / 100).toFixed(2)} in
-                                    </span>
-                                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${openSections.frenchTip ? "rotate-180 text-pink-500" : ""}`} />
-                                </div>
-                            </button>
-
-                            {openSections.frenchTip && (
-                                <div className="p-3.5 sm:p-4 border-t border-pink-50/80 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                                        {TIP_STYLES.map(style => (
-                                            <button
-                                                key={style.id}
-                                                onClick={() => {
-                                                    updateDesign({ tipStyle: style.id, colorMode: "french" });
-                                                }}
-                                                className={`p-2 sm:p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-0.5 ${activeDesign.tipStyle === style.id && activeDesign.colorMode === "french" ? "bg-pink-500 border-pink-500 text-white shadow-md shadow-pink-200" : "bg-white border-pink-50 text-gray-700 hover:bg-pink-50/50"}`}
-                                            >
-                                                <span className="text-[10px] sm:text-xs font-bold leading-tight">{style.name}</span>
-                                            </button>
-                                        ))}
+                                    {/* Service Cards Grid for Selected Category */}
+                                    <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto pr-1">
+                                        {CANDY_ROSE_NAIL_ART_SERVICES.filter(s => s.category === nailArtCategoryTab).map(s => {
+                                            const isSelected = activeDesign.nailArtStyle === s.id;
+                                            return (
+                                                <button
+                                                    key={s.id}
+                                                    onClick={() => updateDesign({ nailArtStyle: s.id })}
+                                                    className={`p-3 rounded-xl border text-left transition-all flex items-center justify-between gap-2 ${isSelected ? "bg-gradient-to-r from-pink-500 to-rose-500 border-pink-500 text-white shadow-md shadow-pink-200" : "bg-white border-pink-100 text-gray-800 hover:bg-pink-50/50"}`}
+                                                >
+                                                    <div>
+                                                        <p className="text-xs font-bold leading-snug">{s.name}</p>
+                                                        <p className={`text-[10px] mt-0.5 ${isSelected ? "text-pink-100" : "text-gray-500"}`}>
+                                                            ₱{s.perNailPrice} / nail · ₱{s.fullSetPrice} / full set
+                                                        </p>
+                                                    </div>
+                                                    {isSelected && <Check className="w-4 h-4 shrink-0 text-white" />}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
 
-                                    {/* Quick Tip Shade */}
-                                    <div className="p-2.5 sm:p-3 bg-pink-50/40 rounded-xl border border-pink-100/60 space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-wider">Tip Color</span>
-                                            <button
-                                                onClick={() => {
-                                                    updateDesign({ colorMode: "french" });
-                                                    setActiveColorTarget("tip");
-                                                }}
-                                                className={`px-2 py-0.5 rounded-lg text-[8px] sm:text-[9px] font-black uppercase transition-all ${activeColorTarget === "tip" ? "bg-pink-500 text-white shadow-sm" : "bg-white text-pink-600 border border-pink-100"}`}
-                                            >
-                                                Edit Tip
-                                            </button>
-                                        </div>
-
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="w-5 h-5 rounded-full border shadow-sm shrink-0" style={{ backgroundColor: activeDesign.tipColor }} />
-                                            <div className="flex-1 flex gap-1 overflow-x-auto pb-0.5 scrollbar-none">
-                                                {["#ffffff", "#ffd700", "#e0a96d", "#111827", "#dc2626", "#ec4899", "#93c5fd", "#6ee7b7"].map(hex => (
+                                    {/* DEDICATED CONTROL PANELS FOR ACTIVE NAIL ART STYLE */}
+                                    {activeDesign.nailArtStyle === "french-tip" && (
+                                        <div className="p-3 bg-pink-50/50 rounded-xl border border-pink-100 space-y-2.5 animate-in fade-in duration-200">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[10px] font-black text-pink-600 uppercase tracking-wider">French Tip Controls</span>
+                                                <span className="text-[10px] font-extrabold text-gray-500">₱20 / nail</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-1.5">
+                                                {TIP_STYLES.map(style => (
                                                     <button
-                                                        key={hex}
-                                                        onClick={() => {
-                                                            updateDesign({ tipColor: hex, colorMode: "french" });
-                                                            setActiveColorTarget("tip");
-                                                        }}
-                                                        className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border shrink-0 transition-transform ${activeDesign.tipColor === hex ? "scale-110 ring-2 ring-pink-400" : "hover:scale-105"}`}
-                                                        style={{ backgroundColor: hex }}
-                                                    />
+                                                        key={style.id}
+                                                        onClick={() => updateDesign({ tipStyle: style.id })}
+                                                        className={`p-1.5 rounded-lg border text-[9px] font-bold text-center transition-all ${activeDesign.tipStyle === style.id ? "bg-pink-500 text-white border-pink-500" : "bg-white text-gray-700 border-pink-100 hover:bg-pink-50"}`}
+                                                    >
+                                                        {style.name}
+                                                    </button>
                                                 ))}
                                             </div>
+                                            <div className="space-y-1">
+                                                <div className="flex justify-between items-center text-[9px] font-bold text-gray-500">
+                                                    <span>Tip Width / Height</span>
+                                                    <span>{(activeDesign.frenchHeight / 100).toFixed(2)} in</span>
+                                                </div>
+                                                <input
+                                                    type="range" min="0.10" max="0.45" step="0.01"
+                                                    value={(activeDesign.frenchHeight / 100).toFixed(2)}
+                                                    onChange={(e) => updateDesign({ frenchHeight: Math.round(parseFloat(e.target.value) * 100) })}
+                                                    className="w-full h-1.5 bg-pink-100 rounded-lg accent-pink-500 cursor-pointer"
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
-                                    {/* Tip Height */}
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between items-center">
-                                            <label className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-wider">Height Coverage</label>
-                                            <span className="text-[9px] sm:text-[10px] font-black text-pink-600">{(activeDesign.frenchHeight / 100).toFixed(2)} in</span>
+                                    {activeDesign.nailArtStyle === "ombre" && (
+                                        <div className="p-3 bg-pink-50/50 rounded-xl border border-pink-100 space-y-2 animate-in fade-in duration-200">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[10px] font-black text-pink-600 uppercase tracking-wider">Classic Nail Art — Ombre</span>
+                                                <span className="text-[10px] font-extrabold text-gray-500">₱30 / nail</span>
+                                            </div>
+                                            <p className="text-[10px] text-gray-500">Select base color and tip ombre color below from Pigment Library.</p>
                                         </div>
-                                        <input
-                                            type="range" min="0.10" max="0.45" step="0.01"
-                                            value={(activeDesign.frenchHeight / 100).toFixed(2)} onChange={(e) => updateDesign({ frenchHeight: Math.round(parseFloat(e.target.value) * 100) })}
-                                            className="w-full h-1.5 bg-pink-100 rounded-lg accent-pink-500 cursor-pointer"
-                                        />
-                                    </div>
+                                    )}
+
+                                    {activeDesign.nailArtStyle === "marble" && (
+                                        <div className="p-3 bg-pink-50/50 rounded-xl border border-pink-100 space-y-2 animate-in fade-in duration-200">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[10px] font-black text-pink-600 uppercase tracking-wider">Classic Nail Art — Marble</span>
+                                                <span className="text-[10px] font-extrabold text-gray-500">₱25 / nail</span>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <div className="flex justify-between items-center text-[9px] font-bold text-gray-500">
+                                                    <span>Pattern Intensity</span>
+                                                    <span>{activeDesign.patternIntensity}%</span>
+                                                </div>
+                                                <input
+                                                    type="range" min="20" max="90" step="5"
+                                                    value={activeDesign.patternIntensity}
+                                                    onChange={(e) => updateDesign({ patternIntensity: parseInt(e.target.value) })}
+                                                    className="w-full h-1.5 bg-pink-100 rounded-lg accent-pink-500 cursor-pointer"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {activeDesign.nailArtStyle === "cat-eye" && (
+                                        <div className="p-3 bg-pink-50/50 rounded-xl border border-pink-100 space-y-2 animate-in fade-in duration-200">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[10px] font-black text-pink-600 uppercase tracking-wider">Basic Nail Art — Cat Eye</span>
+                                                <span className="text-[10px] font-extrabold text-gray-500">₱10 / nail</span>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <div className="flex justify-between items-center text-[9px] font-bold text-gray-500">
+                                                    <span>Magnetic Effect Angle</span>
+                                                    <span>{activeDesign.magneticPosition}°</span>
+                                                </div>
+                                                <input
+                                                    type="range" min="0" max="180" step="15"
+                                                    value={activeDesign.magneticPosition}
+                                                    onChange={(e) => updateDesign({ magneticPosition: parseInt(e.target.value) })}
+                                                    className="w-full h-1.5 bg-pink-100 rounded-lg accent-pink-500 cursor-pointer"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {activeDesign.nailArtStyle === "chrome" && (
+                                        <div className="p-3 bg-pink-50/50 rounded-xl border border-pink-100 space-y-2 animate-in fade-in duration-200">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[10px] font-black text-pink-600 uppercase tracking-wider">Advanced Nail Art — Chrome</span>
+                                                <span className="text-[10px] font-extrabold text-gray-500">₱25 / nail</span>
+                                            </div>
+                                            <p className="text-[10px] text-gray-500">Glazed liquid chrome reflection applied across base color.</p>
+                                        </div>
+                                    )}
+
+                                    {activeDesign.nailArtStyle === "foil-art" && (
+                                        <div className="p-3 bg-pink-50/50 rounded-xl border border-pink-100 space-y-2 animate-in fade-in duration-200">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[10px] font-black text-pink-600 uppercase tracking-wider">Advanced Nail Art — Foil Art</span>
+                                                <span className="text-[10px] font-extrabold text-gray-500">₱20 / nail</span>
+                                            </div>
+                                            <p className="text-[10px] text-gray-500">24K metallic foil flakes placed on base shade.</p>
+                                        </div>
+                                    )}
+
+                                    {activeDesign.nailArtStyle === "hand-paint-simple" && (
+                                        <div className="p-3 bg-pink-50/50 rounded-xl border border-pink-100 space-y-1.5 animate-in fade-in duration-200">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[10px] font-black text-pink-600 uppercase tracking-wider">Hand Paint — Simple</span>
+                                                <span className="text-[10px] font-extrabold text-gray-500">₱20 / nail</span>
+                                            </div>
+                                            <p className="text-[10px] text-gray-500">Use Paint tool on bottom floating dock to draw custom hand art.</p>
+                                        </div>
+                                    )}
+
+                                    {activeDesign.nailArtStyle === "hand-paint-intricate" && (
+                                        <div className="p-3 bg-pink-50/50 rounded-xl border border-pink-100 space-y-1.5 animate-in fade-in duration-200">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[10px] font-black text-pink-600 uppercase tracking-wider">Hand Paint — Intricate</span>
+                                                <span className="text-[10px] font-extrabold text-gray-500">₱50 / nail</span>
+                                            </div>
+                                            <p className="text-[10px] text-gray-500">Detailed artisan painted artwork with custom fine brush strokes.</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
 
-                        {/* DROPDOWN 3: Ink Pigment Library */}
+                        {/* SECTION: PIGMENT LIBRARY */}
                         <div className="backdrop-blur-md bg-white/75 rounded-2xl border border-white/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                             <button
                                 onClick={() => toggleSection("pigments")}
@@ -1734,6 +1657,35 @@ export default function NailsStudioPage() {
 
                             {openSections.pigments && (
                                 <div className="p-3.5 sm:p-4 border-t border-pink-50/80 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    {/* Color Slot Selector */}
+                                    <div className="p-2 bg-pink-50/40 rounded-xl border border-pink-100/60 flex items-center justify-between gap-1">
+                                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Color Slot</span>
+                                        <div className="flex gap-1">
+                                            <button
+                                                onClick={() => setActiveColorTarget("primary")}
+                                                className={`px-2 py-1 rounded-lg text-[9px] font-bold transition-all flex items-center gap-1 ${activeColorTarget === "primary" ? "bg-pink-500 text-white shadow-sm" : "bg-white text-gray-700"}`}
+                                            >
+                                                <span className="w-2.5 h-2.5 rounded-full border" style={{ backgroundColor: activeDesign.primaryColor }} />
+                                                Base
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveColorTarget("secondary")}
+                                                className={`px-2 py-1 rounded-lg text-[9px] font-bold transition-all flex items-center gap-1 ${activeColorTarget === "secondary" ? "bg-pink-500 text-white shadow-sm" : "bg-white text-gray-700"}`}
+                                            >
+                                                <span className="w-2.5 h-2.5 rounded-full border" style={{ backgroundColor: activeDesign.secondaryColor }} />
+                                                Accent
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveColorTarget("tip")}
+                                                className={`px-2 py-1 rounded-lg text-[9px] font-bold transition-all flex items-center gap-1 ${activeColorTarget === "tip" ? "bg-pink-500 text-white shadow-sm" : "bg-white text-gray-700"}`}
+                                            >
+                                                <span className="w-2.5 h-2.5 rounded-full border" style={{ backgroundColor: activeDesign.tipColor }} />
+                                                Tip
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Categories */}
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none flex-1">
                                             {Object.entries(PIGMENT_LIBRARY).map(([key, cat]) => (
@@ -1752,14 +1704,14 @@ export default function NailsStudioPage() {
                                                 value={customColor}
                                                 onChange={(e) => { setCustomColor(e.target.value); handleSelectPigment(e.target.value); }}
                                                 className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg border shadow-sm cursor-pointer overflow-hidden p-0"
-                                                title="Custom Hex Picker"
+                                                title="Custom Color"
                                             />
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-5 gap-1.5 sm:gap-2 p-2 sm:p-2.5 bg-pink-50/30 rounded-xl border border-pink-50 max-h-36 overflow-y-auto">
                                         {PIGMENT_LIBRARY[pigmentTab].colors.map(c => {
-                                            const activeHex = activeColorTarget === "primary" ? activeDesign.primaryColor : activeColorTarget === "secondary" ? activeDesign.secondaryColor : activeColorTarget === "tertiary" ? activeDesign.tertiaryColor : activeColorTarget === "tip" ? activeDesign.tipColor : activeColorTarget === "brush" ? brushColor : charmColor;
+                                            const activeHex = activeColorTarget === "primary" ? activeDesign.primaryColor : activeColorTarget === "secondary" ? activeDesign.secondaryColor : activeColorTarget === "tertiary" ? activeDesign.tertiaryColor : activeDesign.tipColor;
                                             return (
                                                 <button
                                                     key={c.hex + c.name}
@@ -1802,7 +1754,7 @@ export default function NailsStudioPage() {
                                     </button>
                                 </div>
 
-                                {/* Finger Switcher Pill Bar with Active Highlight */}
+                                {/* Finger Switcher Pill Bar */}
                                 <div className="flex items-center gap-1 sm:gap-1.5 bg-pink-50/70 p-1 rounded-xl border border-pink-100/60">
                                     {["Thumb", "Index", "Middle", "Ring", "Pinky"].map(finger => {
                                         const isActive = activeFinger === finger;
@@ -1822,18 +1774,18 @@ export default function NailsStudioPage() {
                                     })}
                                 </div>
 
-                                {/* Apply To All Quick Button */}
+                                {/* Sync All Button */}
                                 <button
                                     onClick={handleApplyToAll}
                                     className="px-3 sm:px-3.5 py-1.5 sm:py-2 bg-white hover:bg-pink-50 text-pink-600 border border-pink-200/80 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
-                                    title="Copy current finger design to all other fingers"
+                                    title="Copy current finger design to all 5 fingers"
                                 >
                                     <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                     <span className="hidden sm:inline">Sync All</span>
                                 </button>
                             </div>
 
-                            {/* Center Canvas Stage Container */}
+                            {/* Canvas Stage */}
                             <div className="w-full aspect-[4/5] relative mb-3.5">
                                 <PrecisionNailStudio
                                     ref={studioRef}
@@ -1865,27 +1817,13 @@ export default function NailsStudioPage() {
                                 />
                             </div>
 
-                            {studioView === "hand" && (
-                                <div className="w-full p-3 bg-white/85 backdrop-blur-xl border border-white/80 rounded-2xl shadow-md space-y-1 mb-2">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-[10px] font-black text-gray-700 uppercase tracking-wider">Finger Set Scaling</span>
-                                        <span className="text-[10px] font-bold text-pink-600">{(globalScale * 100).toFixed(0)}%</span>
-                                    </div>
-                                    <input
-                                        type="range" min="0.5" max="1.5" step="0.05"
-                                        value={globalScale} onChange={(e) => setGlobalScale(parseFloat(e.target.value))}
-                                        className="w-full h-1.5 bg-pink-100 rounded-lg appearance-none cursor-pointer accent-pink-500"
-                                    />
-                                </div>
-                            )}
-
                         </div>
                     </div>
 
-                    {/* COLUMN 3 (RIGHT): Collapsible Dropdown Forms for Shapes, Finishes & Charms */}
-                    <div className={`lg:col-span-3 space-y-3 ${mobileTab === "finishes" || mobileTab === "charms" ? "block" : "hidden lg:block"}`}>
+                    {/* COLUMN 3 (RIGHT): SHAPE, FINISH, STONES & DESIGN SUMMARY */}
+                    <div className={`lg:col-span-3 space-y-3 ${mobileTab === "details" ? "block" : "hidden lg:block"}`}>
 
-                        {/* DROPDOWN 4: Nail Shape & Extension Length */}
+                        {/* SECTION: NAIL SHAPE & LENGTH */}
                         <div className="backdrop-blur-md bg-white/75 rounded-2xl border border-white/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                             <button
                                 onClick={() => toggleSection("shapeLength")}
@@ -1893,7 +1831,7 @@ export default function NailsStudioPage() {
                             >
                                 <div className="flex items-center gap-2">
                                     <Shapes className="w-4 h-4 text-pink-500" />
-                                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Shape & Length</span>
+                                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Nail Shape & Length</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-[10px] font-bold text-pink-600 bg-pink-100/80 px-2 py-0.5 rounded-full truncate max-w-[120px]">
@@ -1905,6 +1843,7 @@ export default function NailsStudioPage() {
 
                             {openSections.shapeLength && (
                                 <div className="p-3.5 border-t border-pink-50/80 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <p className="text-[10px] text-gray-400 italic">Shape selection is a customization preference and not a separate service charge.</p>
                                     <div className="grid grid-cols-5 gap-1.5">
                                         {Object.keys(SHAPE_PATH_MAP).map(s => (
                                             <div key={s} className="flex flex-col items-center gap-0.5">
@@ -1935,192 +1874,130 @@ export default function NailsStudioPage() {
                             )}
                         </div>
 
-                        {/* DROPDOWN 5: Topcoat Texture Finish */}
+                        {/* SECTION: FINISH */}
                         <div className="backdrop-blur-md bg-white/75 rounded-2xl border border-white/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                             <button
-                                onClick={() => toggleSection("topcoat")}
+                                onClick={() => toggleSection("finish")}
                                 className="w-full px-4 py-3 bg-white/60 hover:bg-pink-50/40 flex items-center justify-between transition-all"
                             >
                                 <div className="flex items-center gap-2">
                                     <Sun className="w-4 h-4 text-pink-500" />
-                                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Topcoat Finish</span>
+                                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Finish</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold text-pink-600 bg-pink-100/80 px-2 py-0.5 rounded-full truncate max-w-[120px]">
-                                        {NAIL_TEXTURES.find(t => t.id === activeDesign.texture)?.name}
+                                    <span className="text-[10px] font-bold text-pink-600 bg-pink-100/80 px-2 py-0.5 rounded-full capitalize">
+                                        {activeDesign.texture} Finish
                                     </span>
-                                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${openSections.topcoat ? "rotate-180 text-pink-500" : ""}`} />
+                                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${openSections.finish ? "rotate-180 text-pink-500" : ""}`} />
                                 </div>
                             </button>
 
-                            {openSections.topcoat && (
+                            {openSections.finish && (
                                 <div className="p-3.5 border-t border-pink-50/80 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                    <div className="relative">
-                                        <select
-                                            value={activeDesign.texture}
-                                            onChange={(e) => updateDesign({ texture: e.target.value as any })}
-                                            className="w-full h-9 px-3 bg-white rounded-xl border border-pink-100 font-bold text-gray-800 text-xs appearance-none outline-none focus:border-pink-300 shadow-sm cursor-pointer"
-                                        >
-                                            {NAIL_TEXTURES.map(t => <option key={t.id} value={t.id}>{t.name} — {t.description}</option>)}
-                                        </select>
-                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pink-400 pointer-events-none" />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {NAIL_FINISHES.map(f => (
+                                            <button
+                                                key={f.id}
+                                                onClick={() => updateDesign({ texture: f.id as any })}
+                                                className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${activeDesign.texture === f.id ? "bg-pink-500 text-white border-pink-500 shadow-sm" : "bg-white border-pink-100 text-gray-700 hover:bg-pink-50"}`}
+                                            >
+                                                <div className="flex items-center gap-1 text-xs font-bold">
+                                                    {f.icon}
+                                                    <span>{f.name}</span>
+                                                </div>
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        {/* DROPDOWN 6: 3D Charms & Placed Layers */}
+                        {/* SECTION: STONES & DETAILS */}
                         <div className="backdrop-blur-md bg-white/75 rounded-2xl border border-white/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                             <button
-                                onClick={() => toggleSection("charms")}
+                                onClick={() => toggleSection("stones")}
                                 className="w-full px-4 py-3 bg-white/60 hover:bg-pink-50/40 flex items-center justify-between transition-all"
                             >
                                 <div className="flex items-center gap-2">
-                                    <Sparkle className="w-4 h-4 text-pink-500" />
-                                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">3D Charms & Layers</span>
+                                    <Gem className="w-4 h-4 text-pink-500" />
+                                    <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Stones & Details</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-[10px] font-bold text-pink-600 bg-pink-100/80 px-2 py-0.5 rounded-full">
-                                        {activeDesign.charms.length} Placed
+                                        {CANDY_ROSE_STONES_SERVICES.find(s => s.id === activeDesign.stoneStyle)?.name}
                                     </span>
-                                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${openSections.charms ? "rotate-180 text-pink-500" : ""}`} />
+                                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${openSections.stones ? "rotate-180 text-pink-500" : ""}`} />
                                 </div>
                             </button>
 
-                            {openSections.charms && (
-                                <div className="p-3.5 border-t border-pink-50/80 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                                    {/* Category Chips */}
-                                    <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
-                                        {CHARM_CATEGORIES.map(cat => (
-                                            <button
-                                                key={cat.id}
-                                                onClick={() => setCharmCategoryTab(cat.id)}
-                                                className={`px-2 py-1 rounded-lg text-[9px] font-bold whitespace-nowrap transition-all ${charmCategoryTab === cat.id ? "bg-pink-500 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-pink-50"}`}
-                                            >
-                                                {cat.name}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {/* 3D Charm Grid */}
-                                    <div className="grid grid-cols-4 gap-1.5 p-2 bg-pink-50/30 rounded-xl border border-pink-50 max-h-28 overflow-y-auto">
-                                        {CHARM_CATEGORIES.find(c => c.id === charmCategoryTab)?.items.map(item => (
-                                            <button
-                                                key={item.id}
-                                                onClick={() => {
-                                                    setSelectedCharmType(item.id);
-                                                    setActiveTool("charm-add");
-                                                }}
-                                                className={`aspect-square p-1 bg-white rounded-lg border flex flex-col items-center justify-center transition-all hover:scale-105 active:scale-95 ${selectedCharmType === item.id && activeTool === "charm-add" ? "border-pink-500 ring-2 ring-pink-200 shadow-md" : "border-pink-50 hover:border-pink-200"}`}
-                                                title={item.name}
-                                            >
-                                                <span className="text-base drop-shadow-sm select-none">{item.preview}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {/* Placed Layer Controls */}
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                                                <Layers2 className="w-3 h-3 text-pink-500" /> Placed Layers
-                                            </span>
-                                            {activeDesign.charms.length > 0 && (
+                            {openSections.stones && (
+                                <div className="p-3.5 border-t border-pink-50/80 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {CANDY_ROSE_STONES_SERVICES.map(s => {
+                                            const isSelected = activeDesign.stoneStyle === s.id;
+                                            return (
                                                 <button
-                                                    onClick={() => { updateDesign({ charms: [] }); setActiveCharmId(null); }}
-                                                    className="text-[8px] font-bold text-red-500 hover:underline"
+                                                    key={s.id}
+                                                    onClick={() => updateDesign({ stoneStyle: s.id })}
+                                                    className={`p-2.5 rounded-xl border text-left transition-all ${isSelected ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white border-pink-500 shadow-sm" : "bg-white text-gray-800 border-pink-100 hover:bg-pink-50"}`}
                                                 >
-                                                    Clear All
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {activeDesign.charms.length === 0 ? (
-                                            <p className="text-[9px] text-gray-400 italic text-center py-1.5 bg-pink-50/20 rounded-lg border border-dashed border-pink-100">Click a charm above to place on canvas</p>
-                                        ) : (
-                                            <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
-                                                {activeDesign.charms.map((c: any) => (
-                                                    <div
-                                                        key={c.id}
-                                                        onClick={() => setActiveCharmId(c.id)}
-                                                        className={`p-1.5 rounded-lg border flex items-center justify-between transition-all cursor-pointer ${activeCharmId === c.id ? "bg-pink-50 border-pink-300 shadow-sm" : "bg-white border-pink-50 hover:border-pink-100"}`}
-                                                    >
-                                                        <div className="flex items-center gap-1.5 truncate">
-                                                            <span className="text-xs shrink-0">{charmPreviews[c.type] || "✨"}</span>
-                                                            <span className="text-[10px] font-bold text-gray-700 truncate capitalize">{c.type.replace('-', ' ')}</span>
-                                                        </div>
-
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                updateDesign({ charms: activeDesign.charms.filter((item: any) => item.id !== c.id) });
-                                                                if (activeCharmId === c.id) setActiveCharmId(null);
-                                                            }}
-                                                            className="p-0.5 text-gray-400 hover:text-red-500 rounded"
-                                                        >
-                                                            <Trash2 className="w-3 h-3" />
-                                                        </button>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs font-bold">{s.name}</span>
+                                                        <span className="text-xs">{s.previewIcon}</span>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                                    <p className={`text-[10px] font-extrabold mt-0.5 ${isSelected ? "text-pink-100" : "text-pink-600"}`}>
+                                                        {s.price === 0 ? "Included" : `₱${s.price} / nail`}
+                                                    </p>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
-
-                                    {/* Active Charm Transform Box */}
-                                    {activeCharm && (
-                                        <div className="p-2.5 bg-pink-50/70 rounded-xl border border-pink-100 space-y-1.5 animate-in fade-in duration-200">
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-[9px] font-black text-pink-600 uppercase tracking-wider">Transform Charm</span>
-                                                <span className="text-[8px] font-bold text-gray-400">{activeCharm.scale.toFixed(1)}x • {activeCharm.rotation}°</span>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-1.5">
-                                                <div>
-                                                    <span className="text-[8px] font-bold text-gray-500 block">Scale</span>
-                                                    <input
-                                                        type="range" min="0.4" max="2.5" step="0.1"
-                                                        value={activeCharm.scale}
-                                                        onChange={(e) => {
-                                                            const val = parseFloat(e.target.value);
-                                                            updateDesign({ charms: activeDesign.charms.map((item: any) => item.id === activeCharmId ? { ...item, scale: val } : item) });
-                                                        }}
-                                                        className="w-full h-1 bg-pink-100 rounded-lg accent-pink-500 cursor-pointer"
-                                                    />
-                                                </div>
-
-                                                <div>
-                                                    <span className="text-[8px] font-bold text-gray-500 block">Rotate</span>
-                                                    <input
-                                                        type="range" min="-180" max="180" step="5"
-                                                        value={activeCharm.rotation}
-                                                        onChange={(e) => {
-                                                            const val = parseInt(e.target.value);
-                                                            updateDesign({ charms: activeDesign.charms.map((item: any) => item.id === activeCharmId ? { ...item, rotation: val } : item) });
-                                                        }}
-                                                        className="w-full h-1 bg-pink-100 rounded-lg accent-pink-500 cursor-pointer"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-1 pt-0.5">
-                                                <span className="text-[8px] font-bold text-gray-500">Tint</span>
-                                                <div className="flex-1 flex gap-1 overflow-x-auto pb-0.5 scrollbar-none">
-                                                    {["#ffffff", "#ffd700", "#e2e8f0", "#ec4899", "#c084fc", "#3b82f6", "#10b981"].map(hex => (
-                                                        <button
-                                                            key={hex}
-                                                            onClick={() => {
-                                                                updateDesign({ charms: activeDesign.charms.map((item: any) => item.id === activeCharmId ? { ...item, color: hex } : item) });
-                                                            }}
-                                                            className={`w-3.5 h-3.5 rounded-full border shrink-0 transition-transform ${activeCharm.color === hex ? "scale-110 ring-1 ring-pink-400" : ""}`}
-                                                            style={{ backgroundColor: hex }}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             )}
+                        </div>
+
+                        {/* SECTION: AUTOMATIC PRICE SUMMARY (DESIGN SUMMARY) */}
+                        <div className="backdrop-blur-md bg-white/90 rounded-2xl border border-pink-200/80 shadow-md p-4 space-y-3 transition-all">
+                            <div className="flex items-center justify-between border-b border-pink-100 pb-2">
+                                <h4 className="text-xs font-black text-gray-900 tracking-wider uppercase flex items-center gap-1.5">
+                                    <Sparkles className="w-4 h-4 text-pink-500" /> DESIGN SUMMARY
+                                </h4>
+                                <span className="text-[10px] font-bold text-gray-400">Candy & Rose</span>
+                            </div>
+
+                            {/* Shape & Length */}
+                            <div className="text-xs font-bold text-gray-700 bg-pink-50/50 p-2 rounded-xl border border-pink-100/60">
+                                <span className="text-gray-400">Shape & Length: </span>
+                                <span className="text-pink-600 font-black">{activeDesign.shape} — {activeDesign.length.toFixed(1)} cm</span>
+                            </div>
+
+                            {/* Per-Finger Breakdown */}
+                            <div className="space-y-1.5">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">Customization Breakdown</span>
+                                {Object.entries(fingerPricingBreakdown).map(([finger, item]) => (
+                                    <div key={finger} className="flex justify-between text-xs font-medium text-gray-600">
+                                        <span>
+                                            <strong className="text-gray-800">{finger}:</strong> {item.nailArtName}
+                                            {item.stonePrice > 0 && <span className="text-pink-500 font-bold"> + {item.stoneName}</span>}
+                                        </span>
+                                        <span className="font-bold text-gray-900">₱{item.nailArtPrice + item.stonePrice}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Total Customization Price */}
+                            <div className="pt-3 border-t border-pink-100 flex items-center justify-between">
+                                <div>
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Estimated Customization</span>
+                                    <span className="text-xl font-black text-pink-600">₱{estimatedTotal}</span>
+                                </div>
+                                {fullSetEquivalent > 0 && (
+                                    <div className="text-right">
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Full Set Equivalent</span>
+                                        <span className="text-sm font-extrabold text-gray-700">₱{fullSetEquivalent}</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                     </div>
@@ -2142,8 +2019,8 @@ export default function NailsStudioPage() {
                                 <Award className="w-5 h-5" />
                             </div>
                             <div>
-                                <h3 className="text-base font-black text-gray-900 leading-tight">Salon Preset Gallery</h3>
-                                <p className="text-[11px] text-gray-500 font-medium">Select a look to auto-configure colors, tips & charms</p>
+                                <h3 className="text-base font-black text-gray-900 leading-tight">Candy & Rose Presets</h3>
+                                <p className="text-[11px] text-gray-500 font-medium">Select a service look to auto-configure nail art & stones</p>
                             </div>
                         </div>
 
@@ -2163,7 +2040,6 @@ export default function NailsStudioPage() {
                                         <div className="flex gap-1 mt-1.5">
                                             <span className="w-3 h-3 rounded-full border shadow-inner" style={{ backgroundColor: p.colors.primary }} />
                                             <span className="w-3 h-3 rounded-full border shadow-inner" style={{ backgroundColor: p.colors.secondary }} />
-                                            {p.colors.tertiary && <span className="w-3 h-3 rounded-full border shadow-inner" style={{ backgroundColor: p.colors.tertiary }} />}
                                         </div>
                                     </div>
                                 </button>
@@ -2173,7 +2049,7 @@ export default function NailsStudioPage() {
                 </div>
             )}
 
-            {/* SAVE DESIGN CONFIRMATION MODAL */}
+            {/* SAVE DESIGN MODAL */}
             {showSaveModal && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => !isSaving && setShowSaveModal(false)} />
@@ -2188,13 +2064,13 @@ export default function NailsStudioPage() {
                                 <Sparkles className="w-5 h-5" />
                             </div>
                             <h3 className="text-base font-black text-gray-900 mb-1">Save Custom Design</h3>
-                            <p className="text-[11px] text-gray-500 font-medium mb-4 leading-normal">Add to your salon recommendations and studio library.</p>
+                            <p className="text-[11px] text-gray-500 font-medium mb-4 leading-normal">Store configuration to associate with customer bookings.</p>
 
                             <input
                                 type="text"
                                 value={saveDesignName}
                                 onChange={(e) => setSaveDesignName(e.target.value)}
-                                placeholder="e.g. Midnight Sparkle Ombré"
+                                placeholder="e.g. Candy Rose French Ombre"
                                 className="w-full h-10 px-3.5 bg-gray-50/80 border border-pink-100 rounded-xl font-bold text-xs text-gray-800 mb-4 focus:border-pink-400 outline-none transition-colors"
                             />
 
@@ -2203,14 +2079,14 @@ export default function NailsStudioPage() {
                                 disabled={isSaving || !saveDesignName.trim()}
                                 className="w-full py-2.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-black rounded-xl text-xs shadow-md shadow-pink-200 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 active:scale-95"
                             >
-                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>SAVE TO RECOMMENDATIONS</span>}
+                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>SAVE DESIGN</span>}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* INTERACTIVE ONBOARDING TUTORIAL OVERLAY */}
+            {/* INTERACTIVE GUIDE MODAL */}
             {showTutorial && (
                 <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-gray-950/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowTutorial(false)} />
