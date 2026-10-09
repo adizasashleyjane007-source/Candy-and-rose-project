@@ -63,7 +63,8 @@ export interface Appointment {
   price?: number | null;
   duration?: string | null;
   notes?: string | null;
-  status: 'Scheduled' | 'Pending' | 'Completed' | 'Cancelled';
+  phone?: string | null;
+  status: 'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled' | 'no_show' | 'No-Show';
   created_at?: string;
   customers?: { name: string; email?: string; phone?: string };
   staff?: { name: string };
@@ -352,7 +353,7 @@ export const Appointments = {
       .from("appointments")
       .select(`
         *,
-        customers(name, email),
+        customers(name, email, phone),
         staff(name),
         services(name, price)
       `)

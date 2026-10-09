@@ -134,11 +134,14 @@ export default function AppointmentsTable() {
                                 <td className="py-3 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0">{apt.source || "Walk-in"}</td>
                                 <td className="py-3 px-4 text-sm font-semibold text-gray-900 border border-transparent group-hover:border-pink-200 border-x-0">₱{(apt.services?.price || apt.price || 0).toLocaleString()}</td>
                                 <td className="py-3 px-4 text-sm text-center rounded-r-xl border border-transparent group-hover:border-pink-200 border-l-0">
-                                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-tight border ${apt.status === 'Pending' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-tight border ${
                                         apt.status === 'Scheduled' ? 'bg-pink-50 text-pink-600 border-pink-200' :
-                                            'bg-emerald-50 text-emerald-600 border-emerald-200'
-                                        }`}>
-                                        {apt.status}
+                                        apt.status === 'In Progress' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                        apt.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                                        apt.status === 'no_show' || apt.status === 'No-Show' ? 'bg-red-100 text-red-700 border-red-200' :
+                                        'bg-red-50 text-red-600 border-red-200'
+                                    }`}>
+                                        {apt.status === 'no_show' ? 'No-Show' : apt.status}
                                     </span>
                                 </td>
                             </tr>

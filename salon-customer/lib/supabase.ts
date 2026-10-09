@@ -67,7 +67,7 @@ export type Appointment = {
   time?: string | null;
   duration?: string | null;
   price: number;
-  status: 'Pending' | 'Scheduled' | 'Completed' | 'Cancelled';
+  status: 'Scheduled' | 'Completed' | 'Cancelled';
   cancellation_reason?: string | null;
   payment_method?: string;
   source?: string;

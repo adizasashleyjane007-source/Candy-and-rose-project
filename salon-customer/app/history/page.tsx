@@ -119,7 +119,7 @@ export default function HistoryPage() {
   };
 
   const shownAppts = appointments.filter((a) => {
-    if (activeFilter === 'CURRENT') return a.status === 'Pending' || a.status === 'Scheduled';
+    if (activeFilter === 'CURRENT') return a.status === 'Scheduled';
     if (activeFilter === 'COMPLETED') return a.status === 'Completed';
     if (activeFilter === 'CANCELLED') return a.status === 'Cancelled';
     return false;

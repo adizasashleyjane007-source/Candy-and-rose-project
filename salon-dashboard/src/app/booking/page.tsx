@@ -106,13 +106,13 @@ export default function BookingPage() {
     }, [fetchAppointments, supabase]);
 
     // logic to determine if a date is "reserved" or "occupied"
-    // Based on user request: Disable 'Pending', 'Scheduled', 'reserved', 'occupied'
+    // Based on user request: Disable 'Scheduled', 'reserved', 'occupied'
     // Enable 'available', 'completed', 'Cancelled' or no record
     const isReserved = (date: Date) => {
         return appointments.some(apt => {
             const aptDate = parseISO(apt.appointment_date);
             const matchesDay = isSameDay(aptDate, date);
-            const isDisabledStatus = ['Pending', 'Scheduled', 'reserved', 'occupied'].includes(apt.status);
+            const isDisabledStatus = ['Scheduled', 'reserved', 'occupied'].includes(apt.status);
             return matchesDay && isDisabledStatus;
         });
     };

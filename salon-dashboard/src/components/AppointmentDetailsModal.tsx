@@ -44,11 +44,14 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointment }
                 </h2>
               </div>
               <div className="flex items-center gap-3 sm:gap-4">
-                <span className={`px-3 sm:px-4 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase border shadow-[0_4px_10px_rgba(255,51,153,0.1)] ${appointment.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                <span className={`px-3 sm:px-4 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase border shadow-[0_4px_10px_rgba(255,51,153,0.1)] ${
+                  appointment.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                   appointment.status === 'Cancelled' ? 'bg-red-50 text-red-600 border-red-100' :
-                    'bg-pink-50 text-[#FF3399] border-pink-100'
-                  }`}>
-                  {appointment.status}
+                  appointment.status === 'In Progress' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                  appointment.status === 'no_show' || appointment.status === 'No-Show' ? 'bg-red-100 text-red-700 border-red-200' :
+                  'bg-pink-50 text-[#FF3399] border-pink-100'
+                }`}>
+                  {appointment.status === 'no_show' ? 'No-Show' : appointment.status}
                 </span>
                 <button
                   onClick={onClose}

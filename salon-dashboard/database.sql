@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS public.appointments (
     appointment_time time,
     duration text,
     price numeric,
-    status text DEFAULT 'Pending',
+    status text DEFAULT 'Scheduled',
     payment_method text DEFAULT 'Cash',
     payment_status text DEFAULT 'Pending',
     screenshot_filename text,

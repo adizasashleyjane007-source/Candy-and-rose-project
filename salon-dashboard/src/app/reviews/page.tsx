@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useRef } from "react";
 import Header from "@/components/Header";
 import { createClient } from "@/lib/supabase/client";
-import { Star, Search, X, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ArrowLeft } from "lucide-react";
+import { Star, Search, X, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ArrowLeft, MessageSquare, ThumbsDown } from "lucide-react";
 import { addNotification } from "@/lib/notifications";
 
 type Review = {
@@ -25,6 +25,7 @@ export default function ReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [ratingFilter, setRatingFilter] = useState<'All' | 'High' | 'Low'>('All');
   
   // Date filter state
   const [dateFilter, setDateFilter] = useState("All Time");
@@ -121,7 +122,14 @@ export default function ReviewsPage() {
       (r.review || r.comment || '').toLowerCase().includes(search.toLowerCase()) ||
       (r.rating ? r.rating.toString() : '').includes(search.trim());
 
-    return matchesSearch && matchesDate(r.created_at);
+    let matchesRating = true;
+    if (ratingFilter === 'High') {
+      matchesRating = r.rating >= 4;
+    } else if (ratingFilter === 'Low') {
+      matchesRating = r.rating <= 2;
+    }
+
+    return matchesSearch && matchesDate(r.created_at) && matchesRating;
   });
 
   const getDateButtonLabel = () => {
@@ -181,6 +189,10 @@ export default function ReviewsPage() {
     setDateFilterOpen(false);
   };
 
+  const totalReviewsCount = reviews.length;
+  const highReviewsCount = reviews.filter(r => r.rating >= 4).length;
+  const lowReviewsCount = reviews.filter(r => r.rating <= 2).length;
+
   return (
     <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-pink-50 via-white to-pink-100 overflow-y-auto overflow-x-hidden">
       <Header />
@@ -189,6 +201,47 @@ export default function ReviewsPage() {
         <div className="mb-6 mt-2">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Customer Reviews</h2>
           <p className="text-sm sm:text-base text-gray-500 mt-1 font-medium">View testimonials and feedback from your customers.</p>
+        </div>
+
+        {/* 3 Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-pink-100 flex flex-col justify-between transition-all duration-200 hover:border-[#F62996] hover:shadow-[0_0_15px_rgba(246,41,150,0.15)] hover:-translate-y-0.5">
+                <div className="flex justify-between items-start">
+                    <p className="text-sm font-medium text-gray-500">Total Reviews</p>
+                    <MessageSquare className="w-5 h-5 text-pink-400" />
+                </div>
+                <div className="mt-4">
+                    <h3 className="text-3xl font-bold text-gray-900">{totalReviewsCount}</h3>
+                </div>
+            </div>
+
+            <button 
+                onClick={() => setRatingFilter(prev => prev === 'High' ? 'All' : 'High')}
+                className={`text-left rounded-2xl p-6 shadow-sm border flex flex-col justify-between transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:border-[#F62996] hover:shadow-[0_0_15px_rgba(246,41,150,0.15)] focus:outline-none focus:ring-2 focus:ring-[#F62996] focus:ring-offset-2 ${ratingFilter === 'High' ? 'bg-pink-50 border-[#F62996] shadow-[0_0_15px_rgba(246,41,150,0.15)]' : 'bg-white border-pink-100'}`}
+                aria-label="Filter high reviews, 4 to 5 stars"
+            >
+                <div className="flex justify-between items-start w-full">
+                    <p className="text-sm font-medium text-gray-500">High Reviews</p>
+                    <Star className="w-5 h-5 text-pink-400 fill-pink-400" />
+                </div>
+                <div className="mt-4">
+                    <h3 className="text-3xl font-bold text-gray-900">{highReviewsCount}</h3>
+                </div>
+            </button>
+
+            <button 
+                onClick={() => setRatingFilter(prev => prev === 'Low' ? 'All' : 'Low')}
+                className={`text-left rounded-2xl p-6 shadow-sm border flex flex-col justify-between transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:border-[#F62996] hover:shadow-[0_0_15px_rgba(246,41,150,0.15)] focus:outline-none focus:ring-2 focus:ring-[#F62996] focus:ring-offset-2 ${ratingFilter === 'Low' ? 'bg-pink-50 border-[#F62996] shadow-[0_0_15px_rgba(246,41,150,0.15)]' : 'bg-white border-pink-100'}`}
+                aria-label="Filter low reviews, 1 to 2 stars"
+            >
+                <div className="flex justify-between items-start w-full">
+                    <p className="text-sm font-medium text-gray-500">Low Reviews</p>
+                    <ThumbsDown className="w-5 h-5 text-pink-300" />
+                </div>
+                <div className="mt-4">
+                    <h3 className="text-3xl font-bold text-gray-900">{lowReviewsCount}</h3>
+                </div>
+            </button>
         </div>
 
         {/* Controls Row */}
@@ -456,7 +509,7 @@ export default function ReviewsPage() {
                 {filteredReviews.length === 0 && !loading && !fetchError && (
                   <tr>
                     <td colSpan={5} className="py-8 text-center text-gray-500 font-medium">
-                      No reviews found.
+                      No reviews found matching your selection.
                     </td>
                   </tr>
                 )}

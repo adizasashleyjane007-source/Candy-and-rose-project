@@ -19,6 +19,7 @@ import {
     ChevronDown,
     User,
     XCircle,
+    AlertCircle,
 } from "lucide-react";
 
 import { useState, useEffect, useRef, Suspense } from "react";
@@ -140,6 +141,9 @@ function AppointmentContent() {
 
         fetchData();
 
+        const handleAptsUpdated = () => fetchData();
+        window.addEventListener("appointmentsUpdated", handleAptsUpdated);
+
         // Click outside listener for dropdowns
         const handleClickOutside = (event: MouseEvent) => {
             if (customerDropdownRef.current && !customerDropdownRef.current.contains(event.target as Node)) {
@@ -153,7 +157,10 @@ function AppointmentContent() {
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
+        return () => {
+            window.removeEventListener("appointmentsUpdated", handleAptsUpdated);
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
     }, []);
 
     const filteredCustomers = customers.filter(c =>
@@ -320,7 +327,7 @@ function AppointmentContent() {
 
             // 3. Create or Update Appointment
             const isWalkIn = formData.source === 'Walk-in';
-            const finalStatus = isWalkIn ? "Scheduled" : "Pending";
+            const finalStatus = "Scheduled";
 
             if (editingId) {
                 await Appointments.update(editingId, {
@@ -619,15 +626,17 @@ function AppointmentContent() {
             const aptDate = new Date(aptDateValue);
             aptDate.setHours(0, 0, 0, 0);
 
-            // If the appointment date has passed, only allow "Completed" or "Cancelled"
-            if (today && aptDate < today && newStatus !== 'Completed' && newStatus !== 'Cancelled') {
-                alert("This appointment date has already passed. You can only mark it as 'Completed' or 'Cancelled'.");
+            // If the appointment date has passed, only allow "Completed", "Cancelled", or "No-Show"
+            if (today && aptDate < today && newStatus !== 'Completed' && newStatus !== 'Cancelled' && newStatus !== 'no_show' && newStatus !== 'No-Show') {
+                alert("This appointment date has already passed. You can only mark it as 'Completed', 'Cancelled', or 'No-Show'.");
                 return;
             }
 
             await Appointments.update(id, { status: newStatus });
             setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
-            // Removed Status Updated notification popup to reduce intrusiveness
+            if (typeof window !== "undefined") {
+                window.dispatchEvent(new Event("appointmentsUpdated"));
+            }
         } catch (error) {
             console.error("Status update failed:", error);
             alert("Failed to update status.");
@@ -643,12 +652,14 @@ function AppointmentContent() {
             serviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             apt.status.toLowerCase().includes(searchQuery.toLowerCase());
 
-        // If searching, search regardless of status. Otherwise, hide 'Pending' from 'All' view or filter by status.
+        // If searching, search regardless of status. Otherwise, filter by status.
         const matchesStatus = searchQuery.trim() !== ""
             ? true
             : (statusFilter === "All"
-                ? apt.status !== "Pending"
-                : apt.status === statusFilter);
+                ? true
+                : (statusFilter === "No-Show"
+                    ? (apt.status === "no_show" || apt.status === "No-Show")
+                    : apt.status === statusFilter));
 
         const matchesSource = sourceFilter === "All"
             ? true
@@ -693,9 +704,10 @@ function AppointmentContent() {
 
     // Calculate metrics
     const totalAppointmentsCount = appointments.length;
-    const pendingCount = appointments.filter(a => a.status === 'Pending').length;
+    
     const completedCount = appointments.filter(a => a.status === 'Completed').length;
     const cancelledCount = appointments.filter(a => a.status === 'Cancelled').length;
+    const noShowCount = appointments.filter(a => a.status === 'no_show' || a.status === 'No-Show').length;
 
     // VERY simple revenue calculation for demo purposes
     const totalRevenue = appointments
@@ -731,18 +743,7 @@ function AppointmentContent() {
                         </div>
                     </button>
 
-                    <button
-                        onClick={() => setStatusFilter("Pending")}
-                        className={`p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-all text-left ${statusFilter === "Pending" ? "bg-amber-50 border-amber-300" : "bg-white border-pink-100 hover:bg-amber-50"}`}
-                    >
-                        <div className="flex justify-between items-start">
-                            <p className="text-sm font-medium text-gray-500">Pending</p>
-                            <Clock className="w-5 h-5 text-amber-400" />
-                        </div>
-                        <div className="mt-4">
-                            <h3 className="text-3xl font-bold text-gray-900">{pendingCount}</h3>
-                        </div>
-                    </button>
+                    
 
                     <button
                         onClick={() => setStatusFilter("Completed")}
@@ -767,6 +768,19 @@ function AppointmentContent() {
                         </div>
                         <div className="mt-4">
                             <h3 className="text-3xl font-bold text-gray-900">{cancelledCount}</h3>
+                        </div>
+                    </button>
+
+                    <button
+                        onClick={() => setStatusFilter("No-Show")}
+                        className={`p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-all text-left ${statusFilter === "No-Show" ? "bg-rose-50 border-rose-300" : "bg-white border-pink-100 hover:bg-rose-50"}`}
+                    >
+                        <div className="flex justify-between items-start">
+                            <p className="text-sm font-medium text-gray-500">No-Show</p>
+                            <AlertCircle className="w-5 h-5 text-rose-400" />
+                        </div>
+                        <div className="mt-4">
+                            <h3 className="text-3xl font-bold text-gray-900">{noShowCount}</h3>
                         </div>
                     </button>
 
@@ -848,7 +862,7 @@ function AppointmentContent() {
 
                             {filterOpen && (
                                 <div className="absolute top-12 left-0 sm:left-auto sm:right-0 w-48 bg-white rounded-xl shadow-lg border border-pink-100 py-2 z-10 animate-in fade-in slide-in-from-top-2">
-                                    {["All", "Pending", "In Progress", "Completed", "Cancelled"].map((status) => (
+                                    {["All", "Scheduled", "In Progress", "Completed", "Cancelled", "No-Show"].map((status) => (
                                         <button
                                             key={status}
                                             className={`w-full text-left px-4 py-2 text-sm transition-colors ${statusFilter === status ? 'bg-pink-50 text-pink-600 font-bold' : 'text-gray-700 hover:bg-pink-50 hover:text-pink-600 font-medium'}`}
@@ -973,20 +987,21 @@ function AppointmentContent() {
                                         </td>
                                         <td className="py-2.5 px-4 text-sm text-center border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">
                                             <div className="relative group/status">
-                                                <span className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-tight border transition-all ${apt.status === 'Completed' ? 'cursor-default' : 'cursor-pointer hover:opacity-80'} ${apt.status === 'Pending' ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                                                    apt.status === 'In Progress' ? 'bg-blue-50 text-blue-600 border-blue-200' :
-                                                        apt.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
-                                                            'bg-red-50 text-red-600 border-red-200'
+                                                <span className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-tight border transition-all ${apt.status === 'Completed' ? 'cursor-default' : 'cursor-pointer hover:opacity-80'} ${apt.status === 'Scheduled' ? 'bg-pink-50 text-pink-600 border-pink-200' :
+                                                        apt.status === 'In Progress' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                                            apt.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                                                                apt.status === 'no_show' || apt.status === 'No-Show' ? 'bg-red-100 text-red-700 border-red-200' :
+                                                                    'bg-red-50 text-red-600 border-red-200'
                                                     }`}>
-                                                    {apt.status}
+                                                    {apt.status === 'no_show' ? 'No-Show' : apt.status}
                                                 </span>
                                                 {apt.status !== 'Completed' && (
                                                     <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 hidden group-hover/status:flex flex-col bg-white border border-pink-100 rounded-xl shadow-xl z-20 py-1 min-w-[120px]">
-                                                        {['Pending', 'In Progress', 'Completed', 'Cancelled'].map(s => (
+                                                        {['Scheduled', 'In Progress', 'Completed', 'Cancelled', 'No-Show'].map(s => (
                                                             <button
                                                                 key={s}
-                                                                onClick={() => updateStatus(apt.id, s as any)}
-                                                                className={`px-3 py-1.5 text-xs font-medium text-left hover:bg-pink-50 ${apt.status === s ? 'text-pink-600 font-bold' : 'text-gray-600'}`}
+                                                                onClick={() => updateStatus(apt.id, (s === 'No-Show' ? 'no_show' : s) as any)}
+                                                                className={`px-3 py-1.5 text-xs font-medium text-left hover:bg-pink-50 ${(apt.status === s || (s === 'No-Show' && (apt.status === 'no_show' || apt.status === 'No-Show'))) ? 'text-pink-600 font-bold' : 'text-gray-600'}`}
                                                             >
                                                                 {s}
                                                             </button>

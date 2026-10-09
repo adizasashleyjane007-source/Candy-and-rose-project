@@ -574,7 +574,7 @@ export function BookingModal({
         time: selectedTime,
         duration: durationText,
         price: totalAmount,
-        status: 'Pending',
+        status: 'Scheduled',
         source: 'Online',
         payment_method: methodToSave,
         notes: notesWithDesign || null,

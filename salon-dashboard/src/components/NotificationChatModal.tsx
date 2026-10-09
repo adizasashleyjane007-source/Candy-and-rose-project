@@ -661,9 +661,11 @@ export default function NotificationChatModal({
                       <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider border ${
                         appointment.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                         appointment.status === 'Cancelled' ? 'bg-red-50 text-red-600 border-red-100' :
+                        appointment.status === 'In Progress' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                        appointment.status === 'no_show' || appointment.status === 'No-Show' ? 'bg-red-100 text-red-700 border-red-200' :
                         'bg-pink-50 text-pink-600 border-pink-100'
                       }`}>
-                        {appointment.status}
+                        {appointment.status === 'no_show' ? 'No-Show' : appointment.status}
                       </span>
                     </div>
 
@@ -693,25 +695,7 @@ export default function NotificationChatModal({
                       </div>
                     )}
 
-                    {/* Quick Status Action Controls */}
-                    {appointment.status === 'Pending' && (
-                      <div className="pt-2 flex gap-2">
-                        <button
-                          disabled={isProcessingAction}
-                          onClick={() => handleUpdateStatus('Scheduled')}
-                          className="flex-1 py-2 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold text-[11px] transition-all flex items-center justify-center gap-1 active:scale-95 disabled:opacity-50"
-                        >
-                          {isProcessingAction ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3 h-3" />} Approve
-                        </button>
-                        <button
-                          disabled={isProcessingAction}
-                          onClick={() => handleUpdateStatus('Cancelled')}
-                          className="flex-1 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold text-[11px] transition-all flex items-center justify-center gap-1 active:scale-95 disabled:opacity-50"
-                        >
-                          {isProcessingAction ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3 h-3" />} Reject
-                        </button>
-                      </div>
-                    )}
+
 
                     {appointment.status === 'Scheduled' && (
                       <div className="pt-2">

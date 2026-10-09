@@ -154,7 +154,7 @@ export default function BillingPage() {
             (apt.id || "").toLowerCase().includes(searchQuery.toLowerCase());
 
         let matchesStatus = true;
-        if (statusFilter === "Pending") matchesStatus = apt.status === "Pending" || apt.status === "Scheduled";
+        if (statusFilter === "Pending") matchesStatus = apt.status === "Scheduled";
         if (statusFilter === "Paid") matchesStatus = apt.status === "Completed";
 
         return matchesSearch && matchesStatus;
@@ -170,7 +170,7 @@ export default function BillingPage() {
         .reduce((sum, a) => sum + (a.price || 0), 0);
 
     const pendingRevenue = appointments
-        .filter(a => a.status === 'Pending' || a.status === 'Scheduled')
+        .filter(a => a.status === 'Scheduled')
         .reduce((sum, a) => sum + (a.price || 0), 0);
 
     const paidTransactionsCount = appointments.filter(a => a.status === 'Completed').length;
