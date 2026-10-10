@@ -159,7 +159,7 @@ export default function SettingsPage() {
     const [operatingHours, setOperatingHours] = useState<OperatingHours>(defaultOperatingHours);
     const [notifications, setNotifications] = useState<NotificationSettings>(defaultNotifications);
     const [toast, setToast] = useState<string | null>(null);
-    const [activeSection, setActiveSection] = useState<"salon" | "hours" | "notifications" | "payments" | "archive" | "promotions">("salon");
+    const [activeSection, setActiveSection] = useState<"salon" | "hours" | "notifications" | "payments" | "archive">("salon");
     const [salonErrors, setSalonErrors] = useState<Partial<Record<keyof SalonInfo, string>>>({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -212,23 +212,6 @@ export default function SettingsPage() {
         status: "Active"
     });
 
-    // Promotions State
-    const [promotions, setPromotions] = useState<Promotion[]>([]);
-    const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
-    const [isPromoDeleteModalOpen, setIsPromoDeleteModalOpen] = useState(false);
-    const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
-    const [promoToDelete, setPromoToDelete] = useState<string | null>(null);
-    const [promoFormData, setPromoFormData] = useState<Omit<Promotion, "id" | "created_at">>({
-        name: "",
-        description: "",
-        discount_type: "percentage",
-        discount_value: 0,
-        start_date: "",
-        end_date: "",
-        status: "Active",
-        code: ""
-    });
-
     const loadArchive = async () => {
         try {
             setIsArchiveLoading(true);
@@ -264,12 +247,11 @@ export default function SettingsPage() {
         const loadAllSettings = async () => {
             try {
                 setLoading(true);
-                const [si, oh, ns, pm, prm] = await Promise.all([
+                const [si, oh, ns, pm] = await Promise.all([
                     SettingsDB.get("salon_info"),
                     SettingsDB.get("operating_hours"),
                     SettingsDB.get("notification_preferences"),
-                    SettingsDB.listPaymentMethods(),
-                    PromotionsDB.list()
+                    SettingsDB.listPaymentMethods()
                 ]);
 
                 if (si) {
@@ -287,7 +269,6 @@ export default function SettingsPage() {
                 if (oh) setOperatingHours(prev => ({ ...prev, ...oh }));
                 if (ns) setNotifications(prev => ({ ...prev, ...ns }));
                 if (pm) setPaymentMethods(pm);
-                if (prm) setPromotions(prm);
 
                 // Seed default payment methods if none exist
                 if (pm && pm.length === 0) {
@@ -445,45 +426,6 @@ export default function SettingsPage() {
         }
     };
 
-    const handleSavePromotion = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            setSaving(true);
-            if (editingPromoId) {
-                await PromotionsDB.update(editingPromoId, promoFormData);
-                showToast("Promotion updated successfully!");
-            } else {
-                await PromotionsDB.create(promoFormData);
-                showToast("Promotion created successfully!");
-            }
-            const fresh = await PromotionsDB.list();
-            setPromotions(fresh);
-            setIsPromoModalOpen(false);
-        } catch (error) {
-            console.error(error);
-            showToast("Failed to save promotion.");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleDeletePromotion = async () => {
-        if (!promoToDelete) return;
-        try {
-            setSaving(true);
-            await PromotionsDB.remove(promoToDelete);
-            const fresh = await PromotionsDB.list();
-            setPromotions(fresh);
-            showToast("Promotion deleted successfully!");
-            setIsPromoDeleteModalOpen(false);
-        } catch (error) {
-            console.error(error);
-            showToast("Failed to delete promotion.");
-        } finally {
-            setSaving(false);
-        }
-    };
-
     const updateDay = (day: keyof OperatingHours, field: keyof DaySchedule, value: string | boolean) => {
         setOperatingHours((prev) => ({
             ...prev,
@@ -497,7 +439,7 @@ export default function SettingsPage() {
         { key: "hours" as const, label: "Operating Hours", icon: Clock },
         { key: "notifications" as const, label: "Notifications", icon: Bell },
         { key: "payments" as const, label: "Payment Methods", icon: CreditCard },
-        { key: "promotions" as const, label: "Promotions", icon: Tag },
+
         { key: "archive" as const, label: "Archive", icon: Archive },
     ];
 
@@ -830,112 +772,6 @@ export default function SettingsPage() {
                     </div>
                 )}
 
-                {activeSection === "promotions" && (
-                    <div className="space-y-6">
-                        <div className="bg-white rounded-3xl p-8 shadow-sm border border-pink-100 relative min-h-[400px]">
-                            {saving && <div className="absolute inset-0 bg-white/50 z-10 rounded-3xl flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-pink-500" /></div>}
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-2xl bg-pink-100 flex items-center justify-center">
-                                        <Tag className="w-5 h-5 text-pink-500" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-gray-900">Promotions & Discounts</h3>
-                                        <p className="text-sm text-gray-500">Manage your salon promotions and discount codes</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        setEditingPromoId(null);
-                                        setPromoFormData({
-                                            name: "", description: "", discount_type: "percentage",
-                                            discount_value: 0, start_date: "", end_date: "",
-                                            status: "Active", code: ""
-                                        });
-                                        setIsPromoModalOpen(true);
-                                    }}
-                                    className="px-5 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2 w-full sm:w-auto justify-center cursor-pointer"
-                                >
-                                    <Plus className="w-4 h-4" /> Add Promotion
-                                </button>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-separate" style={{ borderSpacing: "0 8px" }}>
-                                    <thead>
-                                        <tr>
-                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Name</th>
-                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Code</th>
-                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Discount</th>
-                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider text-center">Status</th>
-                                            <th className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {promotions.map((promo) => (
-                                            <tr key={promo.id} className="bg-gray-50/50 hover:bg-pink-50/30 transition-all group">
-                                                <td className="py-4 px-4 rounded-l-2xl border-y border-l border-transparent group-hover:border-pink-100">
-                                                    <span className="font-bold text-gray-900">{promo.name}</span>
-                                                    {promo.description && <p className="text-xs text-gray-500 mt-1">{promo.description}</p>}
-                                                </td>
-                                                <td className="py-4 px-4 border-y border-transparent group-hover:border-pink-100">
-                                                    <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded text-gray-600">{promo.code || "-"}</span>
-                                                </td>
-                                                <td className="py-4 px-4 border-y border-transparent group-hover:border-pink-100">
-                                                    <span className="font-semibold text-gray-700">
-                                                        {promo.discount_type === 'percentage' ? `${promo.discount_value}%` : `₱${promo.discount_value}`}
-                                                    </span>
-                                                </td>
-                                                <td className="py-4 px-4 border-y border-transparent group-hover:border-pink-100 text-center">
-                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${promo.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
-                                                        {promo.status}
-                                                    </span>
-                                                </td>
-                                                <td className="py-4 px-4 rounded-r-2xl border-y border-r border-transparent group-hover:border-pink-100 text-right">
-                                                    <div className="flex items-center justify-end gap-2 transition-opacity">
-                                                        <button
-                                                            onClick={() => {
-                                                                setEditingPromoId(promo.id || null);
-                                                                setPromoFormData({
-                                                                    name: promo.name, description: promo.description || "",
-                                                                    discount_type: promo.discount_type || "percentage", discount_value: promo.discount_value,
-                                                                    start_date: promo.start_date || "", end_date: promo.end_date || "",
-                                                                    status: promo.status || "Active", code: promo.code || ""
-                                                                });
-                                                                setIsPromoModalOpen(true);
-                                                            }}
-                                                            className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                                                        >
-                                                            <Edit2 className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setPromoToDelete(promo.id || null);
-                                                                setIsPromoDeleteModalOpen(true);
-                                                            }}
-                                                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {promotions.length === 0 && (
-                                            <tr>
-                                                <td colSpan={5} className="py-20 text-center">
-                                                    <div className="flex flex-col items-center justify-center opacity-40">
-                                                        <Tag className="w-12 h-12 mb-3 text-gray-300" />
-                                                        <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">No promotions found</p>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {activeSection === "archive" && (
                     <div className="space-y-6">
@@ -1639,98 +1475,6 @@ export default function SettingsPage() {
                 </div>
             )}
 
-            {/* Promotion Add/Edit Modal */}
-            {isPromoModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200 border border-pink-100 flex flex-col max-h-[90vh]">
-                        <div className="p-6 md:p-8 flex-1 overflow-y-auto">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-xl font-bold text-gray-900">
-                                    {editingPromoId ? "Edit Promotion" : "Add Promotion"}
-                               </h3>
-                                <button onClick={() => setIsPromoModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-                            <form id="promoForm" onSubmit={handleSavePromotion} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Promotion Name <span className="text-pink-500">*</span></label>
-                                    <input required type="text" value={promoFormData.name} onChange={e => setPromoFormData({ ...promoFormData, name: e.target.value })} className="w-full px-4 py-3 rounded-xl border bg-gray-50 border-pink-100 focus:outline-none focus:ring-2 focus:ring-pink-400 transition-all" placeholder="e.g. Summer Sale" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Description</label>
-                                    <textarea value={promoFormData.description || ""} onChange={e => setPromoFormData({ ...promoFormData, description: e.target.value })} className="w-full px-4 py-3 rounded-xl border bg-gray-50 border-pink-100 focus:outline-none focus:ring-2 focus:ring-pink-400 transition-all resize-none" rows={2} placeholder="Short description"></textarea>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Discount Type</label>
-                                        <div className="relative">
-                                            <select value={promoFormData.discount_type} onChange={e => setPromoFormData({ ...promoFormData, discount_type: e.target.value })} className="w-full px-4 py-3 rounded-xl border bg-gray-50 border-pink-100 focus:outline-none focus:ring-2 focus:ring-pink-400 transition-all appearance-none">
-                                                <option value="percentage">Percentage (%)</option>
-                                                <option value="fixed">Fixed Amount (₱)</option>
-                                            </select>
-                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Value <span className="text-pink-500">*</span></label>
-                                        <input required type="number" min="0" step="0.01" value={promoFormData.discount_value} onChange={e => setPromoFormData({ ...promoFormData, discount_value: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-3 rounded-xl border bg-gray-50 border-pink-100 focus:outline-none focus:ring-2 focus:ring-pink-400 transition-all" placeholder="e.g. 20" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Promo Code</label>
-                                    <input type="text" value={promoFormData.code || ""} onChange={e => setPromoFormData({ ...promoFormData, code: e.target.value })} className="w-full px-4 py-3 rounded-xl border bg-gray-50 border-pink-100 focus:outline-none focus:ring-2 focus:ring-pink-400 transition-all uppercase" placeholder="e.g. SUMMER20" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Start Date</label>
-                                        <input type="date" value={promoFormData.start_date || ""} onChange={e => setPromoFormData({ ...promoFormData, start_date: e.target.value })} className="w-full px-4 py-3 rounded-xl border bg-gray-50 border-pink-100 focus:outline-none focus:ring-2 focus:ring-pink-400 transition-all" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">End Date</label>
-                                        <input type="date" value={promoFormData.end_date || ""} onChange={e => setPromoFormData({ ...promoFormData, end_date: e.target.value })} className="w-full px-4 py-3 rounded-xl border bg-gray-50 border-pink-100 focus:outline-none focus:ring-2 focus:ring-pink-400 transition-all" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Status</label>
-                                    <div className="relative">
-                                        <select value={promoFormData.status} onChange={e => setPromoFormData({ ...promoFormData, status: e.target.value })} className="w-full px-4 py-3 rounded-xl border bg-gray-50 border-pink-100 focus:outline-none focus:ring-2 focus:ring-pink-400 transition-all appearance-none">
-                                            <option value="Active">Active</option>
-                                            <option value="Inactive">Inactive</option>
-                                        </select>
-                                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                        <div className="p-6 border-t border-pink-100 bg-gray-50 flex justify-end gap-3 rounded-b-3xl">
-                            <button type="button" onClick={() => setIsPromoModalOpen(false)} disabled={saving} className="px-6 py-2.5 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-bold transition-all disabled:opacity-50 cursor-pointer">Cancel</button>
-                            <button type="submit" form="promoForm" disabled={saving} className="px-6 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold shadow-sm shadow-pink-200 transition-all flex items-center justify-center min-w-[100px] disabled:opacity-50 cursor-pointer">
-                                {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Save'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Delete Promotion Confirmation Modal */}
-            {isPromoDeleteModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-[32px] p-8 max-w-sm w-full shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200 text-center">
-                        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-5">
-                            <Trash2 className="w-8 h-8 text-red-500" />
-                        </div>
-                        <h3 className="text-2xl font-bold text-gray-900 mb-2 tracking-tight">Delete Promotion?</h3>
-                        <p className="text-gray-500 mb-8 font-medium">This action cannot be undone. Are you sure you want to proceed?</p>
-                        <div className="flex gap-3">
-                            <button onClick={() => setIsPromoDeleteModalOpen(false)} disabled={saving} className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-2xl font-bold transition-colors disabled:opacity-50 cursor-pointer">Cancel</button>
-                            <button onClick={handleDeletePromotion} disabled={saving} className="flex-1 py-3.5 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center cursor-pointer">
-                                {saving ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Yes, Delete'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {toast && <Toast message={toast} onDone={() => setToast(null)} />}
         </div>

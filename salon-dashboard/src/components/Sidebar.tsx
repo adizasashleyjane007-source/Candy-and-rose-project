@@ -22,6 +22,7 @@ import {
     ChevronRight,
     Menu,
     MessageSquare,
+    Tag,
     type LucideIcon
 } from "lucide-react";
 import { useSidebar } from "./SidebarContext";
@@ -97,6 +98,7 @@ const navCategories: NavCategory[] = [
             { name: "Inventory", href: "/inventory", icon: Package },
             { name: "Service", href: "/service", icon: Scissors },
             { name: "Reviews", href: "/reviews", icon: MessageSquare },
+            { name: "Promotions", href: "/promotions", icon: Tag },
             { name: "Billing", href: "/billing", icon: CreditCard },
             { name: "Analytics", href: "/analytics", icon: BarChart2 },
         ]

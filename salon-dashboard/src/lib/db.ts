@@ -170,15 +170,11 @@ export interface PaymentMethod {
 
 export interface Promotion {
   id?: string;
-  created_at?: string;
   name: string;
-  description?: string;
-  discount_type?: string;
-  discount_value: number;
-  start_date?: string;
-  end_date?: string;
+  inclusions?: string;
+  price?: number;
+  date?: string;
   status?: string;
-  code?: string;
 }
 
 // ─── Customers ────────────────────────────────────────────────────────────────
@@ -910,12 +906,12 @@ export const PromotionsDB = {
     const { data, error } = await supabase()
       .from("promotions")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("id", { ascending: false });
     if (error) throw error;
     return data as Promotion[];
   },
 
-  async create(payload: Omit<Promotion, "id" | "created_at">) {
+  async create(payload: Omit<Promotion, "id">) {
     const { data, error } = await supabase()
       .from("promotions")
       .insert(payload)

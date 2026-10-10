@@ -1,7 +1,7 @@
 "use client";
 
 import Header from "@/components/Header";
-import { Camera, Lock, Mail, Phone, Shield, User, Eye, EyeOff } from "lucide-react";
+import { Camera, Lock, Mail, Phone, Shield, User, Eye, EyeOff, CheckCircle2, XCircle, X } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -14,6 +14,7 @@ export default function AdminProfilePage() {
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [userId, setUserId] = useState<string | null>(null);
+    const [passwordModal, setPasswordModal] = useState<{isOpen: boolean; type: 'success' | 'error'; message: string}>({isOpen: false, type: 'success', message: ''});
 
     const [profile, setProfile] = useState({
         name: "Admin User",
@@ -109,15 +110,15 @@ export default function AdminProfilePage() {
     const handleUpdatePassword = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newPassword || !confirmPassword) {
-            alert("Please fill in both password fields.");
+            setPasswordModal({isOpen: true, type: 'error', message: "Please fill in both password fields."});
             return;
         }
         if (newPassword !== confirmPassword) {
-            alert("Passwords do not match.");
+            setPasswordModal({isOpen: true, type: 'error', message: "Passwords do not match."});
             return;
         }
         if (newPassword.length < 6) {
-            alert("Password must be at least 6 characters long.");
+            setPasswordModal({isOpen: true, type: 'error', message: "Password must be at least 6 characters long."});
             return;
         }
 
@@ -130,14 +131,14 @@ export default function AdminProfilePage() {
 
             if (error) throw error;
 
-            alert("Password updated successfully!");
+            setPasswordModal({isOpen: true, type: 'success', message: "Your password has been changed successfully. Please keep your new password secure."});
             setNewPassword("");
             setConfirmPassword("");
             setShowNewPassword(false);
             setShowConfirmPassword(false);
         } catch (err: any) {
             console.error("Password update failed:", err);
-            alert(`Failed to update password: ${err.message}`);
+            setPasswordModal({isOpen: true, type: 'error', message: `Failed to update password: ${err.message}`});
         } finally {
             setIsUpdatingPassword(false);
         }
@@ -413,6 +414,41 @@ export default function AdminProfilePage() {
                     </div>
                 </div>
             </div>
+
+            {/* Password Modal */}
+            {passwordModal.isOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
+                    <div className="relative w-full max-w-sm rounded-[24px] bg-[#FFFBF2] p-8 shadow-2xl animate-in zoom-in-95 flex flex-col items-center text-center border border-pink-100/60">
+                        <button
+                            type="button"
+                            onClick={() => setPasswordModal({ ...passwordModal, isOpen: false })}
+                            className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-gray-400 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+                        >
+                            <X size={16} />
+                        </button>
+                        
+                        <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full shadow-sm ${passwordModal.type === 'success' ? 'bg-pink-50 text-pink-500 border border-pink-100/80' : 'bg-red-50 text-red-500 border border-red-100/80'}`}>
+                            {passwordModal.type === 'success' ? <CheckCircle2 size={32} /> : <XCircle size={32} />}
+                        </div>
+                        
+                        <h2 className="font-serif text-2xl font-normal text-gray-900 tracking-tight mb-2">
+                            {passwordModal.type === 'success' ? 'Password Updated Successfully!' : 'Update Failed'}
+                        </h2>
+                        
+                        <p className="text-sm text-gray-600 font-sans leading-relaxed mb-6">
+                            {passwordModal.message}
+                        </p>
+                        
+                        <button
+                            type="button"
+                            onClick={() => setPasswordModal({ ...passwordModal, isOpen: false })}
+                            className="w-full h-11 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-sm font-bold uppercase tracking-widest shadow-lg shadow-pink-500/25 transition-all"
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

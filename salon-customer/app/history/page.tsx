@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { 
   Calendar, Clock, Scissors, 
   Sparkles, AlertCircle, Plus, 
-  ArrowRight, Trash2, X
+  ArrowRight, Trash2, X, CheckCircle
 } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { useAuth } from '@/lib/auth-context';
@@ -25,10 +25,12 @@ export default function HistoryPage() {
   const [activeFilter, setActiveFilter] = useState<'CURRENT' | 'COMPLETED' | 'CANCELLED'>('CURRENT');
 
   // Cancel appointment states
+  const [confirmModalApptId, setConfirmModalApptId] = useState<string | null>(null);
   const [cancelModalApptId, setCancelModalApptId] = useState<string | null>(null);
   const [selectedReason, setSelectedReason] = useState<string>('');
   const [otherReasonText, setOtherReasonText] = useState<string>('');
   const [submittingCancel, setSubmittingCancel] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const loadAppointments = async () => {
     if (!user) return;
@@ -66,9 +68,20 @@ export default function HistoryPage() {
   }, [user, profile, customer]);
 
   const handleOpenCancelModal = (apptId: string) => {
-    setCancelModalApptId(apptId);
-    setSelectedReason('');
-    setOtherReasonText('');
+    setConfirmModalApptId(apptId);
+  };
+
+  const handleCloseConfirmModal = () => {
+    setConfirmModalApptId(null);
+  };
+
+  const handleConfirmOkay = () => {
+    if (confirmModalApptId) {
+      setCancelModalApptId(confirmModalApptId);
+      setConfirmModalApptId(null);
+      setSelectedReason('');
+      setOtherReasonText('');
+    }
   };
 
   const handleCloseCancelModal = () => {
@@ -111,11 +124,16 @@ export default function HistoryPage() {
       }
 
       handleCloseCancelModal();
+      setShowSuccessModal(true);
     } catch (err) {
       alert('Failed to cancel appointment. Please try again.');
     } finally {
       setSubmittingCancel(false);
     }
+  };
+
+  const handleCloseSuccessModal = () => {
+    setShowSuccessModal(false);
   };
 
   const shownAppts = appointments.filter((a) => {
@@ -321,6 +339,46 @@ export default function HistoryPage() {
           </div>
         </div>
 
+        {/* CONFIRMATION MODAL */}
+        {confirmModalApptId && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in"
+            onClick={handleCloseConfirmModal}
+          >
+            <div 
+              className="relative w-[90%] max-w-[420px] my-auto rounded-3xl bg-white pt-16 pb-10 px-8 sm:px-10 shadow-2xl animate-scale-in border border-pink-100/60"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={handleCloseConfirmModal}
+                aria-label="Close"
+                className="absolute right-5 top-5 text-zinc-400 hover:text-zinc-700 transition-colors p-1.5 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <h2 className="font-serif text-xl sm:text-2xl font-medium text-zinc-900 tracking-tight text-center mb-12">
+                Are you sure you want to cancel your appointment?
+              </h2>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={handleCloseConfirmModal}
+                  className="w-full h-12 rounded-full bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 font-bold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-sm"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleConfirmOkay}
+                  className="w-full h-12 rounded-full bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md shadow-pink-200/50"
+                >
+                  Okay
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* CANCELLATION REASON MODAL */}
         {cancelModalApptId && (
           <div 
@@ -383,6 +441,46 @@ export default function HistoryPage() {
                 className="w-full h-12 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md shadow-pink-200/50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submittingCancel ? 'SUBMITTING...' : 'SUBMIT'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* SUCCESS MODAL */}
+        {showSuccessModal && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in"
+            onClick={handleCloseSuccessModal}
+          >
+            <div 
+              className="relative w-[90%] max-w-[420px] my-auto rounded-3xl bg-white p-8 sm:p-10 shadow-2xl animate-scale-in border border-pink-100/60 flex flex-col items-center text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={handleCloseSuccessModal}
+                aria-label="Close"
+                className="absolute right-5 top-5 text-zinc-400 hover:text-zinc-700 transition-colors p-1.5 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="w-16 h-16 rounded-full bg-pink-50 flex items-center justify-center mb-6 border border-pink-100">
+                <CheckCircle size={32} className="text-pink-500" />
+              </div>
+
+              <h2 className="font-serif text-xl sm:text-2xl font-medium text-zinc-900 tracking-tight mb-4">
+                Appointment Cancelled Successfully
+              </h2>
+
+              <p className="text-zinc-500 text-sm mb-8 leading-relaxed">
+                Your appointment has been cancelled successfully. Thank you for letting us know.
+              </p>
+
+              <button
+                onClick={handleCloseSuccessModal}
+                className="w-full h-12 rounded-full bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md shadow-pink-200/50"
+              >
+                OKAY
               </button>
             </div>
           </div>

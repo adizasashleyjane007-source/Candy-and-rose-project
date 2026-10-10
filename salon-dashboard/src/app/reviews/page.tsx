@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useRef } from "react";
 import Header from "@/components/Header";
 import { createClient } from "@/lib/supabase/client";
-import { Star, Search, X, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ArrowLeft, MessageSquare, ThumbsDown } from "lucide-react";
+import { Star, Search, X, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ArrowLeft, MessageSquare, Frown, Smile } from "lucide-react";
 import { addNotification } from "@/lib/notifications";
 
 type Review = {
@@ -25,7 +25,7 @@ export default function ReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [ratingFilter, setRatingFilter] = useState<'All' | 'High' | 'Low'>('All');
+  const [ratingFilter, setRatingFilter] = useState<'All' | 'Positive' | 'Negative'>('All');
   
   // Date filter state
   const [dateFilter, setDateFilter] = useState("All Time");
@@ -123,9 +123,9 @@ export default function ReviewsPage() {
       (r.rating ? r.rating.toString() : '').includes(search.trim());
 
     let matchesRating = true;
-    if (ratingFilter === 'High') {
+    if (ratingFilter === 'Positive') {
       matchesRating = r.rating >= 4;
-    } else if (ratingFilter === 'Low') {
+    } else if (ratingFilter === 'Negative') {
       matchesRating = r.rating <= 2;
     }
 
@@ -190,8 +190,8 @@ export default function ReviewsPage() {
   };
 
   const totalReviewsCount = reviews.length;
-  const highReviewsCount = reviews.filter(r => r.rating >= 4).length;
-  const lowReviewsCount = reviews.filter(r => r.rating <= 2).length;
+  const positiveReviewsCount = reviews.filter(r => r.rating >= 4).length;
+  const negativeReviewsCount = reviews.filter(r => r.rating <= 2).length;
 
   return (
     <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-pink-50 via-white to-pink-100 overflow-y-auto overflow-x-hidden">
@@ -216,30 +216,30 @@ export default function ReviewsPage() {
             </div>
 
             <button 
-                onClick={() => setRatingFilter(prev => prev === 'High' ? 'All' : 'High')}
-                className={`text-left rounded-2xl p-6 shadow-sm border flex flex-col justify-between transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:border-[#F62996] hover:shadow-[0_0_15px_rgba(246,41,150,0.15)] focus:outline-none focus:ring-2 focus:ring-[#F62996] focus:ring-offset-2 ${ratingFilter === 'High' ? 'bg-pink-50 border-[#F62996] shadow-[0_0_15px_rgba(246,41,150,0.15)]' : 'bg-white border-pink-100'}`}
-                aria-label="Filter high reviews, 4 to 5 stars"
+                onClick={() => setRatingFilter(prev => prev === 'Positive' ? 'All' : 'Positive')}
+                className={`text-left rounded-2xl p-6 shadow-sm border flex flex-col justify-between transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:border-[#F62996] hover:shadow-[0_0_15px_rgba(246,41,150,0.15)] focus:outline-none focus:ring-2 focus:ring-[#F62996] focus:ring-offset-2 ${ratingFilter === 'Positive' ? 'bg-pink-50 border-[#F62996] shadow-[0_0_15px_rgba(246,41,150,0.15)]' : 'bg-white border-pink-100'}`}
+                aria-label="Filter positive reviews, 4 to 5 stars"
             >
                 <div className="flex justify-between items-start w-full">
-                    <p className="text-sm font-medium text-gray-500">High Reviews</p>
-                    <Star className="w-5 h-5 text-pink-400 fill-pink-400" />
+                    <p className="text-sm font-medium text-gray-500">Positive Reviews</p>
+                    <Smile className="w-5 h-5 text-pink-300" />
                 </div>
                 <div className="mt-4">
-                    <h3 className="text-3xl font-bold text-gray-900">{highReviewsCount}</h3>
+                    <h3 className="text-3xl font-bold text-gray-900">{positiveReviewsCount}</h3>
                 </div>
             </button>
 
             <button 
-                onClick={() => setRatingFilter(prev => prev === 'Low' ? 'All' : 'Low')}
-                className={`text-left rounded-2xl p-6 shadow-sm border flex flex-col justify-between transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:border-[#F62996] hover:shadow-[0_0_15px_rgba(246,41,150,0.15)] focus:outline-none focus:ring-2 focus:ring-[#F62996] focus:ring-offset-2 ${ratingFilter === 'Low' ? 'bg-pink-50 border-[#F62996] shadow-[0_0_15px_rgba(246,41,150,0.15)]' : 'bg-white border-pink-100'}`}
-                aria-label="Filter low reviews, 1 to 2 stars"
+                onClick={() => setRatingFilter(prev => prev === 'Negative' ? 'All' : 'Negative')}
+                className={`text-left rounded-2xl p-6 shadow-sm border flex flex-col justify-between transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:border-[#F62996] hover:shadow-[0_0_15px_rgba(246,41,150,0.15)] focus:outline-none focus:ring-2 focus:ring-[#F62996] focus:ring-offset-2 ${ratingFilter === 'Negative' ? 'bg-pink-50 border-[#F62996] shadow-[0_0_15px_rgba(246,41,150,0.15)]' : 'bg-white border-pink-100'}`}
+                aria-label="Filter negative reviews, 1 to 2 stars"
             >
                 <div className="flex justify-between items-start w-full">
-                    <p className="text-sm font-medium text-gray-500">Low Reviews</p>
-                    <ThumbsDown className="w-5 h-5 text-pink-300" />
+                    <p className="text-sm font-medium text-gray-500">Negative Reviews</p>
+                    <Frown className="w-5 h-5 text-pink-300" />
                 </div>
                 <div className="mt-4">
-                    <h3 className="text-3xl font-bold text-gray-900">{lowReviewsCount}</h3>
+                    <h3 className="text-3xl font-bold text-gray-900">{negativeReviewsCount}</h3>
                 </div>
             </button>
         </div>

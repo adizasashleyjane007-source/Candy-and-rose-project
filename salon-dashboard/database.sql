@@ -222,3 +222,8 @@ CREATE TABLE IF NOT EXISTS public.promotions (
 
 ALTER TABLE public.promotions ENABLE ROW LEVEL SECURITY;
 
+
+ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS promotional_price numeric;
+ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS inclusions text;
+ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS availability_month text;
+

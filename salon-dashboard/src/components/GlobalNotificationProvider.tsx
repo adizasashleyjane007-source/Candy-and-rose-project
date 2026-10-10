@@ -325,8 +325,8 @@ export default function GlobalNotificationProvider() {
 
     console.log("Initializing Global Notification Subscription...");
 
-    const channel = supabase
-      .channel('global-dashboard-events')
+    const channelName = 'global-dashboard-events-' + Math.random().toString(36).substring(7);
+    const channel = supabase.channel(channelName)
       .on(
         'postgres_changes',
         {
