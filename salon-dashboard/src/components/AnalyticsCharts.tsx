@@ -19,6 +19,11 @@ export function RevenueAnalyticsChart({ selectedMonth }: { selectedMonth: string
         { name: "Oct", revenue: 0 }, { name: "Nov", revenue: 0 }, { name: "Dec", revenue: 0 },
     ]);
     const [loading, setLoading] = useState(true);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         const loadData = async () => {
@@ -56,7 +61,7 @@ export function RevenueAnalyticsChart({ selectedMonth }: { selectedMonth: string
     }, [selectedMonth]);
 
     return (
-        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full col-span-1 lg:col-span-2 min-h-[400px]">
+        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full col-span-1 lg:col-span-2 min-h-[400px] min-w-0">
             <div className="flex justify-between items-start mb-6">
                 <div>
                     <h3 className="text-xl font-bold text-gray-900 tracking-tight">Revenue Overview - <span className="text-pink-500">{new Date().getFullYear()}</span></h3>
@@ -66,23 +71,27 @@ export function RevenueAnalyticsChart({ selectedMonth }: { selectedMonth: string
                     <TrendingUp className="w-5 h-5 text-pink-500" />
                 </div>
             </div>
-            <div className="flex-1 w-full min-h-[300px] flex items-center justify-center">
-                {loading ? (
-                    <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+            <div className="flex-1 w-full min-h-[300px] min-w-0 relative">
+                {!isMounted || loading ? (
+                    <div className="w-full h-full min-h-[300px] flex items-center justify-center">
+                        <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+                    </div>
                 ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={monthlyRevenue} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₱${Number(value).toLocaleString()}`} />
-                            <Tooltip
-                                cursor={{ fill: "#fdf2f8" }}
-                                contentStyle={{ borderRadius: "12px", border: "1px solid #fce7f3", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
-                                formatter={(value: any) => [`₱${Number(value).toLocaleString()}`, 'Revenue (Completed)']}
-                            />
-                            <Bar dataKey="revenue" fill="#ec4899" radius={[6, 6, 0, 0]} barSize={28} />
-                        </BarChart>
-                    </ResponsiveContainer>
+                    <div className="w-full h-full min-h-[300px] min-w-0">
+                        <ResponsiveContainer width="100%" height={300} minWidth={0}>
+                            <BarChart data={monthlyRevenue} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₱${Number(value).toLocaleString()}`} />
+                                <Tooltip
+                                    cursor={{ fill: "#fdf2f8" }}
+                                    contentStyle={{ borderRadius: "12px", border: "1px solid #fce7f3", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                                    formatter={(value: any) => [`₱${Number(value).toLocaleString()}`, 'Revenue (Completed)']}
+                                />
+                                <Bar dataKey="revenue" fill="#ec4899" radius={[6, 6, 0, 0]} barSize={28} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 )}
             </div>
         </div>
@@ -97,6 +106,11 @@ export function BookingsTrendChart({ selectedMonth: globalSelectedMonth }: { sel
     ]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         const now = new Date();
@@ -152,7 +166,7 @@ export function BookingsTrendChart({ selectedMonth: globalSelectedMonth }: { sel
     }, [currentMonthIdx]);
 
     return (
-        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full lg:col-span-2 min-h-[400px]">
+        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full lg:col-span-2 min-h-[400px] min-w-0">
             <div className="flex justify-between items-start mb-6">
                 <div>
                     <h3 className="text-xl font-bold text-gray-900 tracking-tight">Monthly Bookings - <span className="text-pink-500">{monthsList[currentMonthIdx]}</span></h3>
@@ -179,25 +193,29 @@ export function BookingsTrendChart({ selectedMonth: globalSelectedMonth }: { sel
                     )}
                 </div>
             </div>
-            <div className="flex-1 w-full min-h-[300px] flex items-center justify-center">
-                {loading ? (
-                    <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+            <div className="flex-1 w-full min-h-[300px] min-w-0 relative">
+                {!isMounted || loading ? (
+                    <div className="w-full h-full min-h-[300px] flex items-center justify-center">
+                        <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+                    </div>
                 ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={bookingsDataList} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorBookings" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="#ec4899" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                            <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #fce7f3", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }} formatter={(value: any) => [`${value} bookings`, "Completed"]} />
-                            <Area type="monotone" dataKey="bookings" stroke="#ec4899" strokeWidth={3} fillOpacity={1} fill="url(#colorBookings)" />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                    <div className="w-full h-full min-h-[300px] min-w-0">
+                        <ResponsiveContainer width="100%" height={300} minWidth={0}>
+                            <AreaChart data={bookingsDataList} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorBookings" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#ec4899" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                                <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #fce7f3", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }} formatter={(value: any) => [`${value} bookings`, "Completed"]} />
+                                <Area type="monotone" dataKey="bookings" stroke="#ec4899" strokeWidth={3} fillOpacity={1} fill="url(#colorBookings)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
                 )}
             </div>
         </div>
@@ -208,7 +226,12 @@ export function ServiceUsageAnalyticsChart({ selectedMonth: globalSelectedMonth 
     const [currentMonthIdx, setCurrentMonthIdx] = useState(new Date().getMonth());
     const [serviceData, setServiceData] = useState<{ name: string, count?: number, value: number, color: string }[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isMounted, setIsMounted] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         const now = new Date();
@@ -263,7 +286,7 @@ export function ServiceUsageAnalyticsChart({ selectedMonth: globalSelectedMonth 
     }, [currentMonthIdx]);
 
     return (
-        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full min-h-[400px]">
+        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full min-h-[400px] min-w-0">
             <div className="flex justify-between items-start mb-6">
                 <div>
                     <h3 className="text-xl font-bold text-gray-900 tracking-tight">Top Services - <span className="text-pink-500">{monthsList[currentMonthIdx]}</span></h3>
@@ -287,13 +310,15 @@ export function ServiceUsageAnalyticsChart({ selectedMonth: globalSelectedMonth 
                     )}
                 </div>
             </div>
-            <div className="flex-1 w-full flex items-center justify-center flex-col relative pb-4">
-                {loading ? (
-                    <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+            <div className="flex-1 w-full min-w-0 flex items-center justify-center flex-col relative pb-4">
+                {!isMounted || loading ? (
+                    <div className="w-full h-[220px] min-h-[220px] flex items-center justify-center">
+                        <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+                    </div>
                 ) : (
                     <>
-                        <div className="w-full h-[220px]">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="w-full h-[220px] min-h-[220px] min-w-0 relative">
+                            <ResponsiveContainer width="100%" height={220} minWidth={0}>
                                 <PieChart>
                                     <Pie data={serviceData} cx="50%" cy="50%" innerRadius={70} outerRadius={90} paddingAngle={5} dataKey="value" stroke="none">
                                         {serviceData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
@@ -326,7 +351,12 @@ export function TopStaffChart({ selectedMonth: globalSelectedMonth }: { selected
     const [currentMonthIdx, setCurrentMonthIdx] = useState(new Date().getMonth());
     const [staffDataList, setStaffDataList] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isMounted, setIsMounted] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         const now = new Date();
@@ -377,7 +407,7 @@ export function TopStaffChart({ selectedMonth: globalSelectedMonth }: { selected
     }, [currentMonthIdx]);
 
     return (
-        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full min-h-[400px]">
+        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full min-h-[400px] min-w-0">
             <div className="flex justify-between items-start mb-2">
                 <div>
                     <h3 className="text-xl font-bold text-gray-900 tracking-tight">Top Staff - <span className="text-pink-500">{monthsList[currentMonthIdx]}</span></h3>
@@ -396,20 +426,24 @@ export function TopStaffChart({ selectedMonth: globalSelectedMonth }: { selected
                     )}
                 </div>
             </div>
-            <div className="flex-1 w-full min-h-[300px] flex items-center justify-center">
-                {loading ? (
-                    <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+            <div className="flex-1 w-full min-h-[300px] min-w-0 relative">
+                {!isMounted || loading ? (
+                    <div className="w-full h-full min-h-[300px] flex items-center justify-center">
+                        <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+                    </div>
                 ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={staffDataList} layout="vertical" margin={{ top: 0, right: 30, left: -40, bottom: 0 }}>
-                            <XAxis type="number" hide />
-                            <YAxis dataKey="name" type="category" stroke="#111827" fontSize={13} fontWeight={600} tickLine={false} axisLine={false} width={120} />
-                            <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "12px", border: "1px solid #f1f5f9" }} formatter={(value: any) => [`₱${Number(value).toLocaleString()}`, 'Revenue']} />
-                            <Bar dataKey="revenue" fill="#ec4899" radius={[0, 6, 6, 0]} barSize={24}>
-                                <LabelList dataKey="revenue" position="right" fill="#111827" fontSize={13} fontWeight={700} formatter={(value: any) => `₱${Number(value).toLocaleString()}`} />
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
+                    <div className="w-full h-full min-h-[300px] min-w-0">
+                        <ResponsiveContainer width="100%" height={300} minWidth={0}>
+                            <BarChart data={staffDataList} layout="vertical" margin={{ top: 0, right: 30, left: -40, bottom: 0 }}>
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" stroke="#111827" fontSize={13} fontWeight={600} tickLine={false} axisLine={false} width={120} />
+                                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "12px", border: "1px solid #f1f5f9" }} formatter={(value: any) => [`₱${Number(value).toLocaleString()}`, 'Revenue']} />
+                                <Bar dataKey="revenue" fill="#ec4899" radius={[0, 6, 6, 0]} barSize={24}>
+                                    <LabelList dataKey="revenue" position="right" fill="#111827" fontSize={13} fontWeight={700} formatter={(value: any) => `₱${Number(value).toLocaleString()}`} />
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 )}
             </div>
         </div>
@@ -541,7 +575,12 @@ export function FeaturedNailsChart({ selectedMonth: globalSelectedMonth }: { sel
     const [currentMonthIdx, setCurrentMonthIdx] = useState(new Date().getMonth());
     const [topNailsData, setTopNailsData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isMounted, setIsMounted] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         const now = new Date();
@@ -650,7 +689,7 @@ export function FeaturedNailsChart({ selectedMonth: globalSelectedMonth }: { sel
     });
 
     return (
-        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full min-h-[400px]">
+        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full min-h-[400px] min-w-0">
             {/* Header */}
             <div className="flex justify-between items-start mb-4">
                 <div>
@@ -696,8 +735,8 @@ export function FeaturedNailsChart({ selectedMonth: globalSelectedMonth }: { sel
             </div>
 
             {/* Pie Chart & Percentage Breakdown */}
-            <div className="flex-1 w-full flex flex-col justify-between">
-                {loading ? (
+            <div className="flex-1 w-full min-w-0 flex flex-col justify-between">
+                {!isMounted || loading ? (
                     <div className="flex-1 flex items-center justify-center min-h-[220px]">
                         <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
                     </div>
@@ -708,8 +747,8 @@ export function FeaturedNailsChart({ selectedMonth: globalSelectedMonth }: { sel
                 ) : (
                     <>
                         {/* Donut Chart */}
-                        <div className="w-full h-[180px] relative">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="w-full h-[180px] min-h-[180px] min-w-0 relative">
+                            <ResponsiveContainer width="100%" height={180} minWidth={0}>
                                 <PieChart>
                                     <Pie
                                         data={pieChartData}

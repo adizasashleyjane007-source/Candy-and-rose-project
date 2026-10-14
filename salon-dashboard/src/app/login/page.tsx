@@ -54,42 +54,57 @@ function LoginContent() {
   useEffect(() => {
     const err = searchParams.get("error");
     const errDesc = searchParams.get("error_description");
-    
-    if (err) {
+    const verifyOtp = searchParams.get("verify_otp");
+    const queryEmail = searchParams.get("email");
+
+    if (verifyOtp === "true") {
+      setShowForm(true);
+      setShowOtpModal(true);
+      if (queryEmail) {
+        setEmail(decodeURIComponent(queryEmail));
+      } else {
+        checkAdminSession(false);
+      }
+    } else if (err) {
       if (err === "auth_callback_failed") {
         setError("Authentication failed. Please try again.");
       } else if (err === "verification_required") {
         setError("Security verification required to access dashboard.");
-        // Auto-show OTP modal for already logged-in admins who haven't verified OTP
-        checkAdminSession();
+        checkAdminSession(true);
       } else {
         setError(decodeURIComponent(errDesc || err));
       }
     }
-    
+
     if (searchParams.get("showForm") === "true") {
       setShowForm(true);
     }
   }, [searchParams]);
 
-  const checkAdminSession = async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, email")
-        .eq("id", user.id)
-        .single();
-        
-      if (profile?.role === "Administrator") {
-        setEmail(profile.email || user.email || "");
-        setShowForm(true);
-        setShowOtpModal(true);
-        // Automatically send a fresh code if we're in this state
-        handleResendOTP(true);
+  const checkAdminSession = async (shouldResend = true) => {
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, email")
+          .eq("id", user.id)
+          .single();
+
+        if (profile?.role === "Administrator") {
+          const adminEmail = profile.email || user.email || "";
+          if (adminEmail) setEmail(adminEmail);
+          setShowForm(true);
+          setShowOtpModal(true);
+          if (shouldResend && adminEmail) {
+            handleResendOTP(true, adminEmail);
+          }
+        }
       }
+    } catch (checkErr) {
+      console.warn("Session check warning:", checkErr);
     }
   };
 
@@ -115,29 +130,32 @@ function LoginContent() {
     };
   }, [showOtpModal, otpSuccess]);
 
-  const handleResendOTP = async (isAuto = false) => {
+  const handleResendOTP = async (isAuto = false, overrideEmail?: string) => {
     setIsResending(true);
     setOtpValue(["", "", "", "", "", ""]);
     if (!isAuto) setOtpError("");
-    
+
     try {
-      // Find the user ID from the current session
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) throw new Error("User session not found");
+
+      const targetEmail = overrideEmail || email || user.email;
+      if (!targetEmail) throw new Error("Email address required for verification");
+      if (targetEmail !== email) setEmail(targetEmail);
 
       const response = await fetch("/api/send-login-notification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: email,
+          email: targetEmail,
           name: "Administrator",
           userId: user.id,
           loginTime: new Date().toISOString(),
         }),
       });
-      
+
       const contentType = response.headers.get("content-type");
       let result: any = {};
       if (contentType && contentType.includes("application/json")) {
@@ -152,7 +170,6 @@ function LoginContent() {
         setCountdown(60);
         if (isAuto) {
           setOtpError("Security code rotated. Please check your email.");
-          // Clear error after 3 seconds
           setTimeout(() => setOtpError(""), 3000);
         }
       } else {
@@ -272,11 +289,19 @@ function LoginContent() {
     setOtpError("");
 
     try {
+      let targetEmail = email;
+      if (!targetEmail) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        targetEmail = user?.email || "";
+        if (targetEmail) setEmail(targetEmail);
+      }
+
       const response = await fetch("/api/auth/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: email,
+          email: targetEmail,
           otp: code
         }),
       });
@@ -648,6 +673,7 @@ function LoginContent() {
               <button
                 onClick={handleGoogleLogin}
                 disabled={loading}
+                type="button"
                 className="mt-4 w-full flex items-center justify-center gap-3 py-3 rounded-xl font-semibold text-sm text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">

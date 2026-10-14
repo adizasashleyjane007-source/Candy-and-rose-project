@@ -3,7 +3,6 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
-  console.log("DEBUG: OTP Verification Request Received");
   try {
     const { email, otp } = await request.json();
 
@@ -11,25 +10,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email and OTP are required" }, { status: 400 });
     }
 
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanOtp = String(otp).trim();
+
     const supabase = await createClient();
 
-    // Find the latest unused OTP for this email
+    // Find the latest unused, unexpired OTP for this email
     const { data: otpData, error: fetchError } = await supabase
       .from("admin_otps")
       .select("*")
-      .eq("email", email)
-      .eq("otp_code", otp)
+      .ilike("email", cleanEmail)
+      .eq("otp_code", cleanOtp)
       .eq("is_used", false)
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (fetchError || !otpData) {
-      console.error("OTP verification failed or expired:", fetchError);
-      return NextResponse.json({ 
-        error: "Invalid or expired security code" 
-      }, { status: 400 });
+      console.warn("⚠️ OTP verification rejected: code not found or expired");
+      return NextResponse.json(
+        { error: "Invalid or expired security code" },
+        { status: 400 }
+      );
+    }
+
+    // Verify OTP belongs to the authenticated admin
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && user.id !== otpData.user_id) {
+      console.warn("🛡️ Security Alert: OTP user_id does not match active session user_id");
+      return NextResponse.json(
+        { error: "Security code does not match active session" },
+        { status: 403 }
+      );
     }
 
     // Mark OTP as used
@@ -39,13 +52,13 @@ export async function POST(request: Request) {
       .eq("id", otpData.id);
 
     if (updateError) {
-      console.error("Error marking OTP as used:", updateError);
+      console.error("⚠️ Error marking OTP as used:", updateError.message);
     }
 
-    // Set a secure cookie to indicate OTP verification success
-    // This value must match the user ID for security
+    // Set secure HTTP-only cookie indicating successful OTP verification
+    const verifiedUserId = user?.id || otpData.user_id;
     const cookieStore = await cookies();
-    cookieStore.set("admin_otp_verified", otpData.user_id, {
+    cookieStore.set("admin_otp_verified", verifiedUserId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -53,12 +66,12 @@ export async function POST(request: Request) {
       path: "/",
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Security verification successful" 
+    return NextResponse.json({
+      success: true,
+      message: "Security verification successful",
     });
-  } catch (err) {
-    console.error("OTP Verification Server Error:", err);
+  } catch (err: any) {
+    console.error("❌ OTP Verification Server Error:", err?.message || err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

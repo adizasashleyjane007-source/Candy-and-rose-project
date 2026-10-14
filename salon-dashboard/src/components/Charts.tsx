@@ -34,6 +34,11 @@ export function WeeklyRevenueChart() {
     });
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
  
     useEffect(() => {
         const loadData = async () => {
@@ -84,7 +89,7 @@ export function WeeklyRevenueChart() {
     }, [selectedMonth, selectedWeek]);
  
     return (
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-pink-200 flex flex-col h-full relative min-h-[350px]">
+        <div className="bg-white rounded-3xl p-5 shadow-sm border border-pink-200 flex flex-col h-full relative min-h-[350px] min-w-0">
             <div className="flex justify-between items-center mb-4">
                 <div className="flex flex-col gap-1">
                     <h3 className="font-semibold text-gray-900">Weekly Revenue - <span className="text-pink-500">{months[selectedMonth]}</span></h3>
@@ -119,34 +124,38 @@ export function WeeklyRevenueChart() {
                     )}
                 </div>
             </div>
-            <div className="flex-1 w-full min-h-[250px] flex items-center justify-center">
-                {loading ? (
-                    <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+            <div className="flex-1 w-full min-h-[250px] min-w-0 relative">
+                {!isMounted || loading ? (
+                    <div className="w-full h-full min-h-[250px] flex items-center justify-center">
+                        <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+                    </div>
                 ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={revenueData} margin={{ bottom: 20 }}>
-                            <XAxis
-                                dataKey="name"
-                                stroke="#a1a1aa"
-                                fontSize={12}
-                                tickLine={false}
-                                axisLine={false}
-                                tick={(props: any) => {
-                                    const { x, y, payload } = props;
-                                    const item = revenueData.find(d => d.name === payload.value);
-                                    const revenue = item ? item.total : 0;
-                                    return (
-                                        <g transform={`translate(${x},${y})`}>
-                                            <text x={0} y={0} dy={16} textAnchor="middle" fill="#71717a" fontSize={12} fontWeight={600}>{payload.value}</text>
-                                            <text x={0} y={0} dy={32} textAnchor="middle" fill="#ec4899" fontSize={10} fontWeight={700}>₱{revenue.toLocaleString()}</text>
-                                        </g>
-                                    );
-                                }}
-                            />
-                            <Tooltip cursor={{ fill: "#fce7f3" }} contentStyle={{ borderRadius: "8px", border: "none" }} formatter={(value: any) => [`₱${Number(value).toLocaleString()}`, "Revenue"]} />
-                            <Bar dataKey="total" fill="#ec4899" radius={[4, 4, 0, 0]} barSize={32} />
-                        </BarChart>
-                    </ResponsiveContainer>
+                    <div className="w-full h-full min-h-[250px] min-w-0">
+                        <ResponsiveContainer width="100%" height={250} minWidth={0}>
+                            <BarChart data={revenueData} margin={{ bottom: 20 }}>
+                                <XAxis
+                                    dataKey="name"
+                                    stroke="#a1a1aa"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tick={(props: any) => {
+                                        const { x, y, payload } = props;
+                                        const item = revenueData.find(d => d.name === payload.value);
+                                        const revenue = item ? item.total : 0;
+                                        return (
+                                            <g transform={`translate(${x},${y})`}>
+                                                <text x={0} y={0} dy={16} textAnchor="middle" fill="#71717a" fontSize={12} fontWeight={600}>{payload.value}</text>
+                                                <text x={0} y={0} dy={32} textAnchor="middle" fill="#ec4899" fontSize={10} fontWeight={700}>₱{revenue.toLocaleString()}</text>
+                                            </g>
+                                        );
+                                    }}
+                                />
+                                <Tooltip cursor={{ fill: "#fce7f3" }} contentStyle={{ borderRadius: "8px", border: "none" }} formatter={(value: any) => [`₱${Number(value).toLocaleString()}`, "Revenue"]} />
+                                <Bar dataKey="total" fill="#ec4899" radius={[4, 4, 0, 0]} barSize={32} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 )}
             </div>
         </div>
@@ -156,6 +165,11 @@ export function WeeklyRevenueChart() {
 export function ServiceDistributionChart() {
     const [serviceData, setServiceData] = useState<{ name: string, value: number, color: string }[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         const loadData = async () => {
@@ -205,17 +219,19 @@ export function ServiceDistributionChart() {
     }, []);
 
     return (
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-pink-200 flex flex-col h-full min-h-[350px]">
+        <div className="bg-white rounded-3xl p-5 shadow-sm border border-pink-200 flex flex-col h-full min-h-[350px] min-w-0">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-gray-900">Service Distribution</h3>
             </div>
-            <div className="flex-1 w-full flex items-center justify-center flex-col relative pb-2 pt-2">
-                {loading ? (
-                    <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+            <div className="flex-1 w-full min-w-0 flex items-center justify-center flex-col relative pb-2 pt-2">
+                {!isMounted || loading ? (
+                    <div className="w-full h-[220px] min-h-[220px] flex items-center justify-center">
+                        <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+                    </div>
                 ) : (
                     <>
-                        <div className="w-full h-[220px]">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="w-full h-[220px] min-h-[220px] min-w-0 relative">
+                            <ResponsiveContainer width="100%" height={220} minWidth={0}>
                                 <PieChart margin={{ top: 10, bottom: 10 }}>
                                     <Pie data={serviceData} cx="50%" cy="50%" innerRadius={70} outerRadius={95} paddingAngle={5} dataKey="value" stroke="none">
                                         {serviceData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}

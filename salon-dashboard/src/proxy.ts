@@ -5,9 +5,7 @@
   export async function proxy(request: NextRequest) {
     // 1. Initial response and Login exception (to prevent loops)
     let response = NextResponse.next({
-      request: {
-        headers: request.headers,
-      },
+      request,
     });
 
     const { pathname } = request.nextUrl;
@@ -43,7 +41,27 @@
     );
 
     // 3. SECURE AUTH CHECK: Using getUser() as requested
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    // Helper to preserve cookies across redirects
+    const createRedirect = (url: URL | string) => {
+      const redirectResponse = NextResponse.redirect(url);
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie);
+      });
+      return redirectResponse;
+    };
+
+    const cookieNames = request.cookies.getAll().map((c) => c.name);
+
+    // Safe diagnostic log of incoming state
+    console.log("🛡️ [Proxy] Intercepted request:", {
+      pathname,
+      cookieNames,
+      hasUser: !!user,
+      userId: user?.id ?? null,
+      authError: authError ? authError.message : null,
+    });
 
     // 4. REDIRECT LOGIC
     
@@ -51,14 +69,15 @@
     if (!user) {
       // Explicitly protect root "/" and any other non-public pages
       if (pathname === "/" || !pathname.includes(".")) {
+        console.log("🛡️ [Proxy] Decision: Redirecting unauthenticated request to /login from:", pathname);
         const url = request.nextUrl.clone();
         url.pathname = "/login";
-        return NextResponse.redirect(url);
+        return createRedirect(url);
       }
     } else {
       // If logged in: Handle role-based access if necessary
       // (Existing logic for profiles and Administrator role preserved)
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
@@ -66,26 +85,41 @@
 
       const isAdministrator = profile?.role === "Administrator";
 
+      if (profileError) {
+        console.warn("🛡️ [Proxy] Profile fetch warning:", profileError.message);
+      }
+
       if (!isAdministrator && pathname !== "/" && pathname !== "/unauthorized") {
+        console.log("🛡️ [Proxy] Decision: Non-admin redirected to /unauthorized from:", pathname, { role: profile?.role });
         const url = request.nextUrl.clone();
         url.pathname = "/unauthorized";
-        return NextResponse.redirect(url);
+        return createRedirect(url);
       }
 
       // OTP verification check for admins
       if (isAdministrator) {
         const otpVerifiedCookie = request.cookies.get("admin_otp_verified")?.value;
-        if (!otpVerifiedCookie || otpVerifiedCookie !== user.id) {
+        const isOtpVerified = !!otpVerifiedCookie && otpVerifiedCookie === user.id;
+
+        console.log("🛡️ [Proxy] Admin 2FA check:", {
+          hasOtpCookie: !!otpVerifiedCookie,
+          isOtpVerified,
+          pathname,
+        });
+
+        if (!isOtpVerified) {
           if (pathname !== "/login") {
+            console.log("🛡️ [Proxy] Decision: Admin OTP required. Redirecting to /login?error=verification_required from:", pathname);
             const url = request.nextUrl.clone();
             url.pathname = "/login";
             url.searchParams.set("error", "verification_required");
-            return NextResponse.redirect(url);
+            return createRedirect(url);
           }
         }
       }
     }
 
+    console.log("🛡️ [Proxy] Decision: Access granted for:", pathname);
     return response;
   }
 

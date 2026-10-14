@@ -42,27 +42,29 @@ export default function AnalyticsPage() {
 
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
                     <RevenueAnalyticsChart selectedMonth={selectedMonth} />
-                    <div className="xl:col-span-1 min-h-full">
+                    <div className="xl:col-span-1 min-h-full min-w-0">
                         <ServiceUsageAnalyticsChart selectedMonth={selectedMonth} />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-                    <TopCustomersList selectedMonth={selectedMonth} />
-                    <div className="xl:col-span-2 min-h-full">
+                    <div className="xl:col-span-1 min-h-full min-w-0">
+                        <TopCustomersList selectedMonth={selectedMonth} />
+                    </div>
+                    <div className="xl:col-span-2 min-h-full min-w-0">
                         <TopStaffChart selectedMonth={selectedMonth} />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-                    <div className="xl:col-span-2 min-h-full">
+                    <div className="xl:col-span-2 min-h-full min-w-0">
                         <BookingsTrendChart selectedMonth={selectedMonth} />
                     </div>
                     {/* ── Featured Nail - Pie Chart ────────────────────────── */}
-    <div className="xl:col-span-1 min-h-full">
-        <FeaturedNailsChart selectedMonth={selectedMonth} />
-    </div>
-                </div >
+                    <div className="xl:col-span-1 min-h-full min-w-0">
+                        <FeaturedNailsChart selectedMonth={selectedMonth} />
+                    </div>
+                </div>
             </div >
         </div >
     );

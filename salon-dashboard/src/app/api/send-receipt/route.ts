@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
-import nodemailer from "nodemailer";
 import { createClient } from "@/lib/supabase/server";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { generateReceiptPDFBuffer } from "@/lib/receipt-pdf";
+import { Resend } from "resend";
 
 export async function POST(request: Request) {
   try {
@@ -206,72 +204,58 @@ export async function POST(request: Request) {
     `;
 
     console.log(`[RECEIPT] Preparing email for target TO: ${customerEmail}`);
-    console.log(`[RECEIPT] Sending email...`);
+    console.log(`[RECEIPT] Generating PDF receipt attachment...`);
 
-    // PROVIDER SELECTION:
-    // Option A: Gmail SMTP via Nodemailer (if SMTP_USER and SMTP_PASSWORD exist in .env.local)
-    const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER || process.env.EMAIL_USER;
-    const smtpPass = process.env.SMTP_PASSWORD || process.env.GMAIL_APP_PASSWORD || process.env.EMAIL_PASSWORD;
+    // Generate authoritative PDF receipt matching dashboard layout
+    const pdfBuffer = generateReceiptPDFBuffer({
+      salonInfo: {
+        name: "Candy And Rose Salon",
+        address: "Blk and Lot, Dasmarinas Cavite",
+        phone: "032-123-4567",
+        email: "candyandroses@gmail.com",
+      },
+      customerName,
+      staffName,
+      dateStr: formattedDate,
+      timeStr: appointmentTime,
+      serviceName,
+      price: totalPaid,
+      paymentMethod,
+      cashReceived,
+      change: changeAmount,
+    });
 
-    if (smtpUser && smtpPass) {
-      console.log(`[RECEIPT] Using Gmail SMTP provider (${smtpUser})`);
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
-      });
-
-      const info = await transporter.sendMail({
-        from: `"Candy & Rose" <${smtpUser}>`,
-        to: customerEmail,
-        subject: "Candy & Rose - Payment Receipt",
-        html: htmlEmail,
-      });
-
-      console.log(`[RECEIPT] Gmail SMTP provider response: accepted by SMTP server (MessageId: ${info.messageId})`);
-
-      if (billingRecord?.id) {
-        try {
-          await supabase.from("billing").update({
-            notes: `${billingRecord.notes || 'Payment'} | Receipt sent to ${customerEmail} via SMTP at ${new Date().toISOString()}`,
-          }).eq("id", billingRecord.id);
-        } catch (tErr) {}
-      }
-
-      console.log(`[RECEIPT] Receipt send completed successfully.`);
-      return NextResponse.json({
-        success: true,
-        message: "Receipt sent successfully.",
-        messageId: info.messageId,
-        email: customerEmail,
-      });
-    }
-
-    // Option B: Resend API Provider
+    // Verify Resend configuration
     if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_your_api_key_here") {
-      console.error("❌ ERROR: No email provider credentials configured (RESEND_API_KEY or SMTP_USER missing).");
+      console.error("❌ ERROR: RESEND_API_KEY is not configured.");
       return NextResponse.json(
         {
           success: false,
-          message: "Unable to send receipt.",
-          error: "Email service is not configured on the server.",
+          code: "RESEND_KEY_MISSING",
+          message: "Email service is not configured on the server. Please set RESEND_API_KEY.",
         },
         { status: 500 }
       );
     }
 
-    console.log(`[RECEIPT] Using Resend API provider`);
+    console.log(`[RECEIPT] Sending email copy via Resend to ${customerEmail}...`);
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
     const { data: resendData, error: sendError } = await resend.emails.send({
       from: "Candy & Rose <onboarding@resend.dev>",
       to: [customerEmail],
       subject: "Candy & Rose - Payment Receipt",
       html: htmlEmail,
+      attachments: [
+        {
+          filename: "Candy_and_Rose_Receipt.pdf",
+          content: pdfBuffer,
+        },
+      ],
     });
 
     if (sendError) {
-      console.error(`❌ Resend API Error sending receipt to ${customerEmail}:`, sendError.message);
+      console.error(`❌ Resend API Error sending receipt to ${customerEmail}:`, sendError);
       return NextResponse.json(
         {
           success: false,
@@ -282,30 +266,36 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(`[RECEIPT] Resend provider response: ${resendData?.id}`);
+    console.log(`[RECEIPT] Resend accepted message (ID: ${resendData?.id})`);
 
+    // Log receipt dispatch in billing record without modifying appointment statuses
     if (billingRecord?.id) {
       try {
-        await supabase.from("billing").update({
-          notes: `${billingRecord.notes || 'Payment'} | Receipt sent to ${customerEmail} at ${new Date().toISOString()}`,
-        }).eq("id", billingRecord.id);
-      } catch (tErr) {}
+        await supabase
+          .from("billing")
+          .update({
+            notes: `${billingRecord.notes || "Payment"} | Receipt sent to ${customerEmail} via Resend at ${new Date().toISOString()}`,
+          })
+          .eq("id", billingRecord.id);
+      } catch (tErr) {
+        console.warn("Could not update billing record note:", tErr);
+      }
     }
 
-    console.log(`[RECEIPT] Receipt send completed successfully.`);
     return NextResponse.json({
       success: true,
       message: "Receipt sent successfully.",
       messageId: resendData?.id,
       email: customerEmail,
     });
-  } catch (err: any) {
-    console.error("❌ Server error in /api/send-receipt:", err);
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Internal server error";
+    console.error("❌ Server error in /api/send-receipt:", errorMsg);
     return NextResponse.json(
       {
         success: false,
-        message: "Unable to send receipt.",
-        error: err?.message || "Internal server error",
+        message: errorMsg,
+        error: errorMsg,
       },
       { status: 500 }
     );

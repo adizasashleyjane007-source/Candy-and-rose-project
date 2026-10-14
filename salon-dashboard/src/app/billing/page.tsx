@@ -26,8 +26,20 @@ import Pagination from "@/components/Pagination";
 import { addNotification } from "@/lib/notifications";
 import { Appointments, Billing, SettingsDB, fulfillPaymentSuccess, type Appointment, type BillingRecord } from "@/lib/db";
 import { createClient } from "@/lib/supabase/client";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
+
+interface PrintingReceiptData {
+    invoiceNumber: string;
+    customerName: string;
+    staffName: string;
+    formattedDateTime: string;
+    serviceName: string;
+    totalAmount: number;
+    subtotal: number;
+    paymentMethod: string;
+    isCash: boolean;
+    cashReceived: number;
+    changeDue: number;
+}
 
 export default function BillingPage() {
     const [filterOpen, setFilterOpen] = useState(false);
@@ -47,12 +59,14 @@ export default function BillingPage() {
     const [checkoutUrl, setCheckoutUrl] = useState("");
     const [generatingQR, setGeneratingQR] = useState(false);
     const [isPrinting, setIsPrinting] = useState(false);
+    const [printingReceipt, setPrintingReceipt] = useState<PrintingReceiptData | null>(null);
 
     // Payment Success & Receipt Workflow Modal States
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [receiptModalStep, setReceiptModalStep] = useState<
         'PAYMENT_SUCCESS' | 'SENDING' | 'RECEIPT_SUCCESS' | 'RECEIPT_ERROR' | 'MISSING_EMAIL'
     >('PAYMENT_SUCCESS');
+    const [receiptErrorMessage, setReceiptErrorMessage] = useState<string | null>(null);
     const [paymentSuccessData, setPaymentSuccessData] = useState<{
         customerName: string;
         customerEmail: string | null;
@@ -101,6 +115,17 @@ export default function BillingPage() {
 
     useEffect(() => {
         loadData();
+
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get("gmail_auth") === "success") {
+                addNotification("Gmail Connected", "Gmail account authorized successfully for sending receipts.", "billing");
+                window.history.replaceState({}, "", window.location.pathname);
+            } else if (params.get("gmail_error")) {
+                addNotification("Gmail Error", decodeURIComponent(params.get("gmail_error") || "Failed to authorize Gmail."), "billing");
+                window.history.replaceState({}, "", window.location.pathname);
+            }
+        }
     }, []);
 
     useEffect(() => {
@@ -135,9 +160,203 @@ export default function BillingPage() {
         fetchCheckoutUrl();
     }, [paymentMethod, selectedApt]);
 
-    const handlePrint = (customCash?: number) => {
-        const { url } = generateReceiptPDFBlob(customCash);
-        if (url) window.open(url, "_blank");
+    const printReceiptDirectly = (receipt: PrintingReceiptData) => {
+        let iframe = document.getElementById("receipt-direct-print-frame") as HTMLIFrameElement;
+        if (!iframe) {
+            iframe = document.createElement("iframe");
+            iframe.id = "receipt-direct-print-frame";
+            iframe.style.position = "fixed";
+            iframe.style.right = "0";
+            iframe.style.bottom = "0";
+            iframe.style.width = "0";
+            iframe.style.height = "0";
+            iframe.style.border = "0";
+            iframe.style.visibility = "hidden";
+            document.body.appendChild(iframe);
+        }
+
+        const doc = iframe.contentWindow?.document;
+        if (!doc) return;
+
+        doc.open();
+        doc.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Receipt - #${receipt.invoiceNumber}</title>
+                <style>
+                    @page {
+                        size: 80mm auto;
+                        margin: 0;
+                    }
+                    * {
+                        box-sizing: border-box;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    html {
+                        background: #ffffff;
+                    }
+                    body {
+                        font-family: Arial, Helvetica, sans-serif;
+                        background: #ffffff;
+                        color: #000000;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                        padding: 6mm;
+                        width: 80mm;
+                        margin: 0 auto;
+                    }
+                    @media print {
+                        html, body {
+                            background: #ffffff !important;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                    }
+                </style>
+            </head>
+            <body>
+                <div style="text-align: center; padding-bottom: 12px;">
+                    <h2 style="font-weight: 800; font-size: 16px; text-transform: uppercase; margin-bottom: 4px; color: #000;">
+                        ${(salonInfo.name || "CANDY & ROSE").toUpperCase()}
+                    </h2>
+                    <p style="font-size: 10.5px; color: #6b7280; line-height: 1.3;">
+                        ${salonInfo.address}
+                    </p>
+                    <p style="font-size: 10.5px; color: #6b7280; margin-top: 2px;">
+                        ${salonInfo.phone}
+                    </p>
+                </div>
+
+                <div style="border-bottom: 1px solid #e5e7eb; margin-bottom: 12px;"></div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #000;">
+                        SALES INVOICE
+                    </span>
+                    <span style="font-family: monospace; font-size: 12px; font-weight: 600; color: #9ca3af;">
+                        #${receipt.invoiceNumber}
+                    </span>
+                </div>
+
+                <div style="font-size: 11px; margin-bottom: 12px; line-height: 1.6;">
+                    <div style="display: flex; align-items: flex-start;">
+                        <span style="width: 85px; color: #6b7280; flex-shrink: 0;">CUSTOMER:</span>
+                        <span style="font-weight: 700; color: #000; text-transform: uppercase;">${receipt.customerName}</span>
+                    </div>
+                    <div style="display: flex; align-items: flex-start;">
+                        <span style="width: 85px; color: #6b7280; flex-shrink: 0;">STAFF:</span>
+                        <span style="font-weight: 600; color: #000; text-transform: uppercase;">${receipt.staffName}</span>
+                    </div>
+                    <div style="display: flex; align-items: flex-start;">
+                        <span style="width: 85px; color: #6b7280; flex-shrink: 0;">DATE:</span>
+                        <span style="font-weight: 600; color: #000;">${receipt.formattedDateTime}</span>
+                    </div>
+                </div>
+
+                <div style="background-color: #fff1f2; padding: 6px 10px; border-radius: 2px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 700; color: #F02D98; text-transform: uppercase; margin-bottom: 8px;">
+                    <span>DESCRIPTION</span>
+                    <span>PRICE</span>
+                </div>
+
+                <div style="font-size: 11px; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+                        <span style="color: #000; flex: 1;">${receipt.serviceName}</span>
+                        <span style="font-weight: 700; color: #000; font-family: monospace; flex-shrink: 0;">₱${receipt.totalAmount.toLocaleString()}</span>
+                    </div>
+                </div>
+
+                <div style="border-bottom: 1px solid #e5e7eb; margin-bottom: 12px;"></div>
+
+                <div style="font-size: 11px; margin-bottom: 12px; line-height: 1.5;">
+                    <div style="display: flex; justify-content: space-between; color: #4b5563;">
+                        <span>Sub-total:</span>
+                        <span style="font-family: monospace; font-weight: 500; color: #000;">₱${receipt.subtotal.toLocaleString()}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; color: #4b5563;">
+                        <span>Tax (0%):</span>
+                        <span style="font-family: monospace; font-weight: 500; color: #000;">₱0.00</span>
+                    </div>
+                </div>
+
+                <div style="background-color: #F02D98; color: #ffffff; padding: 8px 10px; border-radius: 2px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px;">
+                    <span>TOTAL AMOUNT:</span>
+                    <span style="font-family: monospace; font-size: 14px; font-weight: 900;">₱${receipt.totalAmount.toLocaleString()}</span>
+                </div>
+
+                <div style="font-size: 11px; margin-bottom: 16px; line-height: 1.5;">
+                    ${receipt.isCash ? `
+                        <div style="display: flex; justify-content: space-between; color: #4b5563;">
+                            <span>Cash Paid:</span>
+                            <span style="font-family: monospace; font-weight: 700; color: #000;">₱${receipt.cashReceived.toLocaleString()}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-weight: 700; color: #F02D98;">
+                            <span>CHANGE:</span>
+                            <span style="font-family: monospace;">₱${receipt.changeDue.toLocaleString()}</span>
+                        </div>
+                    ` : `
+                        <div style="display: flex; justify-content: space-between; color: #4b5563;">
+                            <span>Payment Method:</span>
+                            <span style="font-weight: 700; text-transform: uppercase; color: #000;">${receipt.paymentMethod}</span>
+                        </div>
+                    `}
+                </div>
+
+                <div style="text-align: center; padding-top: 8px; font-size: 11px; color: #6b7280; line-height: 1.4;">
+                    <p style="font-style: italic;">Thank you for your visit!</p>
+                    <p style="font-size: 10px; color: #9ca3af; margin-top: 2px;">Please visit us again soon.</p>
+                </div>
+
+                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px dashed #d1d5db; text-align: center; color: #9ca3af; font-size: 10px; font-family: monospace;">
+                    - - - - - - TEAR HERE - - - - - -
+                </div>
+            </body>
+            </html>
+        `);
+        doc.close();
+
+        setTimeout(() => {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+        }, 150);
+    };
+
+    const handlePrint = (customCash?: number, customApt?: Appointment | null) => {
+        const apt = customApt || selectedApt;
+        if (!apt) return;
+        const totalAmount = apt.price || 0;
+        const paymentMethodName = paymentMethod || "Cash";
+        const isCash = paymentMethodName.toLowerCase() === "cash";
+        const cashRec = customCash !== undefined ? Math.max(customCash, totalAmount) : (Number(paymentAmount) || totalAmount);
+        const changeDue = Math.max(0, cashRec - totalAmount);
+
+        const invoiceNum = apt.id
+            ? apt.id.replace(/-/g, "").slice(0, 9).toUpperCase()
+            : "CR-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+        const customerName = apt.customers?.name || apt.customer_name || "Valued Customer";
+        const staffName = apt.staff?.name || apt.staff_name || cashierName || "Staff";
+        const apptDate = apt.appointment_date || new Date().toLocaleDateString();
+        const apptTime = apt.appointment_time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const serviceName = apt.services?.name || apt.service_name || "Salon Service";
+
+        const receiptData: PrintingReceiptData = {
+            invoiceNumber: invoiceNum,
+            customerName: customerName,
+            staffName: staffName,
+            formattedDateTime: `${apptDate} ${apptTime}`,
+            serviceName: serviceName,
+            totalAmount: totalAmount,
+            subtotal: totalAmount,
+            paymentMethod: paymentMethodName,
+            isCash: isCash,
+            cashReceived: cashRec,
+            changeDue: changeDue
+        };
+
+        setPrintingReceipt(receiptData);
+        printReceiptDirectly(receiptData);
     };
 
     useEffect(() => {
@@ -184,28 +403,53 @@ export default function BillingPage() {
     };
 
     const handleViewReceipt = async (apt: Appointment) => {
-        setLoading(true);
+        let matchedBill: BillingRecord | null = null;
         try {
-            // Find the billing record
-            const allBilling = await Billing.list();
-            const record = allBilling.find(b => b.appointment_id === apt.id);
-            if (record) {
-                const cashReceived = record.cash_received || record.amount;
-                setSelectedApt(apt); // Temporarily set to generate PDF
-                const { url } = generateReceiptPDFBlob(cashReceived, apt);
-                if (url) window.open(url, '_blank');
-                setSelectedApt(null);
-            } else {
-                addNotification("Error", "No billing record found for this appointment.", "billing");
-            }
-        } catch (error) {
-            console.error("Failed to load receipt details:", error);
-        } finally {
-            setLoading(false);
+            const billings = await Billing.list();
+            matchedBill = billings.find(b => b.appointment_id === apt.id || b.id === apt.id) || null;
+        } catch (err) {
+            console.warn("Could not load billing record:", err);
         }
+
+        const totalAmount = apt.price || matchedBill?.amount || 0;
+        const paymentMethodName = matchedBill?.payment_method || "Cash";
+        const isCash = paymentMethodName.toLowerCase() === "cash";
+        const cashRec = matchedBill?.cash_received !== undefined ? matchedBill.cash_received : totalAmount;
+        const changeDue = Math.max(0, cashRec - totalAmount);
+
+        const invoiceNum = matchedBill?.id
+            ? matchedBill.id.replace(/-/g, "").slice(0, 9).toUpperCase()
+            : apt.id
+                ? apt.id.replace(/-/g, "").slice(0, 9).toUpperCase()
+                : "CR-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+        const customerName = apt.customers?.name || apt.customer_name || "Valued Customer";
+        const staffName = apt.staff?.name || apt.staff_name || cashierName || "Staff";
+        const apptDate = apt.appointment_date || new Date().toLocaleDateString();
+        const apptTime = apt.appointment_time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const serviceName = apt.services?.name || apt.service_name || "Salon Service";
+
+        const receiptData: PrintingReceiptData = {
+            invoiceNumber: invoiceNum,
+            customerName: customerName,
+            staffName: staffName,
+            formattedDateTime: `${apptDate} ${apptTime}`,
+            serviceName: serviceName,
+            totalAmount: totalAmount,
+            subtotal: totalAmount,
+            paymentMethod: paymentMethodName,
+            isCash: isCash,
+            cashReceived: cashRec,
+            changeDue: changeDue
+        };
+
+        setPrintingReceipt(receiptData);
+        printReceiptDirectly(receiptData);
     };
 
     const handleSendReceiptEmail = async (apt: Appointment) => {
+        if (isSendingEmail) return;
+
         const customerEmail = apt.customers?.email || null;
         if (!customerEmail) {
             addNotification("No Email Found", "Receipt cannot be sent because this customer does not have a registered email address.", "billing");
@@ -226,7 +470,7 @@ export default function BillingPage() {
             } else {
                 addNotification("Error", result.message || "Unable to send the receipt.", "billing");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to send receipt:", error);
             addNotification("Error", "Unable to send the receipt. Please try again.", "billing");
         } finally {
@@ -332,10 +576,12 @@ export default function BillingPage() {
             } else if (result.code === 'CUSTOMER_EMAIL_MISSING' || (result.message && result.message.includes("registered email address"))) {
                 setReceiptModalStep('MISSING_EMAIL');
             } else {
+                setReceiptErrorMessage(result.message || "Something went wrong while sending the receipt.");
                 setReceiptModalStep('RECEIPT_ERROR');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Error sending receipt:", error);
+            setReceiptErrorMessage("Something went wrong while sending the receipt. Please try again.");
             setReceiptModalStep('RECEIPT_ERROR');
         }
     };
@@ -346,199 +592,7 @@ export default function BillingPage() {
         setPaymentSuccessData(null);
     };
 
-    const generateReceiptPDFBlob = (customCash?: number, customApt?: Appointment | null) => {
-        const apt = customApt || selectedApt;
-        if (!apt) return { url: null, doc: null };
 
-        const doc = new jsPDF({
-            unit: "mm",
-            format: [80, 160] 
-        });
-
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 8;
-        let y = 15;
-
-        const pink = [236, 72, 153]; // Pink-500
-
-        // Header
-        doc.setTextColor(0);
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text(salonInfo.name.toUpperCase(), pageWidth / 2, y, { align: "center" });
-        y += 6;
-        
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100);
-        
-        // Wrap address to two lines
-        const addressLines = doc.splitTextToSize(salonInfo.address, pageWidth - (margin * 2.5));
-        doc.text(addressLines, pageWidth / 2, y, { align: "center" });
-        y += (addressLines.length * 3.5);
-        
-        doc.text(salonInfo.phone, pageWidth / 2, y, { align: "center" });
-        y += 7;
-
-        // Divider
-        doc.setDrawColor(240);
-        doc.line(margin, y, pageWidth - margin, y);
-        y += 8;
-
-        // Receipt Label
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0);
-        doc.text("SALES INVOICE", margin, y);
-        doc.setFontSize(7);
-        doc.setTextColor(150);
-        doc.text(`#${Math.random().toString(36).substr(2, 9).toUpperCase()}`, pageWidth - margin, y, { align: "right" });
-        y += 8;
-
-        // Customer Details
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(80);
-        doc.text("CUSTOMER:", margin, y);
-        doc.setTextColor(0);
-        doc.setFont("helvetica", "bold");
-        doc.text(apt.customers?.name || apt.customer_name || "Guest", margin + 18, y);
-        y += 5;
-        
-        doc.setTextColor(80);
-        doc.setFont("helvetica", "normal");
-        doc.text("STAFF:", margin, y);
-        doc.setTextColor(0);
-        const assignedStaff = apt.staff?.name || apt.staff_name || cashierName;
-        doc.text(assignedStaff, margin + 18, y);
-        y += 5;
-
-        doc.setTextColor(80);
-        doc.text("DATE:", margin, y);
-        doc.setTextColor(0);
-        doc.text(`${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, margin + 18, y);
-        y += 8;
-
-        // Service Table header
-        doc.setFillColor(255, 241, 242);
-        doc.rect(margin, y, pageWidth - (margin * 2), 7, 'F');
-        y += 5;
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(pink[0], pink[1], pink[2]);
-        doc.text("DESCRIPTION", margin + 2, y);
-        doc.text("PRICE", pageWidth - margin - 2, y, { align: "right" });
-        y += 7;
-
-        // Helper to draw Peso symbol accurately in PDF (Standard fonts don't support ₱)
-        const drawCurrency = (text: string, x: number, currY: number, options: any = {}) => {
-            const isRight = options.align === "right";
-            const fullText = `P ${text}`;
-            const pWidth = doc.getTextWidth("P ");
-            const totalWidth = doc.getTextWidth(fullText);
-            
-            const startX = isRight ? x - totalWidth : x;
-            
-            // Draw the P
-            const oldFont = doc.getFont();
-            const oldStyle = doc.getFont().fontStyle;
-            doc.text("P", startX, currY);
-            
-            // Draw the two lines through the P
-            const fontSize = doc.getFontSize();
-            const lineWidth = fontSize * 0.02;
-            doc.setLineWidth(lineWidth);
-            doc.setDrawColor(doc.getTextColor());
-            
-            const lineXStart = startX - 0.1;
-            const lineXEnd = startX + (pWidth * 0.45);
-            const yOffset1 = fontSize * 0.18;
-            const yOffset2 = fontSize * 0.25;
-            
-            doc.line(lineXStart, currY - yOffset1, lineXEnd, currY - yOffset1);
-            doc.line(lineXStart, currY - yOffset2, lineXEnd, currY - yOffset2);
-            
-            // Draw the rest of the amount
-            doc.text(text, startX + pWidth, currY);
-        };
-
-        // Service Item
-        doc.setTextColor(0);
-        doc.setFont("helvetica", "normal");
-        const aptPrice = apt.price || 0;
-        doc.text(apt.service_name || "Salon Service", margin + 2, y);
-        drawCurrency(aptPrice.toLocaleString(), pageWidth - margin - 2, y, { align: "right" });
-        y += 8;
-
-        // Calculation divider
-        doc.setDrawColor(240);
-        doc.line(margin, y, pageWidth - margin, y);
-        y += 8;
-
-        // Totals
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(80);
-        doc.text("Sub-total:", margin + 2, y);
-        doc.setTextColor(0);
-        drawCurrency(aptPrice.toLocaleString(), pageWidth - margin - 2, y, { align: "right" });
-        y += 5;
-
-        doc.setTextColor(80);
-        doc.text("Tax (0%):", margin + 2, y);
-        doc.setTextColor(0);
-        drawCurrency("0.00", pageWidth - margin - 2, y, { align: "right" });
-        y += 8;
-
-        // Final Total
-        doc.setFillColor(pink[0], pink[1], pink[2]);
-        doc.rect(margin, y, pageWidth - (margin * 2), 9, 'F');
-        y += 6;
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(255);
-        doc.text("TOTAL AMOUNT:", margin + 2, y);
-        drawCurrency(aptPrice.toLocaleString(), pageWidth - margin - 2, y, { align: "right" });
-        y += 12;
-
-        // Cash/Change Logic
-        const displayCash = customCash !== undefined ? customCash : (Number(paymentAmount) || aptPrice);
-        const displayChange = Math.max(0, displayCash - aptPrice);
-
-        doc.setTextColor(80);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.text("Cash Paid:", margin + 2, y);
-        doc.setTextColor(0);
-        drawCurrency(displayCash.toLocaleString(), pageWidth - margin - 2, y, { align: "right" });
-        y += 6;
-
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(pink[0], pink[1], pink[2]);
-        doc.text("CHANGE:", margin + 2, y);
-        drawCurrency(displayChange.toLocaleString(), pageWidth - margin - 2, y, { align: "right" });
-        y += 15;
-
-        // Thank you footer
-        doc.setTextColor(150);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "italic");
-        doc.text("Thank you for your visit!", pageWidth / 2, y, { align: "center" });
-        y += 4;
-        doc.setFontSize(7);
-        doc.text("Please visit us again soon.", pageWidth / 2, y, { align: "center" });
-        y += 6;
-        
-        // Website or Socials - REMOVED per user request
-        // doc.setFont("helvetica", "bold");
-        // doc.setTextColor(pink[0], pink[1], pink[2]);
-        // doc.text("www.candyandrosesalon.com", pageWidth / 2, y, { align: "center" });
-
-        return {
-            url: doc.output('bloburl').toString(),
-            doc: doc
-        };
-    };
 
     const formatPrice = (p: number | null | undefined) => p || 0;
     
@@ -550,8 +604,9 @@ export default function BillingPage() {
     const change = Math.max(0, (parseInt(paymentAmount) || 0) - totalWithTax);
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-pink-50 via-white to-pink-100 overflow-y-auto overflow-x-hidden w-full max-w-full print:hidden">
-            <Header />
+        <div className="flex-1 flex flex-col h-full bg-[#FFFFFF] overflow-y-auto overflow-x-hidden w-full max-w-full">
+            <div id="billing-screen-content" className="flex-1 flex flex-col w-full print:hidden">
+                <Header />
             <div className="px-4 sm:px-8 pb-8 flex-1 max-w-7xl mx-auto w-full mt-2">
                 <div className="mb-6">
                     <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Billing & Transactions</h2>
@@ -680,7 +735,7 @@ export default function BillingPage() {
                                                             <button onClick={() => handleOpenPayment(trx)} className="px-4 py-1.5 bg-emerald-500 text-white rounded-lg font-bold shadow-sm hover:bg-emerald-600 transition-all">Pay</button>
                                                         ) : (
                                                             <>
-                                                                <button onClick={() => handleViewReceipt(trx)} className="px-3 py-1.5 bg-pink-50 text-pink-600 rounded-lg border border-pink-200 shadow-sm hover:bg-pink-100 font-bold transition-all" title="View PDF">Receipt</button>
+                                                                <button onClick={() => handleViewReceipt(trx)} className="px-3 py-1.5 bg-[#F02D98]/10 text-[#F02D98] rounded-lg border border-[#F02D98]/25 shadow-xs hover:bg-[#F02D98]/20 font-bold transition-all" title="Print Receipt">Receipt</button>
                                                                 <button 
                                                                     onClick={() => handleSendReceiptEmail(trx)} 
                                                                     disabled={isSendingEmail === trx.id}
@@ -951,8 +1006,10 @@ export default function BillingPage() {
                                 </div>
 
                                 <h3 className="text-xl font-bold text-gray-900 tracking-tight mb-3">Unable to Send Receipt</h3>
-                                <p className="text-gray-600 text-xs sm:text-sm leading-relaxed mb-6 max-w-[270px] mx-auto">
-                                    Something went wrong while sending the receipt.<br />Please try again.
+                                <p className="text-gray-600 text-xs sm:text-sm leading-relaxed mb-4 max-w-[270px] mx-auto">
+                                    {receiptErrorMessage || (
+                                        <>Something went wrong while sending the receipt.<br />Please try again.</>
+                                    )}
                                 </p>
 
                                 <button
@@ -989,21 +1046,157 @@ export default function BillingPage() {
                     </div>
                 </div>
             )}
+            </div>
 
-            <style jsx global>{`
-                @media print {
-                    body * { visibility: hidden; }
-                    .print\:relative, .print\:relative * { visibility: visible; }
-                    .print\:relative {
-                        position: absolute;
-                        left: 50%;
-                        top: 20%;
-                        transform: translate(-50%, -20%);
-                        width: 400px !important;
+            {/* Dedicated In-Page Printable Receipt Sheet */}
+            {printingReceipt && (
+                <div id="receipt-print-wrapper" aria-hidden="true" className="bg-[#FFFBF2]">
+                    <div id="receipt-paper" style={{ maxWidth: "80mm", margin: "0 auto", background: "#ffffff", padding: "6mm", fontFamily: "Arial, Helvetica, sans-serif" }}>
+                        <div style={{ textAlign: "center", paddingBottom: "12px" }}>
+                            <h2 style={{ fontWeight: 800, fontSize: "16px", textTransform: "uppercase", marginBottom: "4px", color: "#000" }}>
+                                {(salonInfo.name || "CANDY & ROSE").toUpperCase()}
+                            </h2>
+                            <p style={{ fontSize: "10.5px", color: "#6b7280", lineHeight: 1.3 }}>
+                                {salonInfo.address}
+                            </p>
+                            <p style={{ fontSize: "10.5px", color: "#6b7280", marginTop: "2px" }}>
+                                {salonInfo.phone}
+                            </p>
+                        </div>
+
+                        <div style={{ borderBottom: "1px solid #e5e7eb", marginBottom: "12px" }} />
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                            <span style={{ fontWeight: 700, fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.05em", color: "#000" }}>
+                                SALES INVOICE
+                            </span>
+                            <span style={{ fontFamily: "monospace", fontSize: "12px", fontWeight: 600, color: "#9ca3af" }}>
+                                #{printingReceipt.invoiceNumber}
+                            </span>
+                        </div>
+
+                        <div style={{ fontSize: "11px", marginBottom: "12px", lineHeight: 1.6 }}>
+                            <div style={{ display: "flex", alignItems: "flex-start" }}>
+                                <span style={{ width: "85px", color: "#6b7280", flexShrink: 0 }}>CUSTOMER:</span>
+                                <span style={{ fontWeight: 700, color: "#000", textTransform: "uppercase" }}>{printingReceipt.customerName}</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "flex-start" }}>
+                                <span style={{ width: "85px", color: "#6b7280", flexShrink: 0 }}>STAFF:</span>
+                                <span style={{ fontWeight: 600, color: "#000", textTransform: "uppercase" }}>{printingReceipt.staffName}</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "flex-start" }}>
+                                <span style={{ width: "85px", color: "#6b7280", flexShrink: 0 }}>DATE:</span>
+                                <span style={{ fontWeight: 600, color: "#000" }}>{printingReceipt.formattedDateTime}</span>
+                            </div>
+                        </div>
+
+                        <div style={{ backgroundColor: "#fff1f2", padding: "6px 10px", borderRadius: "2px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", fontWeight: 700, color: "#F02D98", textTransform: "uppercase", marginBottom: "8px" }}>
+                            <span>DESCRIPTION</span>
+                            <span>PRICE</span>
+                        </div>
+
+                        <div style={{ fontSize: "11px", marginBottom: "12px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
+                                <span style={{ color: "#000", flex: 1 }}>{printingReceipt.serviceName}</span>
+                                <span style={{ fontWeight: 700, color: "#000", fontFamily: "monospace", flexShrink: 0 }}>₱{printingReceipt.totalAmount.toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        <div style={{ borderBottom: "1px solid #e5e7eb", marginBottom: "12px" }} />
+
+                        <div style={{ fontSize: "11px", marginBottom: "12px", lineHeight: 1.5 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", color: "#4b5563" }}>
+                                <span>Sub-total:</span>
+                                <span style={{ fontFamily: "monospace", fontWeight: 500, color: "#000" }}>₱{printingReceipt.subtotal.toLocaleString()}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", color: "#4b5563" }}>
+                                <span>Tax (0%):</span>
+                                <span style={{ fontFamily: "monospace", fontWeight: 500, color: "#000" }}>₱0.00</span>
+                            </div>
+                        </div>
+
+                        <div style={{ backgroundColor: "#F02D98", color: "#ffffff", padding: "8px 10px", borderRadius: "2px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", marginBottom: "12px" }}>
+                            <span>TOTAL AMOUNT:</span>
+                            <span style={{ fontFamily: "monospace", fontSize: "14px", fontWeight: 900 }}>₱{printingReceipt.totalAmount.toLocaleString()}</span>
+                        </div>
+
+                        <div style={{ fontSize: "11px", marginBottom: "16px", lineHeight: 1.5 }}>
+                            {printingReceipt.isCash ? (
+                                <>
+                                    <div style={{ display: "flex", justifyContent: "space-between", color: "#4b5563" }}>
+                                        <span>Cash Paid:</span>
+                                        <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#000" }}>₱{printingReceipt.cashReceived.toLocaleString()}</span>
+                                    </div>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, color: "#F02D98" }}>
+                                        <span>CHANGE:</span>
+                                        <span style={{ fontFamily: "monospace" }}>₱{printingReceipt.changeDue.toLocaleString()}</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div style={{ display: "flex", justifyContent: "space-between", color: "#4b5563" }}>
+                                    <span>Payment Method:</span>
+                                    <span style={{ fontWeight: 700, textTransform: "uppercase", color: "#000" }}>{printingReceipt.paymentMethod}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{ textAlign: "center", paddingTop: "8px", fontSize: "11px", color: "#6b7280", lineHeight: 1.4 }}>
+                            <p style={{ fontStyle: "italic" }}>Thank you for your visit!</p>
+                            <p style={{ fontSize: "10px", color: "#9ca3af", marginTop: "2px" }}>Please visit us again soon.</p>
+                        </div>
+
+                        <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px dashed #d1d5db", textAlign: "center", color: "#9ca3af", fontSize: "10px", fontFamily: "monospace" }}>
+                            - - - - - - TEAR HERE - - - - - -
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                    @media screen {
+                        #receipt-print-wrapper {
+                            display: none !important;
+                        }
                     }
-                    .print\:hidden { display: none !important; }
-                }
-            `}</style>
+                    @media print {
+                        @page {
+                            size: 80mm auto;
+                            margin: 0;
+                        }
+                        html, body {
+                            background: #ffffff !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            color: #000000 !important;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        aside,
+                        header,
+                        nav,
+                        .no-print,
+                        #billing-screen-content {
+                            display: none !important;
+                        }
+                        #receipt-print-wrapper {
+                            display: block !important;
+                            width: 100% !important;
+                            max-width: 80mm !important;
+                            margin: 0 auto !important;
+                            padding: 0 !important;
+                            background: #ffffff !important;
+                            box-shadow: none !important;
+                        }
+                        #receipt-paper {
+                            background: #ffffff !important;
+                            box-shadow: none !important;
+                            border: none !important;
+                            padding: 6mm !important;
+                        }
+                    }
+                `
+            }} />
         </div>
     );
 }

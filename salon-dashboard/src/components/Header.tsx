@@ -118,8 +118,13 @@ export default function Header() {
     const loadProfile = useCallback(async () => {
         try {
             const supabase = createClient();
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            const { data: { user }, error: userError } = await supabase.auth.getUser();
+            if (userError || !user) {
+                console.log("👤 [Header] No active session on client:", userError?.message || "null");
+                return;
+            }
+
+            console.log("👤 [Header] Active session recognized on client for user:", user.id);
 
             const { data: profile } = await supabase
                 .from('profiles')

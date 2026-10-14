@@ -39,20 +39,20 @@ function DashboardContent() {
 
         {/* Row 1: Weekly Revenue (Left) + Calendar (Right) */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-          <div className="xl:col-span-2 min-h-full">
+          <div className="xl:col-span-2 min-h-full min-w-0">
             <WeeklyRevenueChart />
           </div>
-          <div className="xl:col-span-1 min-h-full">
+          <div className="xl:col-span-1 min-h-full min-w-0">
             <DashboardCalendar />
           </div>
         </div>
 
         {/* Row 2: Today's Appointments (Left) + Service Distribution (Right) */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <div className="xl:col-span-2 min-h-full overflow-hidden">
+          <div className="xl:col-span-2 min-h-full overflow-hidden min-w-0">
             <AppointmentsTable />
           </div>
-          <div className="xl:col-span-1 min-h-full">
+          <div className="xl:col-span-1 min-h-full min-w-0">
             <ServiceDistributionChart />
           </div>
         </div>
