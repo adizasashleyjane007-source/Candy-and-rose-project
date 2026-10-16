@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { CheckCircle2, AlertCircle, X, ChevronLeft, ChevronRight, ArrowLeft, Banknote, Smartphone, Check, Upload, Image, AlertTriangle } from 'lucide-react';
 import { supabase, type Service, type Staff, parseDurationToMinutes } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
@@ -95,11 +96,7 @@ async function getCustomerDailyBookingCount(
     .or(`appointment_date.eq.${targetDate},date.eq.${targetDate}`);
 
   if (custId) {
-    if (nameToMatch) {
-      query = query.or(`customer_id.eq.${custId},customer_name.eq.${nameToMatch}`);
-    } else {
-      query = query.eq('customer_id', custId);
-    }
+    query = query.eq('customer_id', custId);
   } else if (nameToMatch) {
     query = query.eq('customer_name', nameToMatch);
   } else {
@@ -118,7 +115,17 @@ export function BookingModal({
   selectedDesign,
   onBookingSuccess
 }: BookingModalProps) {
+  const router = useRouter();
   const { user, profile, customer } = useAuth();
+
+  const navigateToAppointments = () => {
+    onClose();
+    if (typeof window !== 'undefined') {
+      window.location.href = '/history';
+    } else {
+      router.push('/history');
+    }
+  };
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [limitModalOpen, setLimitModalOpen] = useState(false);
 
@@ -137,17 +144,18 @@ export function BookingModal({
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerNotes, setCustomerNotes] = useState('');
 
-  const [step, setStep] = useState<'datetime' | 'details' | 'payment_select' | 'cash_confirm' | 'gcash_confirm' | 'success'>('datetime');
+  const [step, setStep] = useState<'datetime' | 'details' | 'payment_select' | 'cash_confirm' | 'gcash_qr' | 'gcash_proof' | 'gcash_success' | 'success'>('datetime');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'GCash' | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [bookingReceipt, setBookingReceipt] = useState<any>(null);
 
   // GCash Screenshot Verification States
-  const [gcashFilenameInput, setGcashFilenameInput] = useState('');
   const [gcashFile, setGcashFile] = useState<File | null>(null);
   const [gcashPreviewUrl, setGcashPreviewUrl] = useState<string | null>(null);
   const [filenameError, setFilenameError] = useState('');
+  const [verificationInput, setVerificationInput] = useState('');
+  const [verificationError, setVerificationError] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -155,7 +163,8 @@ export function BookingModal({
     setSelectedPaymentMethod(null);
     setErrorMsg('');
     setFilenameError('');
-    setGcashFilenameInput('');
+    setVerificationInput('');
+    setVerificationError('');
     setGcashFile(null);
     setGcashPreviewUrl(null);
     setLimitModalOpen(false);
@@ -286,67 +295,27 @@ export function BookingModal({
     return `${monthShort} ${d}, ${y}`;
   };
 
-  // Filename Format Validation Logic
-  const validateFilenameFormat = (inputVal: string): { isValid: boolean; errorMsg?: string } => {
-    if (!inputVal || !inputVal.trim()) {
-      return {
-        isValid: false,
-        errorMsg: 'Please use the required format: CustomerName_Datetoday'
-      };
-    }
+  // Automatic Payment Proof Screenshot Renaming Format:
+  // PaymentPaid_[CustomerName]_[DatePaid].[ext] (e.g. PaymentPaid_JuanDelaCruz_2026-10-15.png)
+  const getFormattedPaymentFilename = (file: File | null) => {
+    if (!file) return '';
+    const nameSource = (customerName || customer?.full_name || customer?.name || profile?.full_name || profile?.name || user?.email?.split('@')[0] || 'Customer').trim();
 
-    let rawName = inputVal.trim();
+    const parts = nameSource.split(/\s+/).filter(Boolean);
+    const pascalName = parts.length > 0
+      ? parts.map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join('').replace(/[^a-zA-Z0-9]/g, '')
+      : 'Customer';
 
-    // Strip extension if present (.jpg, .jpeg, .png)
-    const extMatch = rawName.match(/\.(jpg|jpeg|png)$/i);
-    if (extMatch) {
-      rawName = rawName.slice(0, extMatch.index);
-    }
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const datePaid = `${year}-${month}-${day}`;
 
-    if (!rawName.includes('_')) {
-      return {
-        isValid: false,
-        errorMsg: 'Please use the required format: CustomerName_Datetoday'
-      };
-    }
+    const origExt = file.name.split('.').pop()?.toLowerCase() || 'png';
+    const ext = ['png', 'jpg', 'jpeg'].includes(origExt) ? origExt : 'png';
 
-    const parts = rawName.split('_');
-    if (parts.length !== 2) {
-      return {
-        isValid: false,
-        errorMsg: 'Please use the required format: CustomerName_Datetoday'
-      };
-    }
-
-    const typedNamePart = parts[0].trim().toLowerCase();
-    const typedDatePart = parts[1].trim();
-
-    // Must match today's date YYYYMMDD
-    if (typedDatePart !== todayYYYYMMDD) {
-      return {
-        isValid: false,
-        errorMsg: `Please use the required format: CustomerName_Datetoday`
-      };
-    }
-
-    const firstNameClean = registeredName.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-    const fullClean = registeredName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-
-    const isNameMatch = (
-      typedNamePart === firstNameClean ||
-      typedNamePart === fullClean ||
-      typedNamePart === registeredName.replace(/\s+/g, '').toLowerCase() ||
-      typedNamePart === registeredName.replace(/\s+/g, '_').toLowerCase()
-    );
-
-    if (!isNameMatch) {
-      return {
-        isValid: false,
-        errorMsg: `Please use the required format: CustomerName_Datetoday`
-      };
-    }
-
-    return { isValid: true };
+    return `PaymentPaid_${pascalName || 'Customer'}_${datePaid}.${ext}`;
   };
 
   const handleGcashFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -357,7 +326,9 @@ export function BookingModal({
     const ext = file.name.split('.').pop()?.toLowerCase();
 
     if (!validTypes.includes(file.type) && !['jpg', 'jpeg', 'png'].includes(ext || '')) {
-      setFilenameError('Invalid file format. Only .jpg, .jpeg, and .png files are accepted.');
+      setFilenameError('Unsupported file type. Please upload a PNG, JPG, or JPEG image.');
+      setGcashFile(null);
+      setGcashPreviewUrl(null);
       return;
     }
 
@@ -440,35 +411,103 @@ export function BookingModal({
     setStep('payment_select');
   };
 
-  // Submit GCash Verification with Filename Validation
-  const handleGCashConfirmSubmit = () => {
+  // Validation for Payment Verification format: Paid_[Customer Name]
+  const validatePaymentVerification = (inputVal: string): { isValid: boolean; error?: string } => {
+    const trimmed = inputVal.trim();
+    if (!trimmed || !trimmed.startsWith('Paid_')) {
+      return { isValid: false, error: 'Please enter the correct payment verification format.' };
+    }
+
+    const enteredName = trimmed.slice(5).trim();
+    if (!enteredName) {
+      return { isValid: false, error: 'Please enter the correct payment verification format.' };
+    }
+
+    const accountNames: string[] = [
+      customerName,
+      customer?.full_name,
+      customer?.name,
+      profile?.full_name,
+      profile?.name,
+      registeredName,
+      user?.email?.split('@')[0],
+    ].filter(Boolean) as string[];
+
+    const enteredLower = enteredName.toLowerCase();
+    const enteredAlpha = enteredName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+    const isMatch = accountNames.some((acc) => {
+      const cleanAcc = acc.trim();
+      if (!cleanAcc) return false;
+      const accLower = cleanAcc.toLowerCase();
+      const accAlpha = cleanAcc.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+      // Matches full name with spaces or PascalCase/alphanumeric
+      if (enteredLower === accLower || enteredAlpha === accAlpha) return true;
+
+      // Matches first name (e.g. "Zyhan" in "Zyhan Gomez", or "Juan" in "Juan Dela Cruz")
+      const firstName = cleanAcc.split(/\s+/)[0]?.toLowerCase();
+      if (firstName && (enteredLower === firstName || enteredAlpha === firstName.replace(/[^a-zA-Z0-9]/g, ''))) {
+        return true;
+      }
+
+      return false;
+    });
+
+    if (!isMatch) {
+      return { isValid: false, error: 'Please enter the payment verification name associated with your account.' };
+    }
+
+    return { isValid: true };
+  };
+
+  // Submit GCash Verification with Automatic Filename Renaming:
+  // PaymentPaid_[CustomerName]_[DatePaid].[ext]
+  const handleGCashProofSubmit = async () => {
+    let hasError = false;
+
+    // 1. Validate File
     if (!gcashFile) {
-      setFilenameError('Please upload your GCash payment screenshot.');
-      return;
+      setFilenameError('Please upload a screenshot of your completed GCash payment.');
+      hasError = true;
+    } else {
+      const origExt = gcashFile.name.split('.').pop()?.toLowerCase() || 'png';
+      if (!['png', 'jpg', 'jpeg'].includes(origExt)) {
+        setFilenameError('Unsupported file type. Please upload a PNG, JPG, or JPEG image.');
+        hasError = true;
+      } else {
+        setFilenameError('');
+      }
     }
 
-    const validation = validateFilenameFormat(gcashFilenameInput);
-    if (!validation.isValid) {
-      setFilenameError(validation.errorMsg || 'Please use the required format: CustomerName_Datetoday');
-      return;
+    // 2. Validate Payment Verification text field
+    const verificationRes = validatePaymentVerification(verificationInput);
+    if (!verificationRes.isValid) {
+      setVerificationError(verificationRes.error || 'Please enter the correct payment verification format.');
+      hasError = true;
+    } else {
+      setVerificationError('');
     }
 
-    setFilenameError('');
+    if (hasError || !gcashFile) return;
 
-    // Saved filename uses actual customer registered name format
-    const cleanNameUpper = registeredName.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || 'CUSTOMER';
-    const savedFilename = `${cleanNameUpper}_${todayYYYYMMDD}.${gcashFile.name.split('.').pop()?.toLowerCase() || 'png'}`;
+    const origExt = gcashFile.name.split('.').pop()?.toLowerCase() || 'png';
+    const formattedFilename = getFormattedPaymentFilename(gcashFile);
+    const renamedFile = new File([gcashFile], formattedFilename, {
+      type: gcashFile.type || `image/${origExt === 'jpg' ? 'jpeg' : origExt}`
+    });
 
-    handleFinalizeBooking('GCash', {
-      filename: savedFilename,
+    await handleFinalizeBooking('GCash', {
+      filename: formattedFilename,
       previewUrl: gcashPreviewUrl,
+      file: renamedFile
     });
   };
 
   // Finalize Appointment Creation with Selected Payment Method
   const handleFinalizeBooking = async (
     methodToSave: 'Cash' | 'GCash',
-    gcashData?: { filename: string; previewUrl: string | null }
+    gcashData?: { filename: string; previewUrl: string | null; file?: File | null }
   ) => {
     if (submitting) return;
     setErrorMsg('');
@@ -535,12 +574,34 @@ export function BookingModal({
       const formattedTimeForDb = formatTimeForDB(selectedTime);
       const durationText = `${durationSummary} mins`;
 
+      // If GCash payment proof file is provided, upload to receipts bucket
+      if (methodToSave === 'GCash' && gcashData?.file) {
+        try {
+          const { error: uploadErr } = await supabase.storage
+            .from('receipts')
+            .upload(gcashData.filename, gcashData.file, { upsert: true });
+
+          if (!uploadErr) {
+            const { data: pubData } = supabase.storage
+              .from('receipts')
+              .getPublicUrl(gcashData.filename);
+            if (pubData?.publicUrl) {
+              gcashData.previewUrl = pubData.publicUrl;
+            }
+          } else {
+            console.warn('Storage upload note:', uploadErr.message);
+          }
+        } catch (stErr) {
+          console.warn('Storage bucket upload warning:', stErr);
+        }
+      }
+
       let notesWithDesign = selectedDesign
         ? `${customerNotes.trim() ? customerNotes.trim() + ' | ' : ''}Selected Design: ${selectedDesign.name} (${selectedDesign.id})`
         : (customerNotes.trim() || '');
 
       if (methodToSave === 'GCash' && gcashData) {
-        const gcashNote = `GCash Screenshot: ${gcashData.filename} | Payment Status: Pending Verification | Uploaded: ${new Date().toISOString()}`;
+        const gcashNote = `GCash Screenshot: ${gcashData.filename} | Payment Status: Pending Verification | Uploaded: ${new Date().toISOString()}${gcashData.previewUrl ? ` | URL: ${gcashData.previewUrl}` : ''}`;
         notesWithDesign = notesWithDesign ? `${notesWithDesign} | ${gcashNote}` : gcashNote;
       }
 
@@ -613,7 +674,11 @@ export function BookingModal({
         screenshotUrl: gcashData?.previewUrl,
       });
 
-      setStep('success');
+      if (methodToSave === 'GCash') {
+        setStep('gcash_success');
+      } else {
+        setStep('success');
+      }
       if (onBookingSuccess) onBookingSuccess();
       if (typeof window !== 'undefined') window.dispatchEvent(new Event('appointmentsUpdated'));
     } catch (err: any) {
@@ -630,8 +695,14 @@ export function BookingModal({
           ? 'max-w-[1360px] min-h-[615px] lg:h-[628px] overflow-y-auto lg:overflow-hidden'
           : step === 'details'
           ? 'max-w-[840px] min-h-[620px] lg:h-[640px] overflow-y-auto lg:overflow-hidden'
+          : step === 'gcash_qr'
+          ? 'max-w-[480px] overflow-y-auto'
+          : step === 'gcash_proof'
+          ? 'max-w-[520px] overflow-y-auto'
+          : step === 'gcash_success'
+          ? 'max-w-[500px] overflow-y-auto'
           : 'max-w-[560px] overflow-y-auto'
-      } max-h-[94vh] rounded-[24px] sm:rounded-[28px] bg-white shadow-2xl animate-scale-in border border-neutral-100 my-auto flex flex-col justify-between transition-all duration-200`}>
+      } max-h-[94vh] rounded-[28px] sm:rounded-[32px] bg-[#FFFDFB] shadow-[0_0_25px_rgba(230,30,115,0.12),0_20px_50px_rgba(0,0,0,0.15)] ring-1 ring-pink-100/60 border border-pink-200/70 my-auto flex flex-col justify-between transition-all duration-200`}>
         
         {/* Top-Right Circular Close Button */}
         <button
@@ -1085,7 +1156,10 @@ export function BookingModal({
                 {/* OPTION 2: GCASH */}
                 <button
                   type="button"
-                  onClick={() => setSelectedPaymentMethod('GCash')}
+                  onClick={() => {
+                    setSelectedPaymentMethod('GCash');
+                    setStep('gcash_qr');
+                  }}
                   className={`w-full p-4 rounded-2xl text-left transition-all duration-200 flex items-center justify-between border cursor-pointer ${
                     selectedPaymentMethod === 'GCash'
                       ? 'border-2 border-pink-500 bg-pink-50/60 shadow-md shadow-pink-500/10 scale-[1.01]'
@@ -1129,7 +1203,7 @@ export function BookingModal({
                 disabled={!selectedPaymentMethod}
                 onClick={() => {
                   if (selectedPaymentMethod === 'Cash') setStep('cash_confirm');
-                  else if (selectedPaymentMethod === 'GCash') setStep('gcash_confirm');
+                  else if (selectedPaymentMethod === 'GCash') setStep('gcash_qr');
                 }}
                 className="h-[46px] rounded-full bg-pink-500 hover:bg-pink-600 px-8 sm:px-9 text-xs sm:text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer"
               >
@@ -1211,139 +1285,334 @@ export function BookingModal({
           </div>
         )}
 
-        {/* STEP 5: GCASH PAYMENT SCREENSHOT VERIFICATION FLOW */}
-        {step === 'gcash_confirm' && (
-          <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between max-w-[560px] mx-auto w-full">
+        {/* STEP 4: GCASH QR CODE PAYMENT MODAL */}
+        {step === 'gcash_qr' && (
+          <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between max-w-[480px] mx-auto w-full">
             <div>
-              <button
-                type="button"
-                onClick={() => setStep('payment_select')}
-                disabled={submitting}
-                className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-pink-500 hover:text-pink-600 transition-colors mb-3"
-              >
-                <ArrowLeft size={14} />
-                <span>Back to Payment Selection</span>
-              </button>
-
-              <div className="mb-4 text-center sm:text-left">
-                <h2 className="font-serif text-2xl sm:text-[28px] text-neutral-900 font-normal">
-                  GCash Payment Screenshot
+              {/* Modal Header */}
+              <div className="text-center mb-4">
+                <h2 className="font-serif text-2xl sm:text-[28px] text-neutral-900 font-normal tracking-tight">
+                  Pay with GCash
                 </h2>
-                <p className="text-xs sm:text-sm text-neutral-600 mt-1 leading-relaxed">
-                  Please upload your GCash payment screenshot and name the file using the required format below.
+                <p className="text-xs sm:text-sm text-neutral-500 mt-1.5 max-w-[340px] mx-auto leading-relaxed">
+                  Scan the QR code using your GCash app to complete your payment.
                 </p>
               </div>
 
-              {/* Format Requirement Banner */}
-              <div className="rounded-2xl border border-pink-200 bg-pink-50/50 p-4 mb-4 text-xs space-y-1.5">
-                <div className="font-bold text-pink-600 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                  <AlertTriangle size={14} />
-                  <span>Required Filename Format:</span>
-                </div>
-                <div className="font-mono font-bold text-neutral-900 text-sm bg-white py-1 px-3 rounded-lg border border-pink-200 inline-block shadow-xs">
-                  CustomerName_Datetoday
-                </div>
-                <div className="text-neutral-500 text-[11px] pt-1">
-                  Example for today: <strong className="font-mono text-neutral-800 font-bold">{sampleFilenameExample}</strong>
+              {/* Centered GCash QR Code */}
+              <div className="my-2.5 flex flex-col items-center justify-center">
+                <div className="relative p-2.5 rounded-2xl bg-white border border-pink-100/90 shadow-md shadow-pink-500/5">
+                  <img
+                    src="/images/gcash-qr.svg"
+                    alt="Candy &amp; Rose Salon GCash QR Code"
+                    className="w-[200px] sm:w-[220px] h-auto object-contain rounded-xl"
+                  />
                 </div>
               </div>
 
-              {/* Validation Error Message */}
-              {(errorMsg || filenameError) && (
-                <div className="mb-4 rounded-xl bg-red-50 border border-red-200 p-3.5 text-xs font-semibold text-red-600 space-y-1">
-                  <div className="font-bold flex items-center gap-1.5 text-red-700">
-                    <AlertCircle size={16} />
-                    <span>Invalid filename</span>
-                  </div>
-                  <p className="text-[11px] font-normal text-red-600 pl-5">
-                    {filenameError || errorMsg || 'Please use the required format: CustomerName_Datetoday'}
-                  </p>
-                </div>
-              )}
+              {/* Exact Amount To Pay Underneath QR Code */}
+              <div className="text-center my-2.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-0.5">
+                  Amount to Pay
+                </span>
+                <span className="font-serif text-2xl sm:text-3xl font-bold text-pink-600 tracking-tight">
+                  ₱{totalAmount.toLocaleString()}
+                </span>
+              </div>
 
-              {/* Inputs Section */}
-              <div className="space-y-3.5 mb-4">
-                {/* Filename Input */}
-                <div>
-                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-pink-500">
-                    Enter Screenshot Filename *
-                  </label>
-                  <input
-                    type="text"
-                    value={gcashFilenameInput}
-                    onChange={(e) => {
-                      setGcashFilenameInput(e.target.value);
-                      if (filenameError) setFilenameError('');
-                    }}
-                    placeholder={`e.g. ${sampleFilenameExample}`}
-                    className="h-[46px] w-full rounded-xl border border-neutral-200 bg-white px-4 text-xs sm:text-sm font-mono text-neutral-900 outline-none transition-all focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20"
-                  />
+              {/* Note */}
+              <div className="rounded-2xl border border-pink-200/70 bg-pink-50/50 p-3.5 text-xs text-neutral-600 mb-4 flex items-start gap-2.5">
+                <div className="p-1 rounded-full bg-pink-100 text-pink-600 shrink-0 mt-0.5">
+                  <AlertTriangle size={14} />
                 </div>
-
-                {/* File Upload Input */}
-                <div>
-                  <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-pink-500">
-                    Upload Screenshot (.jpg, .jpeg, .png) *
-                  </label>
-                  <label className="flex items-center justify-center gap-3 border-2 border-dashed border-neutral-300 hover:border-pink-400 bg-neutral-50 hover:bg-pink-50/20 rounded-xl p-3.5 cursor-pointer transition-colors">
-                    <Upload size={18} className="text-pink-500" />
-                    <span className="text-xs font-medium text-neutral-700 truncate">
-                      {gcashFile ? gcashFile.name : 'Click to upload screenshot (.jpg, .jpeg, .png)'}
-                    </span>
-                    <input
-                      type="file"
-                      accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                      onChange={handleGcashFileChange}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-
-                {/* Screenshot Image Preview */}
-                {gcashPreviewUrl && (
-                  <div className="rounded-xl border border-neutral-200 bg-white p-2.5 flex items-center gap-3">
-                    <img
-                      src={gcashPreviewUrl}
-                      alt="GCash Screenshot Preview"
-                      className="h-14 w-14 rounded-lg object-cover border border-neutral-200"
-                    />
-                    <div className="text-xs text-neutral-600 min-w-0 flex-1">
-                      <span className="font-bold text-neutral-800 block truncate">{gcashFile?.name}</span>
-                      <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">Screenshot Attached</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Total Price & Security Notice */}
-                <div className="rounded-xl bg-neutral-50 p-3 text-xs text-neutral-600 space-y-1 border border-neutral-100">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-neutral-500">Appointment Total:</span>
-                    <span className="font-bold text-pink-500 text-base">₱{totalAmount.toLocaleString()}</span>
-                  </div>
-                  <p className="text-[11px] text-neutral-500 pt-1 leading-normal">
-                    Security Notice: Payment status will remain <strong className="text-amber-600 font-bold uppercase">Pending Verification</strong> until salon admin confirms payment.
-                  </p>
-                </div>
+                <p className="text-[11px] sm:text-xs leading-relaxed text-neutral-600">
+                  After completing your payment, upload your payment screenshot to verify your transaction.
+                </p>
               </div>
             </div>
 
             {/* Bottom Action Buttons */}
-            <div className="pt-3 flex items-center justify-end gap-3">
+            <div className="flex items-center justify-between gap-3 pt-3 border-t border-pink-100/60">
+              <button
+                type="button"
+                onClick={() => setStep('payment_select')}
+                className="h-[46px] flex-1 rounded-full border border-pink-200/80 bg-white hover:bg-pink-50/50 text-xs sm:text-sm font-serif font-bold uppercase tracking-wider text-neutral-700 hover:text-neutral-900 transition-all cursor-pointer shadow-xs"
+              >
+                CANCEL
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setErrorMsg('');
+                  setFilenameError('');
+                  setStep('gcash_proof');
+                }}
+                className="h-[46px] flex-1 rounded-full bg-pink-500 hover:bg-pink-600 text-xs sm:text-sm font-serif font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all cursor-pointer"
+              >
+                I’ve Paid
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 5: SUBMIT PAYMENT PROOF MODAL */}
+        {step === 'gcash_proof' && (
+          <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between max-w-[520px] mx-auto w-full">
+            <div>
+              {/* Modal Header */}
+              <div className="text-center mb-4">
+                <h2 className="font-serif text-2xl sm:text-[28px] text-neutral-900 font-normal tracking-tight">
+                  Submit Payment Proof
+                </h2>
+                <p className="text-xs sm:text-sm text-neutral-500 mt-1 leading-relaxed">
+                  Please upload a screenshot of your completed GCash payment.
+                </p>
+              </div>
+
+              {/* Amount Reference Box */}
+              <div className="rounded-2xl border border-pink-100 bg-pink-50/40 p-3.5 mb-4 flex items-center justify-between text-xs sm:text-sm">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-0.5">
+                    Payment Amount
+                  </span>
+                  <span className="font-medium text-neutral-700 block truncate max-w-[240px]">
+                    {serviceNames}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="font-serif font-bold text-pink-600 text-lg sm:text-xl block">
+                    ₱{totalAmount.toLocaleString()}
+                  </span>
+                  <span className="text-[10px] text-neutral-400 font-medium">For verification</span>
+                </div>
+              </div>
+
+              {/* File Upload Area */}
+              <div className="space-y-3 mb-2">
+                {!gcashFile ? (
+                  <div>
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-pink-200 hover:border-pink-400 bg-white hover:bg-pink-50/20 rounded-2xl p-6 cursor-pointer transition-all text-center group">
+                      <div className="h-12 w-12 rounded-full bg-pink-50 flex items-center justify-center text-pink-500 mb-3 group-hover:scale-105 transition-transform">
+                        <Upload size={22} />
+                      </div>
+                      <span className="text-sm font-semibold text-neutral-800">
+                        Choose screenshot or drag &amp; drop
+                      </span>
+                      <span className="text-xs text-neutral-400 mt-1">
+                        Accepts PNG, JPG, or JPEG images
+                      </span>
+                      <input
+                        type="file"
+                        accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                        onChange={handleGcashFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-pink-200/80 bg-white p-3.5 shadow-sm space-y-3">
+                    <div className="flex items-center gap-3.5">
+                      {gcashPreviewUrl && (
+                        <img
+                          src={gcashPreviewUrl}
+                          alt="GCash Screenshot Preview"
+                          className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl object-cover border border-pink-100 shrink-0 shadow-xs"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1 text-xs">
+                        <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-[11px]">
+                          <CheckCircle2 size={14} />
+                          <span>Screenshot Selected</span>
+                        </div>
+                        <p className="text-neutral-500 text-[11px] truncate mt-0.5">
+                          Original: {gcashFile.name}
+                        </p>
+                        
+                        {/* Auto-Renamed Filename Badge */}
+                        <div className="mt-1.5 pt-1 border-t border-neutral-100">
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-pink-500 block">
+                            Renamed Filename:
+                          </span>
+                          <span className="font-mono text-[11px] sm:text-xs font-bold text-neutral-800 break-all bg-neutral-50 px-2 py-0.5 rounded border border-neutral-200 inline-block mt-0.5">
+                            {getFormattedPaymentFilename(gcashFile)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-neutral-100">
+                      <label className="text-[11px] text-pink-600 hover:text-pink-700 font-semibold cursor-pointer underline">
+                        Change screenshot
+                        <input
+                          type="file"
+                          accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                          onChange={handleGcashFileChange}
+                          className="hidden"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGcashFile(null);
+                          setGcashPreviewUrl(null);
+                        }}
+                        className="text-[11px] text-neutral-400 hover:text-red-500 font-medium transition-colors cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Required Payment Verification Field */}
+                <div className="pt-2 text-left">
+                  <label className="block text-xs font-serif font-bold text-neutral-800 tracking-tight mb-0.5">
+                    Payment Verification
+                  </label>
+                  <p className="text-[11px] text-neutral-500 mb-2 leading-tight">
+                    Type the required format to confirm your payment.
+                  </p>
+                  <input
+                    type="text"
+                    value={verificationInput}
+                    onChange={(e) => {
+                      setVerificationInput(e.target.value);
+                      if (verificationError) setVerificationError('');
+                    }}
+                    onBlur={() => {
+                      if (verificationInput.trim()) {
+                        const res = validatePaymentVerification(verificationInput);
+                        if (!res.isValid && res.error) {
+                          setVerificationError(res.error);
+                        }
+                      }
+                    }}
+                    placeholder="Paid_Customer Name"
+                    className={`w-full h-[46px] rounded-xl border px-3.5 text-xs sm:text-sm font-sans transition-all outline-none bg-white ${
+                      verificationError
+                        ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-100 text-neutral-900'
+                        : 'border-pink-200/80 focus:border-pink-500 focus:ring-2 focus:ring-pink-100 text-neutral-900'
+                    }`}
+                  />
+                  {verificationError && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1.5 flex items-center gap-1.5">
+                      <AlertCircle size={13} className="shrink-0 text-red-500" />
+                      <span>{verificationError}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* File Error Banner */}
+                {(filenameError || errorMsg) && (
+                  <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs font-semibold text-red-600 flex items-center gap-2">
+                    <AlertCircle size={16} className="shrink-0" />
+                    <span>{filenameError || errorMsg}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Action Buttons */}
+            <div className="flex items-center justify-between gap-3 pt-4 border-t border-pink-100/60 mt-4">
               <button
                 type="button"
                 disabled={submitting}
-                onClick={() => setStep('payment_select')}
-                className="h-[46px] rounded-full bg-neutral-100 px-6 sm:px-7 text-xs font-bold uppercase tracking-wider text-neutral-700 hover:bg-neutral-200 transition-colors disabled:opacity-50 cursor-pointer"
+                onClick={() => {
+                  setVerificationError('');
+                  setFilenameError('');
+                  setStep('gcash_qr');
+                }}
+                className="h-[46px] flex-1 rounded-full border border-pink-200/80 bg-white hover:bg-pink-50/50 text-xs sm:text-sm font-serif font-bold uppercase tracking-wider text-neutral-700 hover:text-neutral-900 transition-all cursor-pointer shadow-xs disabled:opacity-50"
               >
-                BACK
+                CANCEL
               </button>
               <button
                 type="button"
                 disabled={submitting}
-                onClick={handleGCashConfirmSubmit}
-                className="h-[46px] rounded-full bg-pink-500 hover:bg-pink-600 px-8 sm:px-9 text-xs sm:text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all disabled:opacity-60 flex items-center gap-2 cursor-pointer"
+                onClick={handleGCashProofSubmit}
+                className="h-[46px] flex-1 rounded-full bg-pink-500 hover:bg-pink-600 text-xs sm:text-sm font-serif font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
               >
-                {submitting ? 'Confirming...' : 'CONFIRM BOOKING'}
+                {submitting ? 'Submitting...' : 'SUBMIT PAYMENT'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 6: GCASH PAYMENT PROOF SUBMITTED CONFIRMATION MODAL */}
+        {step === 'gcash_success' && (
+          <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between max-w-[500px] mx-auto w-full text-center">
+            <div>
+              {/* Success Badge */}
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-pink-50 text-pink-500 shadow-sm border border-pink-100">
+                <CheckCircle2 size={36} />
+              </div>
+
+              {/* Exact Titles Required */}
+              <h2 className="font-serif text-2xl sm:text-[28px] text-neutral-900 font-normal tracking-tight">
+                Payment proof submitted successfully.
+              </h2>
+              <p className="mt-1.5 text-xs sm:text-sm text-pink-600 font-medium">
+                Your payment is now being verified.
+              </p>
+
+              {/* Summary Details */}
+              <div className="mt-6 rounded-2xl border border-pink-100 bg-pink-50/40 p-4 text-left text-xs space-y-2.5">
+                {bookingReceipt?.id && (
+                  <div className="flex justify-between items-center border-b border-pink-100 pb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">Appointment ID</span>
+                    <span className="font-mono font-bold text-neutral-800">#{bookingReceipt.id.slice(0, 8)}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center text-neutral-700">
+                  <span className="font-medium text-neutral-500">Customer:</span>
+                  <span className="font-bold text-neutral-900">{bookingReceipt?.customerName || customerName}</span>
+                </div>
+
+                <div className="flex justify-between items-center text-neutral-700">
+                  <span className="font-medium text-neutral-500">Service:</span>
+                  <span className="font-bold text-neutral-900 text-right truncate max-w-[200px]">{bookingReceipt?.serviceNames || serviceNames}</span>
+                </div>
+
+                <div className="flex justify-between items-center text-neutral-700">
+                  <span className="font-medium text-neutral-500">Date &amp; Time:</span>
+                  <span className="font-bold text-pink-500">{formatSummaryDate(bookingReceipt?.date || selectedDate)} at {bookingReceipt?.time || selectedTime}</span>
+                </div>
+
+                <div className="flex justify-between items-center text-neutral-700">
+                  <span className="font-medium text-neutral-500">Payment Method:</span>
+                  <span className="font-bold text-neutral-900">GCash</span>
+                </div>
+
+                <div className="flex justify-between items-center text-neutral-700">
+                  <span className="font-medium text-neutral-500">Payment Status:</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                    Pending Verification
+                  </span>
+                </div>
+
+                {bookingReceipt?.screenshotFilename && (
+                  <div className="border-t border-pink-200/60 pt-2 text-[11px]">
+                    <span className="text-neutral-400 font-bold uppercase tracking-wider block mb-0.5">Verified Filename</span>
+                    <span className="font-mono font-bold text-neutral-800 break-all">{bookingReceipt.screenshotFilename}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between border-t border-pink-200/60 pt-2 text-sm">
+                  <span className="font-bold text-neutral-900">Total Price</span>
+                  <span className="font-serif font-bold text-pink-600 text-base">₱{totalAmount.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* OKAY Action Button */}
+            <div className="pt-6 mt-4 border-t border-pink-100/60">
+              <button
+                type="button"
+                onClick={navigateToAppointments}
+                className="w-full h-[48px] rounded-full bg-pink-500 hover:bg-pink-600 text-xs sm:text-sm font-serif font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all cursor-pointer"
+              >
+                OKAY
               </button>
             </div>
           </div>
@@ -1417,12 +1686,7 @@ export function BookingModal({
             <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  onClose();
-                  if (typeof window !== 'undefined') {
-                    window.location.href = '/profile';
-                  }
-                }}
+                onClick={navigateToAppointments}
                 className="w-full sm:flex-1 rounded-full bg-pink-500 hover:bg-pink-600 py-3.5 text-xs font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all cursor-pointer"
               >
                 VIEW MY APPOINTMENT

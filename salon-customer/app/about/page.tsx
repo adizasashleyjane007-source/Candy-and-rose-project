@@ -1,32 +1,37 @@
 'use client';
 
-import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 
-const teamMembers = [
+type TeamMember = {
+  name: string;
+  role: string;
+  image: string;
+  bio: string;
+};
+
+const teamMembers: TeamMember[] = [
   {
     name: 'Sheryl Octaviano',
     role: 'Senior Hairstylist',
-    image: '/images/contact2.jpg',
+    image: '/images/girl.jpg',
     bio: 'Sheryl is a senior hairstylist with 15 years of experience in the salon industry from her previous company, INDEX.',
   },
   {
     name: 'Jairus',
     role: 'Senior Stylist & Nail Technician',
-    image: '/images/gal1.jpg',
+    image: '/images/boy.jpg',
     bio: 'Jairus is a senior stylist and nail technician with extensive experience in the salon industry. He has also worked abroad at a salon in Dubai.',
   },
   {
     name: 'Ana',
     role: 'Nail Technician',
-    image: '/images/MAKEUP1.jpg',
+    image: '/images/girl.jpg',
     bio: 'Ana is an experienced nail technician who also has knowledge and experience in hair treatments and hair coloring.',
   },
   {
     name: 'Reynalyn',
     role: 'Nail Technician',
-    image: '/images/MAKEUP2.jpg',
+    image: '/images/girl.jpg',
     bio: 'Reynalyn is a nail technician with several years of experience working in salons.',
   },
 ];
@@ -217,13 +222,13 @@ export default function AboutPage() {
             {teamMembers.map((member) => (
               <div
                 key={member.name}
-                className="group flex flex-col rounded-2xl bg-white border border-zinc-200/80 overflow-hidden shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1"
+                className="group flex flex-col rounded-2xl bg-white border border-zinc-200/80 overflow-hidden shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1 hover:border-pink-200 h-full"
               >
                 <div className="aspect-[3/4] w-full overflow-hidden bg-zinc-100">
                   <img
                     src={member.image}
                     alt={member.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
                   />
                 </div>
                 <div className="p-6 flex flex-col grow">
@@ -236,9 +241,6 @@ export default function AboutPage() {
                   <p className="text-xs text-zinc-600 font-normal leading-relaxed grow">
                     {member.bio}
                   </p>
-                  <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center gap-1 text-xs font-semibold text-pink-600 group-hover:text-pink-700">
-                    <span>Read More</span> <ArrowRight size={13} className="transition-transform group-hover:translate-x-1" />
-                  </div>
                 </div>
               </div>
             ))}

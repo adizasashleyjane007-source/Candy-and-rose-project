@@ -33,24 +33,43 @@ export default function HistoryPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const loadAppointments = async () => {
-    if (!user) return;
+    const activeUser = user;
+    const activeCust = customer;
+    if (!activeUser && !activeCust) return;
     setLoadingAppts(true);
     try {
-      // Find customer record by email
-      const { data: cust } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('email', user.email)
-        .maybeSingle();
-
-      let query = supabase.from('appointments').select('*');
-      if (cust?.id) {
-        query = query.or(`customer_id.eq.${cust.id},customer_name.eq.${profile?.full_name || user.email?.split('@')[0]}`);
-      } else {
-        query = query.eq('customer_name', profile?.full_name || user.email?.split('@')[0]);
+      let resolvedCustomerId = activeCust?.id;
+      if (!resolvedCustomerId && activeUser?.id) {
+        const { data: custByUid } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('user_id', activeUser.id)
+          .maybeSingle();
+        if (custByUid?.id) resolvedCustomerId = custByUid.id;
+      }
+      if (!resolvedCustomerId && activeUser?.email) {
+        const { data: custByEmail } = await supabase
+          .from('customers')
+          .select('id')
+          .ilike('email', activeUser.email.trim().toLowerCase())
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (custByEmail?.id) resolvedCustomerId = custByEmail.id;
       }
 
-      const { data } = await query.order('created_at', { ascending: false });
+      if (!resolvedCustomerId) {
+        setAppointments([]);
+        return;
+      }
+
+      const { data } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('customer_id', resolvedCustomerId)
+        .order('appointment_date', { ascending: false })
+        .order('created_at', { ascending: false });
+
       if (data) {
         setAppointments(data as Appointment[]);
       }
@@ -62,9 +81,18 @@ export default function HistoryPage() {
   };
 
   useEffect(() => {
-    if (user) {
+    if (user || customer) {
       loadAppointments();
     }
+
+    const handleAppointmentsUpdated = () => {
+      loadAppointments();
+    };
+
+    window.addEventListener('appointmentsUpdated', handleAppointmentsUpdated);
+    return () => {
+      window.removeEventListener('appointmentsUpdated', handleAppointmentsUpdated);
+    };
   }, [user, profile, customer]);
 
   const handleOpenCancelModal = (apptId: string) => {
@@ -147,7 +175,7 @@ export default function HistoryPage() {
     window.location.href = '/services';
   };
 
-  if (!user) {
+  if (!user && !customer) {
     return (
       <SalonLayout>
         <main className="bg-zinc-50 min-h-[75vh] flex items-center justify-center p-6">
@@ -317,7 +345,11 @@ export default function HistoryPage() {
                 ) : (
                   <div className="text-center py-20 text-zinc-400">
                     <Calendar size={32} className="mx-auto text-zinc-300 mb-3" />
-                    <p className="text-xs">No {activeFilter.toLowerCase()} appointments found.</p>
+                    <p className="text-xs">
+                      {appointments.length === 0
+                        ? "You haven't booked any appointments yet."
+                        : `No ${activeFilter.toLowerCase()} appointments found.`}
+                    </p>
                   </div>
                 )}
               </div>

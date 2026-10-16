@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   X, Loader2, Sparkles, Clock, Check, Heart, Search, Upload, MessageSquare,
-  ImageIcon, Send, MapPin, Phone, Mail, Instagram, Facebook, ShieldCheck, ChevronRight
+  ImageIcon, Send, ArrowLeft, ChevronRight
 } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { supabase } from '@/lib/supabase';
@@ -12,6 +12,7 @@ import type { NailDesignItem } from '@/lib/nail-designs';
 export default function NailsDesignPage() {
   const [designs, setDesigns] = useState<NailDesignItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCustomDesigns, setShowCustomDesigns] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL STYLES');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedPreviewDesign, setSelectedPreviewDesign] = useState<NailDesignItem | null>(null);
@@ -19,6 +20,13 @@ export default function NailsDesignPage() {
   
   // Wishlist state
   const [wishlist, setWishlist] = useState<string[]>([]);
+
+  // Helper to distinguish Custom Studio designs from Hand-Painted designs
+  const isCustomStudio = (item: NailDesignItem) => {
+    const catUpper = (item.category || '').toUpperCase();
+    const techUpper = (item.technique || '').toUpperCase();
+    return catUpper.includes('CUSTOM STUDIO') || techUpper.includes('CUSTOM STUDIO');
+  };
 
   // Modal States for Bespoke Commission & Artisan Chat
   const [inspoModalOpen, setInspoModalOpen] = useState(false);
@@ -113,9 +121,15 @@ export default function NailsDesignPage() {
     'MINIMALIST & FRENCH',
   ];
 
-  // Dynamically filter actual database records based on selected filter pill & search query
+  // Dynamically filter actual database records based on showCustomDesigns view, selected filter pill & search query
   const filteredDesigns = useMemo(() => {
-    return designs.filter((item) => {
+    // 1. Separate Hand-Painted designs vs Custom Studio designs
+    const baseList = designs.filter((item) => {
+      const isCustom = isCustomStudio(item);
+      return showCustomDesigns ? isCustom : !isCustom;
+    });
+
+    return baseList.filter((item) => {
       // Category check against actual record fields
       const catUpper = (item.category || '').toUpperCase();
       const nameUpper = (item.name || '').toUpperCase();
@@ -151,7 +165,7 @@ export default function NailsDesignPage() {
 
       return matchesCategory && matchesSearch;
     });
-  }, [designs, selectedCategory, searchQuery]);
+  }, [designs, showCustomDesigns, selectedCategory, searchQuery]);
 
   // Wishlist toggle handler
   const toggleWishlist = (id: string, e: React.MouseEvent) => {
@@ -222,31 +236,24 @@ export default function NailsDesignPage() {
 
   return (
     <SalonLayout>
-      <main className="nails-design-page bg-[#FBF9F6] text-[#1A1A1A] font-sans min-h-screen pt-24 sm:pt-28 lg:pt-32 pb-24 sm:pb-32 overflow-x-hidden">
+      <main className="nails-design-page bg-[#FBF9F6] text-[#1A1A1A] font-sans min-h-screen pt-4 sm:pt-6 pb-12 sm:pb-16 overflow-x-hidden">
         
         {/* 1. HERO SECTION */}
-        <section className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 mb-10 sm:mb-12 text-center">
-          
-          {/* Eyebrow: • L'ATELIER CAPSULE 2025 */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#F5F3F0] border border-[#E5DFD7] mb-5 shadow-xs">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#D93B78]" />
-            <span className="text-[11px] font-sans font-semibold uppercase tracking-[0.2em] text-[#D93B78]">
-              L'ATELIER CAPSULE 2025
-            </span>
-          </div>
+        <section className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 mb-8 sm:mb-10 text-center">
 
           {/* Main Heading: Nails Design (with italic rose script accent on "Design") */}
-          <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl text-[#1A1A1A] font-medium tracking-tight mb-4">
+          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] font-medium tracking-tight mb-2 sm:mb-3">
             Nails <span className="italic text-[#D93B78] font-serif font-normal">Design</span>
           </h1>
 
           {/* Supporting Text */}
-          <p className="max-w-2xl mx-auto text-[#666666] text-sm sm:text-base font-light leading-relaxed mb-8">
+          <p className="max-w-xl mx-auto text-[#666666] text-xs sm:text-sm font-light leading-relaxed mb-6">
             Browse our curated collection of luxury nail art. From minimalist elegance to bold crystal embellishments, find the perfect design to express your unique style.
           </p>
 
-          {/* Search Input Pill */}
-          <div className="max-w-xl mx-auto mb-8 relative">
+          {/* Grouped Search Bar & Category Filters */}
+          <div className="max-w-2xl mx-auto space-y-3.5">
+            {/* Search Input Bar */}
             <div className="relative flex items-center shadow-xs rounded-full bg-white border border-[#E5DFD7] focus-within:border-[#D93B78] focus-within:ring-2 focus-within:ring-[#D93B78]/20 transition-all duration-300">
               <Search className="w-4 h-4 text-zinc-400 ml-4 shrink-0" />
               <input
@@ -254,37 +261,38 @@ export default function NailsDesignPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by finish, motif, or aesthetic (e.g. Chrome, Petals, 3D)..."
-                className="w-full py-3.5 pl-3 pr-10 rounded-full text-xs sm:text-sm text-[#1A1A1A] placeholder:text-zinc-400 bg-transparent outline-none font-sans"
+                className="w-full py-2.5 sm:py-3 pl-3 pr-10 rounded-full text-xs sm:text-sm text-[#1A1A1A] placeholder:text-zinc-400 bg-transparent outline-none font-sans"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-4 p-1 rounded-full text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
+                  aria-label="Clear search"
+                  className="absolute right-3.5 p-1 rounded-full text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
-          </div>
 
-          {/* Category Filter Pills */}
-          <div className="flex items-center justify-start sm:justify-center gap-2 overflow-x-auto scrollbar-hide py-2 px-1 -mx-4 sm:mx-0 px-4 sm:px-0">
-            {displayCategories.map((cat) => {
-              const isActive = selectedCategory === cat;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-4.5 py-2 rounded-full text-[11px] font-sans font-semibold uppercase tracking-wider transition-all duration-300 shrink-0 cursor-pointer border ${
-                    isActive
-                      ? 'bg-[#D93B78] text-white border-[#D93B78] shadow-md shadow-[#D93B78]/20'
-                      : 'bg-white text-[#1A1A1A] border-[#E5DFD7] hover:bg-[#F5F3F0] hover:border-[#D93B78]/40'
-                  }`}
-                >
-                  {cat}
-                </button>
-              );
-            })}
+            {/* Category Filter Pills (wrapping neatly on smaller screens without overlapping) */}
+            <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
+              {displayCategories.map((cat) => {
+                const isActive = selectedCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3.5 sm:px-4 py-1.5 rounded-full text-[10.5px] sm:text-[11px] font-sans font-semibold uppercase tracking-wider transition-all duration-200 cursor-pointer border ${
+                      isActive
+                        ? 'bg-[#D93B78] text-white border-[#D93B78] shadow-xs'
+                        : 'bg-white text-[#1A1A1A] border-[#E5DFD7] hover:bg-[#F5F3F0] hover:border-[#D93B78]/40'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
         </section>
@@ -293,46 +301,87 @@ export default function NailsDesignPage() {
         {/* 2. NAIL DESIGN CATALOG GRID */}
         <section className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8 mb-16 sm:mb-20">
           
+          {/* Back button displayed when customer views Custom Studio designs */}
+          {showCustomDesigns && (
+            <div className="mb-4 sm:mb-5">
+              <button
+                onClick={() => {
+                  setShowCustomDesigns(false);
+                  setSelectedCategory('ALL STYLES');
+                  setSearchQuery('');
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#D8D2C9] hover:border-[#D93B78] bg-white text-[#1A1A1A] hover:text-[#D93B78] text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-xs hover:bg-[#FBF9F6]"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[#D93B78]" />
+                <span>BACK TO HAND-PAINTED</span>
+              </button>
+            </div>
+          )}
+
           {/* Subhead Status Bar */}
-          <div className="flex items-center justify-between border-b border-[#E5DFD7] pb-4 mb-8 text-xs font-sans">
+          <div className="flex items-center justify-between border-b border-[#E5DFD7] pb-3 mb-6 text-xs font-sans">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-[#D93B78]" />
-              <span className="font-semibold uppercase tracking-widest text-[#1A1A1A]">
-                SHOWING {filteredDesigns.length} ATELIER DESIGNS
+              <span className="font-semibold uppercase tracking-widest text-[#1A1A1A] text-[11px] sm:text-xs">
+                {showCustomDesigns
+                  ? `SHOWING ${filteredDesigns.length} CUSTOM STUDIO DESIGNS`
+                  : `SHOWING ${filteredDesigns.length} HAND-PAINTED DESIGNS`}
               </span>
             </div>
-            <div className="text-[#666666] tracking-wide hidden sm:block">
-              Curated By: <span className="font-medium text-[#1A1A1A]">Tokyo • Paris Collective</span>
+            <div className="text-[#666666] tracking-wide hidden sm:block text-xs">
+              {showCustomDesigns ? (
+                <span>Atelier: <span className="font-medium text-[#1A1A1A]">Custom Studio Edition</span></span>
+              ) : (
+                <span>Curated By: <span className="font-medium text-[#1A1A1A]">Tokyo • Paris Collective</span></span>
+              )}
             </div>
           </div>
 
           {/* Loading State */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-24">
+            <div className="flex flex-col items-center justify-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-[#D93B78] mb-3" />
               <p className="text-xs text-[#666666] font-medium tracking-wider uppercase">Loading database designs...</p>
             </div>
           ) : filteredDesigns.length === 0 ? (
-            /* 11. EMPTY STATE */
-            <div className="text-center py-20 bg-white rounded-3xl border border-[#E5DFD7] p-8 shadow-xs max-w-xl mx-auto">
+            /* EMPTY STATE */
+            <div className="text-center py-16 bg-white rounded-3xl border border-[#E5DFD7] p-8 shadow-xs max-w-xl mx-auto">
               <Sparkles className="w-8 h-8 text-[#D93B78] mx-auto mb-3" />
-              <h3 className="font-serif text-2xl font-medium text-[#1A1A1A] mb-2">No designs found</h3>
+              <h3 className="font-serif text-2xl font-medium text-[#1A1A1A] mb-2">
+                {showCustomDesigns ? 'No custom studio designs found' : 'No designs found'}
+              </h3>
               <p className="text-[#666666] font-sans text-xs sm:text-sm mb-6 font-light">
-                Try another style, finish, or search term.
+                {showCustomDesigns
+                  ? 'Try another search term or return to hand-painted designs.'
+                  : 'Try another style, finish, or search term.'}
               </p>
-              <button
-                onClick={() => {
-                  setSelectedCategory('ALL STYLES');
-                  setSearchQuery('');
-                }}
-                className="px-6 py-3 rounded-full bg-[#1A1A1A] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#D93B78] transition-colors cursor-pointer"
-              >
-                VIEW ALL DESIGNS
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={() => {
+                    setSelectedCategory('ALL STYLES');
+                    setSearchQuery('');
+                  }}
+                  className="px-6 py-2.5 rounded-full bg-[#1A1A1A] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#D93B78] transition-colors cursor-pointer"
+                >
+                  VIEW ALL {showCustomDesigns ? 'CUSTOM' : ''} DESIGNS
+                </button>
+                {showCustomDesigns && (
+                  <button
+                    onClick={() => {
+                      setShowCustomDesigns(false);
+                      setSelectedCategory('ALL STYLES');
+                      setSearchQuery('');
+                    }}
+                    className="px-6 py-2.5 rounded-full border border-[#D8D2C9] bg-white text-[#1A1A1A] hover:text-[#D93B78] hover:border-[#D93B78] text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
+                  >
+                    BACK TO HAND-PAINTED
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
-            /* 4-Column Desktop / 2-Column Tablet / 1-Column Mobile Responsive Grid */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-7">
+            /* Clean 4-Column Desktop / 2-Column Tablet / 1 or 2-Column Mobile Grid */
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
               {filteredDesigns.map((design) => {
                 const isWishlisted = wishlist.includes(design.id);
                 const hasValidImage = design.image && !failedImages[design.id];
@@ -341,11 +390,11 @@ export default function NailsDesignPage() {
                   <div
                     key={design.id}
                     onClick={() => setSelectedPreviewDesign(design)}
-                    className="group flex flex-col justify-between bg-white rounded-[16px] p-4 border border-[#E5DFD7] shadow-xs hover:shadow-xl hover:border-[#D93B78]/40 transition-all duration-300 cursor-pointer h-full"
+                    className="group flex flex-col justify-between bg-white rounded-2xl p-3.5 sm:p-4 border border-[#E5DFD7] shadow-xs hover:shadow-md hover:border-[#D93B78]/40 transition-all duration-300 cursor-pointer h-full"
                   >
                     <div>
-                      {/* CARD IMAGE CONTAINER: 4:5 Portrait Crop with 16px Rounded Corners */}
-                      <div className="relative w-full aspect-[4/5] overflow-hidden rounded-[16px] bg-[#F5F3F0] mb-4">
+                      {/* CARD IMAGE CONTAINER: Moderate height (1:1 aspect-square crop) */}
+                      <div className="relative w-full aspect-square overflow-hidden rounded-xl bg-[#F5F3F0] mb-3">
                         {hasValidImage ? (
                           <img
                             src={design.image}
@@ -356,18 +405,18 @@ export default function NailsDesignPage() {
                           />
                         ) : (
                           /* Neutral Elegant Image Placeholder for missing images */
-                          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#F5F3F0] to-[#E5DFD7] p-6 text-center">
-                            <div className="w-12 h-12 rounded-full bg-white/80 border border-[#D4AF37]/40 flex items-center justify-center text-[#D93B78] mb-2 shadow-xs">
-                              <Sparkles className="w-5 h-5 text-[#D93B78]" />
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#F5F3F0] to-[#E5DFD7] p-5 text-center">
+                            <div className="w-10 h-10 rounded-full bg-white/80 border border-[#D4AF37]/40 flex items-center justify-center text-[#D93B78] mb-1.5 shadow-xs">
+                              <Sparkles className="w-4 h-4 text-[#D93B78]" />
                             </div>
-                            <span className="font-serif italic text-xs text-[#1A1A1A] mb-1">{design.name}</span>
-                            <span className="text-[10px] text-zinc-400 font-sans tracking-widest uppercase">Candy & Rose</span>
+                            <span className="font-serif italic text-xs text-[#1A1A1A] mb-0.5">{design.name}</span>
+                            <span className="text-[9.5px] text-zinc-400 font-sans tracking-widest uppercase">Candy & Rose</span>
                           </div>
                         )}
 
                         {/* Top-Left Overlay: Technique Tag Chip */}
                         {design.technique && (
-                          <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-[10px] font-sans font-semibold uppercase tracking-wider">
+                          <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 text-[9.5px] font-sans font-semibold uppercase tracking-wider">
                             {design.technique}
                           </span>
                         )}
@@ -376,14 +425,14 @@ export default function NailsDesignPage() {
                         <button
                           onClick={(e) => toggleWishlist(design.id, e)}
                           aria-label="Wishlist design"
-                          className={`absolute top-3 right-3 w-8 h-8 rounded-full backdrop-blur-md flex items-center justify-center transition-all duration-300 cursor-pointer ${
+                          className={`absolute top-2.5 right-2.5 w-7.5 h-7.5 rounded-full backdrop-blur-md flex items-center justify-center transition-all duration-300 cursor-pointer ${
                             isWishlisted
                               ? 'bg-[#D93B78] text-white shadow-md'
                               : 'bg-white/80 hover:bg-white text-[#1A1A1A] shadow-xs'
                           }`}
                         >
                           <Heart
-                            className={`w-4 h-4 transition-transform ${
+                            className={`w-3.5 h-3.5 transition-transform ${
                               isWishlisted ? 'fill-current scale-110' : ''
                             }`}
                           />
@@ -391,7 +440,7 @@ export default function NailsDesignPage() {
 
                         {/* Bottom-Left Overlay: Duration Chip */}
                         {design.duration && (
-                          <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-white text-[10px] font-sans font-medium flex items-center gap-1 border border-white/10">
+                          <div className="absolute bottom-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-black/50 backdrop-blur-md text-white text-[9.5px] font-sans font-medium flex items-center gap-1 border border-white/10">
                             <Clock className="w-3 h-3 text-white/80" />
                             <span>{design.duration}</span>
                           </div>
@@ -401,28 +450,28 @@ export default function NailsDesignPage() {
                       {/* CARD INFO SECTION */}
                       {/* Name (Serif) & Price (Rose-pink text on right) */}
                       <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <h3 className="font-serif text-base font-medium text-[#1A1A1A] group-hover:text-[#D93B78] transition-colors leading-snug line-clamp-1">
+                        <h3 className="font-serif text-[15px] sm:text-base font-medium text-[#1A1A1A] group-hover:text-[#D93B78] transition-colors leading-snug line-clamp-1">
                           {design.name}
                         </h3>
-                        <span className="font-sans font-bold text-base text-[#D93B78] shrink-0">
+                        <span className="font-sans font-bold text-sm sm:text-base text-[#D93B78] shrink-0">
                           {design.price}
                         </span>
                       </div>
 
-                      {/* One-line Description */}
-                      <p className="text-xs text-[#666666] font-light leading-relaxed line-clamp-1 mb-4">
+                      {/* Description with compact fixed height for consistent card alignment */}
+                      <p className="text-[11.5px] sm:text-xs text-[#666666] font-light leading-relaxed line-clamp-2 min-h-[2.25rem] mb-3">
                         {design.description}
                       </p>
                     </div>
 
-                    {/* DUAL BUTTON ROW */}
-                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#F5F3F0] mt-auto">
+                    {/* DUAL BUTTON ROW: Equal height 42-44px, bold text, comfortably side by side */}
+                    <div className="grid grid-cols-2 gap-2 sm:gap-2.5 pt-3 border-t border-[#F5F3F0] mt-auto shrink-0">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedPreviewDesign(design);
                         }}
-                        className="w-full py-2.5 px-3 rounded-full border border-[#E5DFD7] bg-white text-[#1A1A1A] hover:border-[#D93B78] hover:text-[#D93B78] text-[11px] font-sans font-semibold uppercase tracking-wider transition-all duration-200 text-center cursor-pointer"
+                        className="h-[42px] sm:h-[44px] px-2 sm:px-3 rounded-full border border-[#D8D2C9] border-x-[#D93B78] hover:border-[#D93B78] bg-white text-[#1A1A1A] hover:text-[#D93B78] hover:bg-[#D93B78]/5 text-[11.5px] sm:text-[12px] font-bold uppercase tracking-wider transition-all duration-200 flex items-center justify-center cursor-pointer text-center whitespace-nowrap shadow-xs"
                       >
                         VIEW DETAILS
                       </button>
@@ -432,7 +481,7 @@ export default function NailsDesignPage() {
                           e.stopPropagation();
                           handleBookDesign(design);
                         }}
-                        className="w-full py-2.5 px-3 rounded-full bg-[#1A1A1A] hover:bg-[#D93B78] text-white text-[11px] font-sans font-semibold uppercase tracking-wider transition-all duration-200 text-center shadow-xs cursor-pointer active:scale-95"
+                        className="h-[42px] sm:h-[44px] px-2 sm:px-3 rounded-full bg-[#D93B78] hover:bg-[#b82d62] text-white text-[11.5px] sm:text-[12px] font-bold uppercase tracking-wider transition-all duration-200 flex items-center justify-center shadow-xs hover:shadow-md hover:shadow-[#D93B78]/25 cursor-pointer active:scale-95 text-center whitespace-nowrap"
                       >
                         BOOK NOW
                       </button>
@@ -441,6 +490,56 @@ export default function NailsDesignPage() {
                   </div>
                 );
               })}
+
+              {/* SPECIAL TILE: Custom Studio collection entry point, rendered immediately after the last Hand-Painted card */}
+              {!showCustomDesigns && (
+                <div
+                  onClick={() => {
+                    setShowCustomDesigns(true);
+                    setSelectedCategory('ALL STYLES');
+                    setSearchQuery('');
+                  }}
+                  className="group flex flex-col justify-between items-center text-center bg-[#FDFBF7] rounded-2xl p-6 sm:p-7 border border-[#EED7E2] hover:border-[#D93B78] shadow-xs hover:shadow-md transition-all duration-300 cursor-pointer h-full"
+                >
+                  {/* Top & Middle Content: Vertically balanced without large blank areas */}
+                  <div className="flex-1 flex flex-col items-center justify-center w-full">
+                    {/* Badges: CUSTOM STUDIO & STUDIO */}
+                    <div className="flex flex-wrap items-center justify-center gap-2 mb-4 sm:mb-5">
+                      <span className="px-3 py-1 rounded-full bg-[#D93B78] text-white text-[9.5px] sm:text-[10px] font-sans font-semibold uppercase tracking-widest shadow-xs">
+                        CUSTOM STUDIO
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#D93B78]/10 text-[#D93B78] text-[9px] sm:text-[9.5px] font-sans font-bold uppercase tracking-wider border border-[#D93B78]/20">
+                        STUDIO
+                      </span>
+                    </div>
+
+                    {/* CUSTOM DESIGN Heading */}
+                    <h3 className="font-serif text-2xl sm:text-[28px] font-medium text-[#1A1A1A] group-hover:text-[#D93B78] transition-colors leading-tight mb-3 sm:mb-4 tracking-tight">
+                      CUSTOM DESIGN
+                    </h3>
+
+                    {/* Description */}
+                    <p className="text-xs sm:text-[13px] text-[#666666] font-light leading-relaxed max-w-[250px] mx-auto">
+                      Explore our Custom Studio designs crafted for your bespoke aesthetic.
+                    </p>
+                  </div>
+
+                  {/* ACTION: Smaller, elegant outlined pill button near bottom of card */}
+                  <div className="pt-5 w-full flex justify-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowCustomDesigns(true);
+                        setSelectedCategory('ALL STYLES');
+                        setSearchQuery('');
+                      }}
+                      className="inline-flex items-center justify-center px-5 sm:px-6 py-2.5 rounded-full border border-[#D93B78] text-[#D93B78] bg-transparent group-hover:bg-[#D93B78] group-hover:text-white text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300 shadow-xs cursor-pointer active:scale-95 text-center whitespace-nowrap"
+                    >
+                      EXPLORE COLLECTION →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -448,7 +547,7 @@ export default function NailsDesignPage() {
 
 
         {/* 12. CUSTOM INSPIRATION SECTION */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 mb-16 sm:mb-20">
+        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 mb-0">
           <div className="bg-[#F5F3F0] rounded-3xl p-8 sm:p-12 border border-[#E5DFD7] relative overflow-hidden shadow-xs">
             
             <div className="relative z-10 max-w-3xl">
@@ -494,140 +593,27 @@ export default function NailsDesignPage() {
         </section>
 
 
-        {/* 13. FINAL CONVERSION CTA */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 mb-20 sm:mb-24">
-          <div className="rounded-3xl bg-[#181114] p-10 sm:p-14 lg:p-16 border border-[#2A1D23] shadow-2xl relative overflow-hidden text-center">
-            
-            {/* Soft Rose Radial Glow */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#D93B78]/25 rounded-full blur-3xl pointer-events-none opacity-80" />
-
-            <div className="relative z-10 max-w-2xl mx-auto">
-              
-              <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl text-white mb-4 tracking-tight font-medium">
-                Found Your Perfect Match?
-              </h2>
-
-              <p className="text-zinc-300 text-xs sm:text-base mb-8 font-light leading-relaxed">
-                Book your appointment today and let our expert nail technicians bring your vision to life.
-              </p>
-
-              <button
-                onClick={() => handleBookDesign()}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#D93B78] hover:bg-[#b82d62] px-8 py-3.5 text-xs sm:text-sm font-sans font-semibold uppercase tracking-widest text-white transition-all duration-300 shadow-xl shadow-[#D93B78]/30 hover:shadow-[#D93B78]/50 hover:scale-105 cursor-pointer active:scale-95"
-              >
-                BOOK NOW
-              </button>
-
-            </div>
-
-          </div>
-        </section>
-
-
-        {/* 14. LUXURY FOUR-COLUMN ATELIER FOOTER */}
-        <footer className="bg-[#181114] text-white pt-16 pb-12 border-t border-[#2A1D23]">
-          <div className="mx-auto max-w-7xl px-6 lg:px-10 grid gap-10 md:grid-cols-4 border-b border-zinc-800/80 pb-14">
-            
-            {/* Column 1: CANDY & ROSE Brand */}
-            <div className="space-y-4">
-              <span className="font-serif text-2xl sm:text-3xl font-medium tracking-tight text-white block">
-                CANDY <span className="italic text-[#D93B78] font-serif font-normal">&amp;</span> ROSE
-              </span>
-              <p className="text-xs leading-relaxed text-zinc-400 max-w-xs font-light">
-                Pairing Parisian elegance with Japanese precision nail art to craft bespoke, high-fashion manicures in a serene atelier environment.
-              </p>
-              <div className="flex items-center gap-3 pt-2 text-zinc-400">
-                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-full bg-zinc-900 flex items-center justify-center hover:bg-[#D93B78] hover:text-white transition-colors" aria-label="Instagram">
-                  <Instagram size={16} />
-                </a>
-                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-full bg-zinc-900 flex items-center justify-center hover:bg-[#D93B78] hover:text-white transition-colors" aria-label="Facebook">
-                  <Facebook size={16} />
-                </a>
-              </div>
-            </div>
-
-            {/* Column 2: ATELIER */}
-            <div>
-              <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#D93B78]">ATELIER</p>
-              <ul className="space-y-3 text-xs text-zinc-400 font-medium">
-                <li><a href="/services" className="hover:text-[#D93B78] transition-colors">Services Menu</a></li>
-                <li><a href="/nails-design" className="hover:text-[#D93B78] transition-colors">Design Lookbook</a></li>
-                <li><a href="/packages" className="hover:text-[#D93B78] transition-colors">Seasonal Rituals</a></li>
-                <li><a href="/about" className="hover:text-[#D93B78] transition-colors">Nail Care Sanctuary</a></li>
-              </ul>
-            </div>
-
-            {/* Column 3: SALON HOURS */}
-            <div>
-              <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#D93B78]">SALON HOURS</p>
-              <div className="space-y-3 text-xs text-zinc-400 font-light">
-                <div>
-                  <p className="font-semibold text-white">Tuesday – Saturday</p>
-                  <p>10:00 – 19:30</p>
-                </div>
-                <div>
-                  <p className="font-semibold text-white">Sunday</p>
-                  <p>11:00 – 18:00</p>
-                </div>
-                <div>
-                  <p className="font-semibold text-white">Monday</p>
-                  <p className="text-zinc-500 italic">Private Residencies Only</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Column 4: CONCIERGE */}
-            <div>
-              <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#D93B78]">CONCIERGE</p>
-              <div className="space-y-3 text-xs leading-relaxed text-zinc-400 font-light">
-                <p className="flex items-start gap-2">
-                  <MapPin size={15} className="text-[#D93B78] shrink-0 mt-0.5" />
-                  <span>Candy &amp; Rose Atelier, Luxury Salon District</span>
-                </p>
-                <p className="flex items-center gap-2">
-                  <Phone size={15} className="text-[#D93B78] shrink-0" />
-                  <span>+63 (917) 123-4567</span>
-                </p>
-                <p className="flex items-center gap-2">
-                  <Mail size={15} className="text-[#D93B78] shrink-0" />
-                  <span>concierge@candyandrose.com</span>
-                </p>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Copyright & Legal Bar */}
-          <div className="mx-auto max-w-7xl px-6 lg:px-10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500 font-light">
-            <p>© 2025 Candy &amp; Rose. All rights reserved.</p>
-            <div className="flex gap-6">
-              <a href="/terms" className="hover:text-[#D93B78] transition-colors">Terms &amp; Sanctuary Etiquette</a>
-              <a href="/terms" className="hover:text-[#D93B78] transition-colors">Privacy Policy</a>
-            </div>
-          </div>
-        </footer>
-
-
-        {/* --- MODAL 1: VIEW DETAILS SPECIFICATION MODAL --- */}
+        {/* --- MODAL 1: COMPACT TWO-COLUMN VIEW DETAILS MODAL --- */}
         {selectedPreviewDesign && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in overflow-y-auto"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-3 sm:p-4 backdrop-blur-sm animate-fade-in"
             onClick={() => setSelectedPreviewDesign(null)}
           >
             <div
-              className="relative w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl animate-scale-in my-6 border border-[#E5DFD7] max-h-[90vh] flex flex-col"
+              className="relative w-full max-w-[830px] overflow-hidden rounded-2xl sm:rounded-3xl bg-white shadow-2xl animate-scale-in border border-[#E5DFD7] max-h-[85vh] md:max-h-[72vh] flex flex-col md:flex-row"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Close Button: Always visible and accessible */}
               <button
                 onClick={() => setSelectedPreviewDesign(null)}
                 aria-label="Close design preview"
-                className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80 cursor-pointer"
+                className="absolute right-3.5 top-3.5 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80 cursor-pointer shadow-sm"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
 
-              {/* Database Image Preview — 4:3 Ratio */}
-              <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-[#F5F3F0]">
+              {/* LEFT COLUMN: Nail Design Image (Controlled Height, 46% Width on Desktop) */}
+              <div className="relative w-full md:w-[46%] h-48 sm:h-56 md:h-auto md:min-h-full shrink-0 overflow-hidden bg-[#F5F3F0]">
                 {selectedPreviewDesign.image && !failedImages[selectedPreviewDesign.id] ? (
                   <img
                     src={selectedPreviewDesign.image}
@@ -635,91 +621,98 @@ export default function NailsDesignPage() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#F5F3F0] to-[#E5DFD7] p-8 text-center">
-                    <Sparkles className="w-10 h-10 text-[#D93B78] mb-2" />
-                    <span className="font-serif italic text-base text-[#1A1A1A]">{selectedPreviewDesign.name}</span>
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#F5F3F0] to-[#E5DFD7] p-6 text-center">
+                    <Sparkles className="w-8 h-8 text-[#D93B78] mb-1.5" />
+                    <span className="font-serif italic text-sm text-[#1A1A1A]">{selectedPreviewDesign.name}</span>
                   </div>
                 )}
-                
-                {/* Overlay Tags */}
-                <div className="absolute bottom-4 left-4 flex flex-wrap gap-2">
+
+                {/* Overlay Badges */}
+                <div className="absolute bottom-3 left-3 flex flex-wrap gap-1.5">
                   {selectedPreviewDesign.category && (
-                    <span className="px-3 py-1 rounded-full bg-black/70 backdrop-blur-md text-white text-[10px] font-sans font-semibold uppercase tracking-wider border border-white/10">
+                    <span className="px-2.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-white text-[9.5px] font-sans font-semibold uppercase tracking-wider border border-white/10">
                       {selectedPreviewDesign.category}
                     </span>
                   )}
                   {selectedPreviewDesign.technique && (
-                    <span className="px-3 py-1 rounded-full bg-[#D93B78]/90 backdrop-blur-md text-white text-[10px] font-sans font-semibold uppercase tracking-wider">
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#D93B78]/90 backdrop-blur-md text-white text-[9.5px] font-sans font-semibold uppercase tracking-wider">
                       {selectedPreviewDesign.technique}
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Modal Body */}
-              <div className="p-6 sm:p-8 overflow-y-auto flex-1 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-start justify-between gap-4 mb-2">
-                    <h2 className="font-serif text-2xl sm:text-3xl font-medium text-[#1A1A1A] leading-tight">
-                      {selectedPreviewDesign.name}
-                    </h2>
-                    <span className="px-2.5 py-1 rounded-full bg-[#F5F3F0] text-zinc-700 text-[10px] font-semibold uppercase tracking-wider shrink-0 border border-[#E5DFD7]">
-                      {selectedPreviewDesign.longevity || '3-4 Weeks Wear'}
-                    </span>
+              {/* RIGHT COLUMN: Details & Actions (Scrolls only within content if needed) */}
+              <div className="flex-1 flex flex-col justify-between overflow-y-auto max-h-[calc(85vh-12rem)] md:max-h-[72vh] p-4 sm:p-5 lg:p-6 bg-white">
+                <div className="space-y-3">
+                  {/* Header: Title & Longevity */}
+                  <div>
+                    <div className="flex items-start justify-between gap-3 pr-8 md:pr-0">
+                      <h2 className="font-serif text-xl sm:text-[22px] font-medium text-[#1A1A1A] leading-tight">
+                        {selectedPreviewDesign.name}
+                      </h2>
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#F5F3F0] text-zinc-700 text-[9.5px] font-semibold uppercase tracking-wider shrink-0 border border-[#E5DFD7]">
+                        {selectedPreviewDesign.longevity || '3-4 Weeks Wear'}
+                      </span>
+                    </div>
+                    <p className="text-[12.5px] sm:text-xs text-[#666666] font-sans font-light leading-relaxed mt-1.5">
+                      {selectedPreviewDesign.description}
+                    </p>
                   </div>
 
-                  <p className="text-sm text-[#666666] font-sans font-light leading-relaxed mb-6">
-                    {selectedPreviewDesign.description}
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                    <div className="p-3.5 rounded-2xl bg-[#F5F3F0]/80 border border-[#E5DFD7]">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
-                        Materials & Finish
+                  {/* Compact Info Grid: Materials & Formulation */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 rounded-xl bg-[#F5F3F0]/80 border border-[#E5DFD7]">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">
+                        Materials &amp; Finish
                       </span>
-                      <p className="text-xs text-[#1A1A1A] font-medium">
+                      <p className="text-[11px] text-[#1A1A1A] font-medium leading-snug line-clamp-2">
                         {selectedPreviewDesign.materials || 'Luxury gel formulation'}
                       </p>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-[#F5F3F0]/80 border border-[#E5DFD7]">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-1">
+                    <div className="p-2.5 rounded-xl bg-[#F5F3F0]/80 border border-[#E5DFD7]">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">
                         Formulation Tier
                       </span>
-                      <p className="text-xs text-[#1A1A1A] font-medium">
+                      <p className="text-[11px] text-[#1A1A1A] font-medium leading-snug line-clamp-2">
                         {selectedPreviewDesign.formulation || 'Non-toxic 10-Free Japanese Gel'}
                       </p>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl bg-[#D93B78]/5 p-5 border border-[#D93B78]/20 mb-6 space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#D93B78] block mb-2">
-                      ATELIER INCLUSIONS
-                    </span>
-                    <ul className="text-xs text-zinc-700 space-y-2 font-sans">
-                      {selectedPreviewDesign.inclusions?.map((inc, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <Check className="w-3.5 h-3.5 text-[#D93B78] shrink-0 mt-0.5" />
-                          <span>{inc.replace(/^[•\-\*\s]+/, '')}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  {/* Atelier Inclusions: Compact checklist */}
+                  {selectedPreviewDesign.inclusions && selectedPreviewDesign.inclusions.length > 0 && (
+                    <div className="rounded-xl bg-[#D93B78]/5 p-3 border border-[#D93B78]/15 space-y-1.5">
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#D93B78] block">
+                        ATELIER INCLUSIONS
+                      </span>
+                      <ul className="text-[11px] text-zinc-700 space-y-1 font-sans">
+                        {selectedPreviewDesign.inclusions.map((inc, i) => (
+                          <li key={i} className="flex items-start gap-1.5">
+                            <Check className="w-3 h-3 text-[#D93B78] shrink-0 mt-0.5" />
+                            <span className="leading-tight">{inc.replace(/^[•\-\*\s]+/, '')}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
-                <div className="pt-4 border-t border-zinc-200 flex items-center justify-between gap-4">
+                {/* Footer: Price & Book Now button (Aligned along the bottom) */}
+                <div className="pt-3 mt-3 border-t border-[#E5DFD7] flex items-center justify-between gap-3 shrink-0">
                   <div>
-                    <span className="text-2xl sm:text-3xl font-serif font-bold text-[#D93B78] block">
+                    <span className="text-xl sm:text-2xl font-serif font-bold text-[#D93B78] block leading-none">
                       {selectedPreviewDesign.price}
                     </span>
-                    <span className="text-[11px] text-zinc-400 font-sans">
+                    <span className="text-[10px] text-zinc-400 font-sans mt-0.5 block">
                       {selectedPreviewDesign.duration || '60 min'} est. duration
                     </span>
                   </div>
 
                   <button
                     onClick={() => handleBookDesign(selectedPreviewDesign)}
-                    className="px-8 py-3.5 rounded-full bg-[#1A1A1A] hover:bg-[#D93B78] text-white text-xs font-semibold uppercase tracking-widest shadow-md transition-all duration-200 cursor-pointer active:scale-95"
+                    className="px-6 py-2.5 rounded-full bg-[#D93B78] hover:bg-[#b82d62] text-white text-[11px] sm:text-[11.5px] font-bold uppercase tracking-wider shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer active:scale-95 shrink-0"
                   >
                     BOOK THIS DESIGN
                   </button>

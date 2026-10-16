@@ -1,9 +1,15 @@
 "use client";
 
 import Header from "@/components/Header";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { addNotification } from "@/lib/notifications";
 import { PromotionsDB, Promotion } from "@/lib/db";
+import {
+    getManilaToday,
+    formatMonthYear,
+    getPromotionDateRange,
+    isPromotionInMonth
+} from "@/lib/promotions-utils";
 import {
     Loader2,
     Plus,
@@ -16,6 +22,7 @@ import {
     ChevronLeft,
     ChevronRight,
     Calendar,
+    Check,
 } from "lucide-react";
 
 // --- Toast ---
@@ -33,6 +40,7 @@ const Toast = ({ message, onDone }: { message: string; onDone: () => void }) => 
 };
 
 export default function PromotionsPage() {
+    const manilaToday = useMemo(() => getManilaToday(), []);
     const [promotions, setPromotions] = useState<Promotion[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -40,6 +48,11 @@ export default function PromotionsPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
+
+    // Monthly organization: Default to "ALL" so that all historical and past promotions remain accessible
+    const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>("ALL");
+    const [isMonthDropdownOpen, setIsMonthDropdownOpen] = useState(false);
+    const monthDropdownRef = useRef<HTMLDivElement>(null);
     
     // Modals
     const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
@@ -51,13 +64,24 @@ export default function PromotionsPage() {
         name: "",
         inclusions: "",
         price: 0,
-        date: "",
+        date: manilaToday.monthStr,
         status: "Available"
     });
 
     const showToast = (msg: string) => setToast(msg);
 
-    // Load from Supabase
+    // Close month dropdown when clicked outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (monthDropdownRef.current && !monthDropdownRef.current.contains(event.target as Node)) {
+                setIsMonthDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    // Load promotions from Supabase
     useEffect(() => {
         const loadPromotions = async () => {
             try {
@@ -73,19 +97,59 @@ export default function PromotionsPage() {
         loadPromotions();
     }, []);
 
+    // Extract all distinct months available in promotions list for easy filtering
+    const availableMonths = useMemo(() => {
+        const monthsSet = new Set<string>();
+        promotions.forEach(p => {
+            const { monthStr } = getPromotionDateRange(p);
+            if (monthStr) monthsSet.add(monthStr);
+        });
+        monthsSet.add(manilaToday.monthStr);
+        return Array.from(monthsSet).sort().reverse();
+    }, [promotions, manilaToday.monthStr]);
+
+    // Count of promotions without assigned date
+    const unassignedCount = useMemo(() => {
+        return promotions.filter(p => !p.date && !p.start_date).length;
+    }, [promotions]);
+
     const handleSavePromotion = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
             setSaving(true);
-            const payload: any = { ...promoFormData };
-            if (payload.date) payload.date += "-01";
+            const rawMonth = promoFormData.date ? promoFormData.date.substring(0, 7) : manilaToday.monthStr;
+            const match = rawMonth.match(/^(\d{4})-(\d{2})/);
+
+            let startDate: string | null = null;
+            let endDate: string | null = null;
+            let dateVal: string | null = null;
+
+            if (match) {
+                const y = parseInt(match[1], 10);
+                const m = parseInt(match[2], 10);
+                startDate = `${match[1]}-${match[2]}-01`;
+                const lastDay = new Date(y, m, 0).getDate();
+                endDate = `${match[1]}-${match[2]}-${String(lastDay).padStart(2, '0')}`;
+                dateVal = startDate;
+            }
+
+            const payload: any = {
+                name: promoFormData.name?.trim(),
+                inclusions: promoFormData.inclusions?.trim() || null,
+                price: Number(promoFormData.price) || 0,
+                date: dateVal,
+                start_date: startDate,
+                end_date: endDate,
+                status: promoFormData.status || "Available"
+            };
 
             if (editingPromoId) {
                 await PromotionsDB.update(editingPromoId, payload);
                 showToast("Promotion updated successfully!");
             } else {
                 await PromotionsDB.create(payload as Omit<Promotion, "id" | "created_at">);
-                }
+                showToast("Promotion created successfully!");
+            }
             const fresh = await PromotionsDB.list();
             setPromotions(fresh);
             setIsSaveSuccessModalOpen(true);
@@ -114,17 +178,30 @@ export default function PromotionsPage() {
         }
     };
 
+    // Filter promotions: when selectedMonthFilter is "ALL", all historical and current promotions are preserved
     const filteredPromotions = useMemo(() => {
-        if (!searchQuery.trim()) return promotions;
-        const query = searchQuery.trim().toLowerCase();
         return promotions.filter(promo => {
-            const nameMatch = (promo.name || "").toLowerCase().includes(query) ;
-            const statusMatch = (promo.status || "").toLowerCase().includes(query);
-            const priceStr = promo.price?.toString() || "";
-            const priceMatch = priceStr.includes(query);
-            return nameMatch || statusMatch || priceMatch;
+            // Month filter
+            if (selectedMonthFilter !== "ALL") {
+                if (!isPromotionInMonth(promo, selectedMonthFilter)) {
+                    return false;
+                }
+            }
+
+            // Search query filter
+            if (searchQuery.trim()) {
+                const query = searchQuery.trim().toLowerCase();
+                const nameMatch = (promo.name || "").toLowerCase().includes(query);
+                const statusMatch = (promo.status || "").toLowerCase().includes(query);
+                const priceStr = promo.price?.toString() || "";
+                const priceMatch = priceStr.includes(query);
+                const inclusionsMatch = (promo.inclusions || "").toLowerCase().includes(query);
+                return nameMatch || statusMatch || priceMatch || inclusionsMatch;
+            }
+
+            return true;
         });
-    }, [promotions, searchQuery]);
+    }, [promotions, selectedMonthFilter, searchQuery]);
 
     const totalPages = Math.max(1, Math.ceil(filteredPromotions.length / itemsPerPage));
 
@@ -157,6 +234,7 @@ export default function PromotionsPage() {
 
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                     <div className="flex gap-3 w-full md:w-auto flex-1 md:max-w-xl">
+                        {/* Search Input */}
                         <div className="relative w-full flex-1">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
@@ -178,10 +256,140 @@ export default function PromotionsPage() {
                                 </button>
                             )}
                         </div>
-                        <button className="px-5 py-2.5 bg-white border border-pink-200/60 rounded-full text-sm font-semibold text-gray-600 hover:bg-pink-50 transition-all shadow-[0_4px_14px_0_rgba(246,41,150,0.06)] hover:shadow-[0_4px_14px_0_rgba(246,41,150,0.1)] flex items-center justify-center gap-2 shrink-0">
-                            <Calendar className="w-4 h-4 text-gray-400" /> Date
-                        </button>
+
+                        {/* Month Organization Filter */}
+                        <div ref={monthDropdownRef} className="relative shrink-0">
+                            <button 
+                                type="button"
+                                onClick={() => setIsMonthDropdownOpen(prev => !prev)}
+                                className="px-5 py-2.5 bg-white border border-pink-200/60 rounded-full text-sm font-semibold text-gray-700 hover:bg-pink-50 transition-all shadow-[0_4px_14px_0_rgba(246,41,150,0.06)] hover:shadow-[0_4px_14px_0_rgba(246,41,150,0.1)] flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                            >
+                                <Calendar className="w-4 h-4 text-pink-500" />
+                                <span>
+                                    {selectedMonthFilter === "ALL" 
+                                        ? "All Months" 
+                                        : (selectedMonthFilter === "UNASSIGNED"
+                                            ? "Unassigned Month"
+                                            : (selectedMonthFilter === manilaToday.monthStr 
+                                                ? `${manilaToday.formattedMonthYear} (Current)` 
+                                                : formatMonthYear(selectedMonthFilter)))}
+                                </span>
+                                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${isMonthDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {isMonthDropdownOpen && (
+                                <div className="absolute right-0 sm:left-0 top-12 mt-1 w-64 bg-white rounded-2xl shadow-xl border border-pink-100 z-30 animate-in fade-in slide-in-from-top-2 overflow-hidden py-2">
+                                    <div className="px-4 py-2 border-b border-pink-50 text-[10px] font-bold text-gray-400 uppercase tracking-wider flex justify-between items-center">
+                                        <span>Filter by Month</span>
+                                        <span className="text-pink-500 font-bold">{filteredPromotions.length} shown</span>
+                                    </div>
+
+                                    <div className="max-h-60 overflow-y-auto py-1">
+                                        {/* All Months Option (Default: Preserves all promotions) */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedMonthFilter("ALL");
+                                                setIsMonthDropdownOpen(false);
+                                                setCurrentPage(1);
+                                            }}
+                                            className={`w-full text-left px-4 py-2 text-sm transition-colors cursor-pointer flex items-center justify-between ${
+                                                selectedMonthFilter === "ALL" 
+                                                    ? 'bg-pink-50 text-pink-600 font-bold' 
+                                                    : 'text-gray-700 hover:bg-pink-50/50 hover:text-pink-600 font-medium'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <span>All Promotions</span>
+                                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full font-bold">{promotions.length}</span>
+                                            </div>
+                                            {selectedMonthFilter === "ALL" && <Check className="w-4 h-4 text-pink-500 shrink-0" />}
+                                        </button>
+
+                                        {/* Current Month Option */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedMonthFilter(manilaToday.monthStr);
+                                                setIsMonthDropdownOpen(false);
+                                                setCurrentPage(1);
+                                            }}
+                                            className={`w-full text-left px-4 py-2 text-sm transition-colors cursor-pointer flex items-center justify-between ${
+                                                selectedMonthFilter === manilaToday.monthStr 
+                                                    ? 'bg-pink-50 text-pink-600 font-bold' 
+                                                    : 'text-gray-700 hover:bg-pink-50/50 hover:text-pink-600 font-medium'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <span>{manilaToday.formattedMonthYear}</span>
+                                                <span className="text-[10px] bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded-full font-bold">Current</span>
+                                            </div>
+                                            {selectedMonthFilter === manilaToday.monthStr && <Check className="w-4 h-4 text-pink-500 shrink-0" />}
+                                        </button>
+
+                                        {/* Past and Other Available Months */}
+                                        {availableMonths.filter(m => m !== manilaToday.monthStr).map((m) => (
+                                            <button
+                                                key={m}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedMonthFilter(m);
+                                                    setIsMonthDropdownOpen(false);
+                                                    setCurrentPage(1);
+                                                }}
+                                                className={`w-full text-left px-4 py-2 text-sm transition-colors cursor-pointer flex items-center justify-between ${
+                                                    selectedMonthFilter === m 
+                                                        ? 'bg-pink-50 text-pink-600 font-bold' 
+                                                        : 'text-gray-700 hover:bg-pink-50/50 hover:text-pink-600 font-medium'
+                                                }`}
+                                            >
+                                                <span>{formatMonthYear(m)}</span>
+                                                {selectedMonthFilter === m && <Check className="w-4 h-4 text-pink-500 shrink-0" />}
+                                            </button>
+                                        ))}
+
+                                        {/* Unassigned Option (promotions without month) */}
+                                        {unassignedCount > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedMonthFilter("UNASSIGNED");
+                                                    setIsMonthDropdownOpen(false);
+                                                    setCurrentPage(1);
+                                                }}
+                                                className={`w-full text-left px-4 py-2 text-sm transition-colors cursor-pointer flex items-center justify-between ${
+                                                    selectedMonthFilter === "UNASSIGNED" 
+                                                        ? 'bg-pink-50 text-pink-600 font-bold' 
+                                                        : 'text-gray-700 hover:bg-pink-50/50 hover:text-pink-600 font-medium'
+                                                }`}
+                                            >
+                                                <span>Unassigned Month ({unassignedCount})</span>
+                                                {selectedMonthFilter === "UNASSIGNED" && <Check className="w-4 h-4 text-pink-500 shrink-0" />}
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Pick Any Month (Custom Month Picker) */}
+                                    <div className="p-3 border-t border-pink-50 bg-gray-50/50">
+                                        <label className="block text-[11px] font-bold text-gray-500 mb-1.5">Pick Any Month</label>
+                                        <input
+                                            type="month"
+                                            value={selectedMonthFilter === "ALL" || selectedMonthFilter === "UNASSIGNED" ? "" : selectedMonthFilter}
+                                            onChange={(e) => {
+                                                if (e.target.value) {
+                                                    setSelectedMonthFilter(e.target.value);
+                                                    setIsMonthDropdownOpen(false);
+                                                    setCurrentPage(1);
+                                                }
+                                            }}
+                                            className="w-full px-3 py-1.5 text-xs bg-white border border-pink-200/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-400 font-medium text-gray-700"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
+
                     <button
                         onClick={() => {
                             setEditingPromoId(null);
@@ -189,7 +397,7 @@ export default function PromotionsPage() {
                                 name: "",
                                 inclusions: "",
                                 price: 0,
-                                date: "",
+                                date: selectedMonthFilter !== "ALL" && selectedMonthFilter !== "UNASSIGNED" ? selectedMonthFilter : manilaToday.monthStr,
                                 status: "Available"
                             });
                             setIsPromoModalOpen(true);
@@ -218,20 +426,20 @@ export default function PromotionsPage() {
                                 {currentPromotions.map((promo) => (
                                     <tr key={promo.id} className="bg-gray-50/50 hover:bg-pink-50/30 transition-all group">
                                         <td className="py-4 px-4 rounded-l-2xl border-y border-l border-transparent group-hover:border-pink-100">
-                                              <div>
+                                            <div>
                                                 <span className="font-bold text-gray-900">{promo.name}</span>
                                                 {promo.inclusions && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{promo.inclusions}</p>}
                                             </div>
                                         </td>
                                         <td className="py-4 px-4 border-y border-transparent group-hover:border-pink-100">
                                             <span className="text-sm text-gray-700 font-medium">
-                                                {promo.date ? new Date(promo.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'Not set'}
+                                                {formatMonthYear(promo.start_date || promo.date)}
                                             </span>
                                         </td>
                                         <td className="py-4 px-4 border-y border-transparent group-hover:border-pink-100">
                                             <span className="font-semibold text-gray-700 block">
                                                 {new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(promo.price || 0))}
-                                              </span>
+                                            </span>
                                         </td>
                                         <td className="py-4 px-4 border-y border-transparent group-hover:border-pink-100 text-center">
                                             <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${promo.status === 'Available' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
@@ -243,11 +451,12 @@ export default function PromotionsPage() {
                                                 <button
                                                     onClick={() => {
                                                         setEditingPromoId(promo.id || null);
+                                                        const { monthStr } = getPromotionDateRange(promo);
                                                         setPromoFormData({
                                                             name: promo.name || "",
                                                             inclusions: promo.inclusions || "",
                                                             price: promo.price || 0,
-                                                            date: promo.date ? promo.date.substring(0, 7) : "",
+                                                            date: monthStr || "",
                                                             status: promo.status || "Available"
                                                         });
                                                         setIsPromoModalOpen(true);
@@ -275,7 +484,7 @@ export default function PromotionsPage() {
                                             <div className="flex flex-col items-center justify-center opacity-40">
                                                 <Tag className="w-12 h-12 mb-3 text-gray-300" />
                                                 <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">
-                                                    {searchQuery ? "No promotions found." : "No promotions found"}
+                                                    {searchQuery ? "No promotions found matching search." : "No promotions found for selected filter"}
                                                 </p>
                                             </div>
                                         </td>
@@ -335,7 +544,7 @@ export default function PromotionsPage() {
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-xl font-bold text-gray-900">
                                     {editingPromoId ? "Edit Promotion" : "Add Promotion"}
-                               </h3>
+                                </h3>
                                 <button onClick={() => setIsPromoModalOpen(false)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
                                     <X className="w-5 h-5" />
                                 </button>
@@ -379,7 +588,6 @@ export default function PromotionsPage() {
                 </div>
             )}
 
-            
             {/* Save Success Confirmation Modal */}
             {isSaveSuccessModalOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -421,4 +629,3 @@ export default function PromotionsPage() {
         </div>
     );
 }
-

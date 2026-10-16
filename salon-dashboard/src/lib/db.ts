@@ -174,7 +174,10 @@ export interface Promotion {
   inclusions?: string;
   price?: number;
   date?: string;
+  start_date?: string;
+  end_date?: string;
   status?: string;
+  created_at?: string;
 }
 
 // ─── Customers ────────────────────────────────────────────────────────────────

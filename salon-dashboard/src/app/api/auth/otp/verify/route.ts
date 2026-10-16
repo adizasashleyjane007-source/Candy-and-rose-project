@@ -53,6 +53,10 @@ export async function POST(request: Request) {
 
     if (updateError) {
       console.error("⚠️ Error marking OTP as used:", updateError.message);
+      return NextResponse.json(
+        { error: "Failed to update security code status. Please try again." },
+        { status: 500 }
+      );
     }
 
     // Set secure HTTP-only cookie indicating successful OTP verification

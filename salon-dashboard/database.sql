@@ -224,6 +224,11 @@ ALTER TABLE public.promotions ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS promotional_price numeric;
+ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS price numeric;
+ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS date date;
+ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS start_date date;
+ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS end_date date;
 ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS inclusions text;
 ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS availability_month text;
+
 

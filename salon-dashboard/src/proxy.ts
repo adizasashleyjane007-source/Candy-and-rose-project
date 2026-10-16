@@ -10,9 +10,15 @@
 
     const { pathname } = request.nextUrl;
     
-    // If the user is on the login page or other auth-related pages or API routes, let them proceed without checking auth here
+    // If the user is on the login page or other auth-related pages, API routes, or static files, let them proceed without checking auth here
     // This prevents redirect loops and API route HTML redirects.
-    if (pathname === "/login" || pathname === "/signup" || pathname.startsWith("/auth") || pathname.startsWith("/api")) {
+    if (
+      pathname === "/login" ||
+      pathname === "/signup" ||
+      pathname.startsWith("/auth") ||
+      pathname.startsWith("/api") ||
+      /\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$/i.test(pathname)
+    ) {
       return response;
     }
 
@@ -131,8 +137,9 @@
       * - _next/static (static files)
       * - _next/image (image optimization files)
       * - favicon.ico (favicon file)
+      * - Static files with extensions
       */
-      "/((?!api|_next/static|_next/image|favicon.ico).*)",
+      "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
     ],
   };
 

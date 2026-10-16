@@ -3,14 +3,12 @@
 import { useEffect, useState } from 'react';
 import { 
   User, Mail, Phone, Lock, Eye, EyeOff,
-  CheckCircle2, AlertCircle, Plus, 
-  ArrowRight, Camera, X
+  CheckCircle2, AlertCircle, ArrowRight, Check, X
 } from 'lucide-react';
 import bcrypt from 'bcryptjs';
 import SalonLayout from '@/components/salon-layout';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
-import Link from 'next/link';
 
 export default function ProfilePage() {
   const { user, profile, customer, refreshProfile } = useAuth();
@@ -18,7 +16,6 @@ export default function ProfilePage() {
   // Edit profile states
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
-  const [editPhotoUrl, setEditPhotoUrl] = useState('');
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -26,12 +23,23 @@ export default function ProfilePage() {
   const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [editPassword, setEditPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordSuccessModal, setShowPasswordSuccessModal] = useState(false);
+
+  useEffect(() => {
+    if (!showPasswordSuccessModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowPasswordSuccessModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showPasswordSuccessModal]);
 
   useEffect(() => {
     if (user) {
       setEditName(profile?.full_name || profile?.name || user.email?.split('@')[0] || '');
       setEditPhone(profile?.phone || customer?.phone || '');
-      setEditPhotoUrl(profile?.image_url || profile?.avatar_url || '');
     }
   }, [user, profile, customer]);
 
@@ -48,17 +56,21 @@ export default function ProfilePage() {
         setSaveBusy(false);
         return;
       }
+      const hadPasswordChange = Boolean(editPassword && editPassword.trim().length > 0);
+
       // Update profiles table
+      const profilePayload: any = {
+        id: user.id,
+        name: editName.trim(),
+        phone: editPhone.trim() || null,
+        updated_at: new Date().toISOString()
+      };
+      if (profile?.image_url) profilePayload.image_url = profile.image_url;
+      if (profile?.avatar_url) profilePayload.avatar_url = profile.avatar_url;
+
       const { error: profileErr } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          name: editName.trim(),
-          phone: editPhone.trim() || null,
-          image_url: editPhotoUrl.trim() || null,
-          avatar_url: editPhotoUrl.trim() || null,
-          updated_at: new Date().toISOString()
-        });
+        .upsert(profilePayload);
 
       if (profileErr) throw new Error(profileErr.message);
 
@@ -85,15 +97,20 @@ export default function ProfilePage() {
           updatePayload.password = bcrypt.hashSync(editPassword, 10);
         }
 
-        await supabase
+        const { error: custErr } = await supabase
           .from('customers')
           .update(updatePayload)
           .eq('id', custId);
+
+        if (custErr) throw new Error(custErr.message);
       }
 
       await refreshProfile();
-      setSuccessMessage(editPassword ? 'Password updated successfully.' : 'Profile updated successfully!');
-      if (editPassword) setPasswordUpdated(true);
+      setSuccessMessage('Profile updated successfully!');
+      if (hadPasswordChange) {
+        setPasswordUpdated(true);
+        setShowPasswordSuccessModal(true);
+      }
       setSaveSuccess(true);
       setEditPassword('');
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -128,21 +145,13 @@ export default function ProfilePage() {
 
   return (
     <SalonLayout>
-      <main className="bg-zinc-50/50 min-h-screen py-16 px-6 lg:px-10">
+      <main className="bg-zinc-50/50 min-h-screen pt-[65px] pb-16 px-6 lg:px-10">
         <div className="mx-auto max-w-7xl">
           {/* HEADER SECTION */}
-          <div className="mb-12 border-b border-zinc-200/60 pb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div>
-              <h1 className="font-serif text-[32px] font-normal text-zinc-950 leading-tight">
-                Customer Profile
-              </h1>
-            </div>
-            
-            <div className="flex items-center gap-3 self-start md:self-center">
-              <Link href="/history" className="inline-flex items-center gap-2.5 rounded-full bg-pink-600 hover:bg-pink-700 text-white px-7 py-3 text-xs font-bold uppercase tracking-widest transition-all duration-300 shadow-md shadow-pink-600/20">
-                 View History
-              </Link>
-            </div>
+          <div className="mb-12 border-b border-zinc-200/60 pb-8">
+            <h1 className="font-serif text-[32px] font-normal text-zinc-950 leading-tight">
+              Customer Profile
+            </h1>
           </div>
 
           <div className="max-w-2xl mx-auto">
@@ -150,8 +159,8 @@ export default function ProfilePage() {
             <section className="bg-white rounded-3xl border border-zinc-200/80 p-6 sm:p-8 shadow-sm">
               <div className="flex items-center gap-3.5 border-b border-zinc-100 pb-5 mb-6">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-pink-50 text-pink-600 border border-pink-200/50 overflow-hidden shrink-0 shadow-sm">
-                  {editPhotoUrl ? (
-                    <img src={editPhotoUrl} alt="Profile Avatar" className="h-full w-full object-cover" />
+                  {(profile?.image_url || profile?.avatar_url) ? (
+                    <img src={(profile.image_url || profile.avatar_url) ?? undefined} alt="Profile Avatar" className="h-full w-full object-cover" />
                   ) : (
                     <User size={22} />
                   )}
@@ -170,31 +179,6 @@ export default function ProfilePage() {
               </div>
 
               <form onSubmit={handleUpdateProfile} className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1.5">Profile Photo</label>
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                    <label className="flex items-center justify-center gap-2 cursor-pointer rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-xs text-zinc-700 hover:bg-zinc-100 transition-colors font-medium shrink-0 w-max">
-                      <Camera size={14} className="text-pink-600" />
-                      <span>Choose File</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setEditPhotoUrl(reader.result as string);
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-                  </div>
-                </div>
-
                 <div>
                   <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1.5">Full Name *</label>
                   <div className="relative">
@@ -280,6 +264,50 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
+
+      {/* Password Update Success Confirmation Modal */}
+      {showPasswordSuccessModal && (
+        <div 
+          onClick={() => setShowPasswordSuccessModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-[90%] max-w-[420px] my-auto rounded-[32px] bg-white pt-9 pb-8 px-6 sm:pt-10 sm:pb-9 sm:px-8 shadow-[0_0_25px_rgba(230,30,115,0.12),0_20px_50px_rgba(0,0,0,0.15)] ring-1 ring-pink-100/60 border border-pink-200/70 animate-scale-in text-center flex flex-col items-center"
+          >
+            {/* Top-right X close icon */}
+            <button
+              type="button"
+              onClick={() => setShowPasswordSuccessModal(false)}
+              aria-label="Close"
+              className="absolute top-4 right-4 sm:top-5 sm:right-5 text-zinc-400 hover:text-[#E61E73] transition-colors p-1.5 cursor-pointer rounded-full hover:bg-zinc-100"
+            >
+              <X size={20} />
+            </button>
+
+            {/* Pink checkmark badge */}
+            <div className="h-16 w-16 rounded-full bg-pink-50 border border-pink-200 flex items-center justify-center mb-5 shadow-sm">
+              <Check size={30} className="text-[#E61E73]" />
+            </div>
+
+            <h2 className="font-serif text-2xl sm:text-[26px] font-normal text-[#231F20] tracking-wide leading-tight mb-2">
+              Password successfully updated.
+            </h2>
+
+            <p className="font-serif text-xs sm:text-[13.5px] font-light text-[#77727A] tracking-wider mb-7">
+              Your new password is now active for your account.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setShowPasswordSuccessModal(false)}
+              className="w-full h-[48px] sm:h-[50px] rounded-full bg-[#E61E73] hover:bg-[#D91868] text-white font-serif font-medium sm:font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center shadow-md shadow-pink-200/50 hover:scale-[1.01] active:scale-[0.99]"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </SalonLayout>
   );
 }

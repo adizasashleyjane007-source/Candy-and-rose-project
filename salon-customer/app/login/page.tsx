@@ -13,13 +13,14 @@ function LoginFormContent() {
   const returnTo = searchParams.get('returnTo');
   const book = searchParams.get('book');
 
-  const { signIn } = useAuth();
+  const { signIn, profile, customer, user } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [welcomeStep, setWelcomeStep] = useState(false);
+  const [customerDisplayName, setCustomerDisplayName] = useState('');
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -35,6 +36,20 @@ function LoginFormContent() {
       if (result.error) {
         setError(result.error);
       } else {
+        try {
+          const { data: custRecord } = await supabase
+            .from('customers')
+            .select('full_name, name')
+            .ilike('email', email.trim().toLowerCase())
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const resolved = custRecord?.full_name || custRecord?.name;
+          if (resolved) {
+            setCustomerDisplayName(resolved.trim());
+          }
+        } catch (_) {}
         setWelcomeStep(true);
       }
     } catch (err: any) {
@@ -130,16 +145,33 @@ function LoginFormContent() {
             <div className="bg-[#FCFBF9] p-8 sm:p-12 md:p-14 lg:p-16 flex flex-col justify-center text-zinc-900">
               {welcomeStep ? (
                 <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col items-center justify-center text-center animate-scale-in py-6">
-                  <h2 className="font-sans text-2xl sm:text-3xl font-medium text-[#231F20] tracking-tight leading-[1.25]">
-                    Welcome to Candy and<br />
-                    Rose Salon
-                  </h2>
-                  <p className="mt-3 mb-8 text-sm text-[#77727A] font-normal">
-                    {returnTo ? 'Continue to your destination' : 'Continue your booking'}
-                  </p>
+                  {(() => {
+                    const rawCustomerName =
+                      customerDisplayName ||
+                      profile?.full_name ||
+                      profile?.name ||
+                      customer?.full_name ||
+                      customer?.name ||
+                      user?.user_metadata?.full_name ||
+                      user?.user_metadata?.name ||
+                      '';
+                    const customerName = rawCustomerName.trim();
+                    const welcomeTitle = customerName ? `Welcome, ${customerName}!` : 'Welcome!';
+
+                    return (
+                      <>
+                        <h2 className="font-serif text-2xl sm:text-3xl font-normal text-[#231F20] tracking-wide leading-[1.28] text-center">
+                          {welcomeTitle}
+                        </h2>
+                        <p className="font-serif text-xs sm:text-[13.5px] font-light text-[#77727A] tracking-wider mt-2.5 mb-8 text-center">
+                          Continue your booking
+                        </p>
+                      </>
+                    );
+                  })()}
                   <button
                     onClick={handleContinue}
-                    className="w-full h-[54px] rounded-full bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 ease-out hover:scale-[1.02] active:scale-[0.99] cursor-pointer flex items-center justify-center shadow-md"
+                    className="w-full h-[54px] rounded-full bg-[#E61E73] hover:bg-[#D91868] text-white font-serif font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 ease-out hover:scale-[1.02] active:scale-[0.99] cursor-pointer flex items-center justify-center shadow-md"
                   >
                     CONTINUE
                   </button>

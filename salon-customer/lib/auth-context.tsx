@@ -1,10 +1,54 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import { supabase } from './supabase';
 import type { Profile, Customer } from './supabase';
+
+const CUSTOMER_SESSION_KEY = 'candy_rose_customer_session_data';
+
+interface StoredCustomerSession {
+  customerId?: string;
+  email: string;
+  userId?: string | null;
+  name?: string;
+  savedAt: number;
+}
+
+function saveCustomerSession(cust?: Customer | null, prof?: Profile | null) {
+  if (typeof window === 'undefined') return;
+  const email = cust?.email || prof?.email;
+  if (!email && !cust?.id) return;
+  const sessionData: StoredCustomerSession = {
+    customerId: cust?.id || prof?.id || '',
+    email: email || '',
+    userId: cust?.user_id || prof?.id || null,
+    name: cust?.full_name || cust?.name || prof?.full_name || prof?.name || '',
+    savedAt: Date.now(),
+  };
+  try {
+    localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(sessionData));
+  } catch (_) {}
+}
+
+function getSavedCustomerSession(): StoredCustomerSession | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(CUSTOMER_SESSION_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (_) {
+    return null;
+  }
+}
+
+function clearCustomerSession() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(CUSTOMER_SESSION_KEY);
+  } catch (_) {}
+}
 
 type AuthContextValue = {
   session: Session | null;
@@ -153,6 +197,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(newProfile);
       }
 
+      if (activeCust || activeProf) {
+        saveCustomerSession(activeCust, activeProf);
+      }
+
       return { customer: activeCust, profile: activeProf };
     } catch (e) {
       console.error('Error loading customer profile:', e);
@@ -163,30 +211,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session);
-      if (data.session?.user) {
-        loadProfile(data.session.user.id, data.session.user.email, data.session.user.user_metadata)
-          .then((res) => {
-            if (mounted && data.session?.user) {
-              checkGoogleWelcome(data.session.user, res?.customer, res?.profile);
+    const initAuth = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        if (data.session?.user) {
+          setSession(data.session);
+          const res = await loadProfile(data.session.user.id, data.session.user.email, data.session.user.user_metadata);
+          if (mounted && data.session?.user) {
+            checkGoogleWelcome(data.session.user, res?.customer, res?.profile);
+            saveCustomerSession(res?.customer, res?.profile);
+          }
+        } else {
+          // Restore customer from localStorage if available
+          const savedSession = getSavedCustomerSession();
+          if (savedSession && (savedSession.customerId || savedSession.email)) {
+            let activeCust: Customer | null = null;
+            if (savedSession.customerId) {
+              const { data: custById } = await supabase
+                .from('customers')
+                .select('*')
+                .eq('id', savedSession.customerId)
+                .maybeSingle();
+              if (custById) activeCust = custById as Customer;
             }
-          })
-          .finally(() => mounted && setLoading(false));
-      } else {
-        setLoading(false);
+
+            if (!activeCust && savedSession.email) {
+              const { data: custByEmail } = await supabase
+                .from('customers')
+                .select('*')
+                .ilike('email', savedSession.email.trim().toLowerCase())
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (custByEmail) activeCust = custByEmail as Customer;
+            }
+
+            if (activeCust && mounted) {
+              setCustomer(activeCust);
+              const resolvedName = activeCust.full_name || activeCust.name || savedSession.name || activeCust.email?.split('@')[0] || 'Customer';
+              const activeProf: Profile = {
+                id: activeCust.user_id || activeCust.id || '',
+                name: resolvedName,
+                full_name: resolvedName,
+                email: activeCust.email || savedSession.email,
+                phone: activeCust.phone || '',
+                address: activeCust.address || '',
+                role: 'Customer',
+              };
+              setProfile(activeProf);
+              saveCustomerSession(activeCust, activeProf);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error during customer auth initialization:', err);
+      } finally {
+        if (mounted) setLoading(false);
       }
-    });
+    };
+
+    initAuth();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
+      if (!mounted) return;
       if (newSession?.user) {
+        setSession(newSession);
         loadProfile(newSession.user.id, newSession.user.email, newSession.user.user_metadata)
           .then((res) => {
-            checkGoogleWelcome(newSession.user, res?.customer, res?.profile);
+            if (mounted && newSession.user) {
+              checkGoogleWelcome(newSession.user, res?.customer, res?.profile);
+              saveCustomerSession(res?.customer, res?.profile);
+            }
           });
-      } else {
+      } else if (_event === 'SIGNED_OUT') {
+        clearCustomerSession();
+        setSession(null);
         setProfile(null);
         setCustomer(null);
       }
@@ -224,38 +325,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Customer verified via bcrypt hash
       setCustomer(custRecord as Customer);
-      if (custRecord.user_id) {
-        await loadProfile(custRecord.user_id, custRecord.email);
-        try {
-          await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
-        } catch (_) {}
-      } else {
-        const resolvedName = custRecord.full_name || custRecord.name || normalizedEmail.split('@')[0] || 'Customer';
-        setProfile({
-          id: custRecord.id,
-          name: resolvedName,
-          full_name: resolvedName,
+      const resolvedName = custRecord.full_name || custRecord.name || normalizedEmail.split('@')[0] || 'Customer';
+      const prof: Profile = {
+        id: custRecord.user_id || custRecord.id,
+        name: resolvedName,
+        full_name: resolvedName,
+        email: normalizedEmail,
+        phone: custRecord.phone || '',
+        address: custRecord.address || '',
+        role: 'Customer',
+      };
+      setProfile(prof);
+      saveCustomerSession(custRecord as Customer, prof);
+
+      // Attempt Supabase Auth sign-in if user_id or credentials exist
+      try {
+        const { data: authSignInData } = await supabase.auth.signInWithPassword({
           email: normalizedEmail,
-          phone: custRecord.phone || '',
-          address: custRecord.address || '',
-          role: 'Customer',
+          password,
         });
-      }
+        if (authSignInData?.session) {
+          setSession(authSignInData.session);
+          if (authSignInData.user) {
+            await loadProfile(authSignInData.user.id, authSignInData.user.email);
+          }
+        }
+      } catch (_) {}
+
       return { error: null };
     }
 
     // Fallback: If customer doesn't have bcrypt password column set yet, use supabase.auth
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password,
     });
 
-    if (error) {
-      return { error: error.message };
+    if (authError) {
+      return { error: authError.message };
     }
 
-    if (data.user) {
-      await loadProfile(data.user.id, data.user.email);
+    if (authData?.session) {
+      setSession(authData.session);
+    }
+
+    if (authData?.user) {
+      const res = await loadProfile(authData.user.id, authData.user.email);
+      saveCustomerSession(res?.customer, res?.profile);
     }
 
     return { error: null };
@@ -379,21 +495,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   };
 
+  const effectiveUser: User | null = useMemo(() => {
+    if (session?.user) {
+      return {
+        ...session.user,
+        email: session.user.email || customer?.email || profile?.email || '',
+      };
+    }
+    if (customer && customer.email) {
+      return {
+        id: customer.user_id || customer.id || `cust_${customer.id}`,
+        app_metadata: {},
+        user_metadata: {
+          full_name: customer.full_name || customer.name || '',
+          name: customer.name || customer.full_name || '',
+        },
+        aud: 'authenticated',
+        created_at: customer.created_at || new Date().toISOString(),
+        email: customer.email,
+        phone: customer.phone || '',
+        role: 'authenticated',
+        updated_at: new Date().toISOString(),
+      } as unknown as User;
+    }
+    if (profile && profile.email) {
+      return {
+        id: profile.id || `prof_${profile.id}`,
+        app_metadata: {},
+        user_metadata: {
+          full_name: profile.full_name || profile.name || '',
+          name: profile.name || profile.full_name || '',
+        },
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        email: profile.email,
+        phone: profile.phone || '',
+        role: 'authenticated',
+        updated_at: new Date().toISOString(),
+      } as unknown as User;
+    }
+    return null;
+  }, [session?.user, customer, profile]);
+
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (_) {}
+    clearCustomerSession();
+    setSession(null);
     setProfile(null);
     setCustomer(null);
   };
 
   const refreshProfile = async () => {
-    if (session?.user) await loadProfile(session.user.id, session.user.email);
+    if (session?.user) {
+      await loadProfile(session.user.id, session.user.email);
+    } else if (customer?.email) {
+      const { data: refreshedCust } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', customer.id || '')
+        .maybeSingle();
+      if (refreshedCust) {
+        setCustomer(refreshedCust as Customer);
+      }
+    }
   };
 
   return (
     <AuthContext.Provider
       value={{
         session,
-        user: session?.user ?? null,
+        user: effectiveUser,
         profile,
         customer,
         loading,

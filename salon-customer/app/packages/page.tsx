@@ -1,12 +1,13 @@
 'use client';
 
 import { 
-  Check, ArrowRight, Star 
+  Check, ArrowRight, Star, Loader2 
 } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, type Service } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
+import { formatMonthYear, isPromotionForCurrentMonth } from '@/lib/promotions-utils';
 
 export default function PackagesPage() {
   const { user } = useAuth();
@@ -19,18 +20,33 @@ export default function PackagesPage() {
         const { data, error } = await supabase
           .from('promotions')
           .select('*')
-          .eq('status', 'Available')
           .order('name', { ascending: true });
           
         if (error) throw error;
-        setPromotions(data || []);
+
+        // Filter promotions assigned to current month and year in Asia/Manila
+        const validPromotions = (data || []).filter(promo => isPromotionForCurrentMonth(promo));
+        setPromotions(validPromotions);
       } catch (err) {
         console.error('Error fetching promotions:', err);
       } finally {
         setLoading(false);
       }
     };
+
     fetchPromotions();
+
+    // Subscribe to realtime database changes for instant sync with salon-dashboard
+    const channel = supabase
+      .channel('promotions-customer-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'promotions' }, () => {
+        fetchPromotions();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleBookPackage = (pkg: any) => {
@@ -54,7 +70,12 @@ export default function PackagesPage() {
   return (
     <SalonLayout>
       <main className="bg-[#FFFBF2] min-h-screen">
-        {promotions.length > 0 ? (
+        {loading ? (
+          <section className="px-6 py-32 text-center max-w-7xl mx-auto flex flex-col items-center justify-center">
+            <Loader2 className="w-10 h-10 animate-spin text-pink-600 mb-4" />
+            <p className="text-sm text-zinc-500 font-medium">Loading current promotions...</p>
+          </section>
+        ) : promotions.length > 0 ? (
           <section className="px-6 pt-12 pb-20 lg:pt-16 lg:px-10 max-w-7xl mx-auto">
             <div className="mb-14 text-center sm:text-left flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 border-b border-zinc-100 pb-8">
               <div>
@@ -78,7 +99,7 @@ export default function PackagesPage() {
                     {/* Header: Available Month Badge */}
                     <div className="mb-4">
                       <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-pink-600 bg-pink-50 px-3 py-1 rounded-full border border-pink-200/50 whitespace-nowrap">
-                        {pkg.date ? new Date(pkg.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'Not set'}
+                        {formatMonthYear(pkg.start_date || pkg.date)}
                       </span>
                     </div>
 
@@ -106,7 +127,7 @@ export default function PackagesPage() {
                     </div>
                     <button
                       onClick={() => handleBookPackage(pkg)}
-                      className="flex items-center gap-2 rounded-full bg-pink-600 text-white hover:bg-pink-700 hover:shadow-pink-700/20 px-6 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all duration-300 shadow-md active:scale-95 whitespace-nowrap"
+                      className="flex items-center gap-2 rounded-full bg-pink-600 text-white hover:bg-pink-700 hover:shadow-pink-700/20 px-6 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all duration-300 shadow-md active:scale-95 whitespace-nowrap cursor-pointer"
                     >
                       Book Now <ArrowRight size={13} />
                     </button>
@@ -145,7 +166,7 @@ export default function PackagesPage() {
                 onClick={() => {
                   window.dispatchEvent(new CustomEvent('open-book'));
                 }}
-                className="inline-flex items-center justify-center gap-2.5 rounded-full bg-zinc-950 px-8 py-3.5 text-xs font-bold uppercase tracking-widest text-white transition-all duration-300 hover:bg-pink-600 shadow-lg"
+                className="inline-flex items-center justify-center gap-2.5 rounded-full bg-zinc-950 px-8 py-3.5 text-xs font-bold uppercase tracking-widest text-white transition-all duration-300 hover:bg-pink-600 shadow-lg cursor-pointer"
               >
                 Schedule Standard Booking
                 <ArrowRight size={14} />

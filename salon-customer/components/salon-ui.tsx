@@ -4,20 +4,29 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import {
-  CalendarDays, Check, ChevronRight, Clock3, Heart, History,
+  Calendar, CalendarDays, Check, ChevronRight, Clock3, History,
   LogIn, LogOut, Mail, MapPin, Menu, Phone, Plus, Sparkles,
   Star, X, Facebook, Instagram, ChevronDown, Leaf, Eye, EyeOff, User, Lock, Search, Loader2, AlertCircle
 } from 'lucide-react';
 import { supabase, getSalonInfo, defaultSalonInfo, type SalonInfo, type Appointment, type Service } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 
-export const headerNavItems: { label: string; href: string }[] = [
+export const publicNavItems: { label: string; href: string }[] = [
   { label: 'Home', href: '/' },
   { label: 'Services', href: '/services' },
   { label: 'Nails Design', href: '/nails-design' },
   { label: 'Promo', href: '/packages' },
   { label: 'Contact', href: '/contact' },
 ];
+
+export const authenticatedNavItems: { label: string; href: string }[] = [
+  { label: 'Services', href: '/services' },
+  { label: 'Nails Design', href: '/nails-design' },
+  { label: 'Promo', href: '/packages' },
+  { label: 'Testimonials', href: '/testimonials' },
+];
+
+export const headerNavItems = publicNavItems;
 
 export const footerNavItems: { label: string; href: string }[] = [
   { label: 'Home', href: '/' },
@@ -31,8 +40,8 @@ export const footerNavItems: { label: string; href: string }[] = [
 export function Logo({ light = false }: { light?: boolean }) {
   return (
     <Link href="/" aria-label="Candy and Rose Salon home" className="flex items-center shrink-0 group py-1">
-      <span className={`font-cursive text-2xl sm:text-3xl lg:text-[2.25rem] font-medium tracking-tight group-hover:text-pink-600 transition-all duration-300 ${light ? 'text-white' : 'text-zinc-950'}`}>
-        Candy <span className="font-cursive italic font-normal text-pink-500 text-2xl sm:text-3xl lg:text-[2.35rem] mx-0.5">&amp;</span> Rose
+      <span className={`font-cursive text-[28px] sm:text-[34px] lg:text-[2.55rem] font-medium tracking-tight group-hover:text-pink-600 transition-all duration-300 ${light ? 'text-white' : 'text-zinc-950'}`}>
+        Candy <span className="font-cursive italic font-normal text-pink-500 text-[28px] sm:text-[34px] lg:text-[2.65rem] mx-0.5">&amp;</span> Rose
       </span>
     </Link>
   );
@@ -52,11 +61,16 @@ export function Header({ onBook }: { onBook: () => void }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  const [thankYouModalOpen, setThankYouModalOpen] = useState(false);
+  const [logoutCustomerName, setLogoutCustomerName] = useState('');
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState('');
   
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, customer, signOut } = useAuth();
+  const currentCustomerEmail = user?.email || customer?.email || profile?.email || '';
+  const isLoggedIn = !!(user || customer || profile);
+  const navItems = isLoggedIn ? authenticatedNavItems : publicNavItems;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -105,39 +119,55 @@ export function Header({ onBook }: { onBook: () => void }) {
     return () => window.removeEventListener('open-logout', handleOpenLogout);
   }, []);
 
-  const handlePerformLogout = async () => {
+  const handleConfirmLogout = () => {
+    const resolvedName =
+      profile?.full_name ||
+      profile?.name ||
+      customer?.full_name ||
+      customer?.name ||
+      user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      (currentCustomerEmail ? currentCustomerEmail.split('@')[0] : 'valued customer');
+
+    setLogoutCustomerName(resolvedName);
+    setLogoutModalOpen(false);
+    setLogoutError('');
+    setThankYouModalOpen(true);
+  };
+
+  const handleCompleteLogout = async () => {
     if (loggingOut) return;
     setLogoutError('');
     setLoggingOut(true);
 
     try {
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) console.warn('Supabase auth sign out warning:', error);
       await signOut();
-      setLogoutModalOpen(false);
-      setLoggingOut(false);
-      window.location.href = '/';
     } catch (err: any) {
       console.error('Logout failed:', err);
-      setLogoutError(err.message || 'Logout failed. Please try again.');
+    } finally {
       setLoggingOut(false);
+      setThankYouModalOpen(false);
+      router.push('/');
+      router.refresh();
     }
   };
 
   return (
     <header className="z-50 fixed top-0 left-0 right-0 w-full transition-all duration-300 bg-[#FFFBF2]">
-      <div className="mx-auto flex h-20 max-w-[90rem] w-full items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-[88px] sm:h-[92px] max-w-[90rem] w-full items-center justify-between px-4 sm:px-6 lg:px-8">
         <Logo />
         
         {/* Main Desktop Navigation */}
-        <nav className="hidden items-center gap-7 xl:gap-9 lg:flex">
-          {headerNavItems.map((item) => {
+        <nav className="hidden items-center gap-8 xl:gap-11 lg:flex">
+          {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
                 key={item.label}
                 href={item.href}
-                className={`font-sans text-[13px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1 ${
+                className={`font-serif text-[16px] sm:text-[16.5px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1.5 ${
                   isActive
                     ? 'text-pink-600 font-semibold border-b-2 border-pink-600'
                     : 'text-zinc-800 hover:text-pink-600'
@@ -154,8 +184,8 @@ export function Header({ onBook }: { onBook: () => void }) {
           {/* Search Action */}
           <div className="relative flex items-center">
             {isSearchOpen ? (
-              <div className="flex items-center rounded-full px-3 py-1.5 bg-zinc-100 border border-zinc-200 text-zinc-900 shadow-xs">
-                <Search size={14} className="text-zinc-600" />
+              <div className="flex items-center rounded-full px-3.5 py-2 bg-zinc-100 border border-zinc-200 text-zinc-900 shadow-xs">
+                <Search size={16} className="text-zinc-600" />
                 <input
                   type="text"
                   value={searchQuery}
@@ -169,69 +199,71 @@ export function Header({ onBook }: { onBook: () => void }) {
                   placeholder="Search..."
                   autoFocus
                   onBlur={() => !searchQuery && setIsSearchOpen(false)}
-                  className="ml-2 bg-transparent text-[13px] font-medium outline-none w-24 sm:w-32 md:w-48 text-zinc-900 placeholder:text-zinc-400"
+                  className="ml-2 bg-transparent text-[14px] font-medium outline-none w-28 sm:w-36 md:w-52 text-zinc-900 placeholder:text-zinc-400"
                 />
                 <button onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }} className="ml-1 p-0.5 rounded-full hover:bg-zinc-200 text-zinc-600">
-                  <X size={12} />
+                  <X size={14} />
                 </button>
               </div>
             ) : (
               <button
                 onClick={() => setIsSearchOpen(true)}
-                className="p-2 rounded-full transition-colors text-zinc-800 hover:bg-zinc-100"
+                className="p-2.5 rounded-full transition-colors text-zinc-800 hover:bg-zinc-100/80 cursor-pointer"
                 aria-label="Search"
               >
-                <Search size={18} />
+                <Search size={24} />
               </button>
             )}
           </div>
 
-          {user && (
-            <div ref={dropdownRef} className="relative flex items-center gap-2">
-              {/* Circular User Icon */}
+          {isLoggedIn && (
+            <div ref={dropdownRef} className="relative flex items-center gap-3">
+              {/* My Appointment */}
               <Link
-                href="/profile"
-                className="flex h-10 w-10 items-center justify-center rounded-full transition-all shadow-xs group bg-pink-100 border border-pink-200 text-zinc-900 hover:bg-pink-200 hover:scale-105"
-                title="View Dashboard"
-                aria-label="View Dashboard"
+                href="/history"
+                className="group flex items-center gap-2 py-1.5 px-2 rounded-lg text-[16px] font-medium text-[#000000] transition-colors"
+                title="My Appointment"
               >
-                <User size={18} className="text-zinc-900 group-hover:text-pink-700 transition-colors" />
+                <Calendar size={18} className="text-pink-600" />
+                <span>My Appointment</span>
               </Link>
 
               {/* Dropdown Toggle for Email and Chevron */}
               <button
+                type="button"
                 onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center gap-2 rounded-full py-1.5 px-2 transition-all duration-200 hover:bg-zinc-100"
+                className="flex items-center gap-1.5 rounded-full py-1.5 px-2 transition-all duration-200 hover:bg-zinc-100 cursor-pointer"
                 aria-label="Toggle user menu"
               >
-                <span className="text-xs font-bold transition-colors text-zinc-800 hover:text-pink-600">
-                  {user.email}
+                <span className="text-[14px] font-bold transition-colors text-zinc-800 hover:text-pink-600">
+                  {currentCustomerEmail}
                 </span>
-                <ChevronDown size={14} className={`transition-transform duration-200 ${profileOpen ? 'rotate-180' : ''} text-zinc-600`} />
+                <ChevronDown size={16} className={`transition-transform duration-200 ${profileOpen ? 'rotate-180' : ''} text-zinc-600`} />
               </button>
 
               {/* Dropdown Menu */}
               {profileOpen && (
-                <div className="absolute right-0 top-12 w-[330px] rounded-2xl border border-zinc-100 bg-white px-5 py-7 shadow-2xl shadow-black/10 z-50 animate-scale-in">
-                  <div className="mb-3 border-b border-zinc-100 pb-3">
-                     <p className="truncate font-semibold text-zinc-900 text-xs">
-                      {profile?.full_name || profile?.name || 'Candy & Rose guest'}
+                <div className="absolute right-0 top-full mt-2 w-[330px] max-w-[calc(100vw-2rem)] rounded-2xl border border-zinc-100 bg-white px-[22px] py-7 shadow-xl shadow-black/8 z-50 animate-scale-in">
+                  <div className="border-b border-zinc-100 pb-3 mb-2">
+                    <p className="truncate font-serif font-semibold text-zinc-900 text-[15.5px] tracking-wide">
+                      {profile?.full_name || profile?.name || customer?.full_name || customer?.name || 'Candy & Rose guest'}
                     </p>
-                    <p className="truncate text-[10px] text-zinc-500 mt-0.5">
-                      {user.email}
+                    <p className="truncate text-[13px] text-zinc-500 mt-1">
+                      {currentCustomerEmail}
                     </p>
                   </div>
                   <ul className="space-y-1">
                     <li>
                       <Link
-                        href="/history"
-                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs text-zinc-700 hover:bg-pink-50 hover:text-pink-600 transition-colors font-medium"
+                        href="/profile"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[14px] text-zinc-700 hover:bg-pink-50 hover:text-pink-600 transition-colors font-medium"
                       >
-                        <History size={14} className="text-pink-600" /> History
+                        <User size={15} className="text-pink-600" /> Profile Settings
                       </Link>
                     </li>
 
-                    <li className="pt-1 border-t border-zinc-100">
+                    <li className="mt-5 pt-3.5 border-t border-zinc-100">
                       <button
                         type="button"
                         onClick={() => {
@@ -239,9 +271,9 @@ export function Header({ onBook }: { onBook: () => void }) {
                           setLogoutError('');
                           setLogoutModalOpen(true);
                         }}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors text-left cursor-pointer"
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[14px] text-red-600 hover:bg-red-50 transition-colors text-left cursor-pointer"
                       >
-                        <LogOut size={14} /> Logout
+                        <LogOut size={15} /> Logout
                       </button>
                     </li>
                   </ul>
@@ -249,14 +281,14 @@ export function Header({ onBook }: { onBook: () => void }) {
               )}
             </div>
           )}
-          {!user && (
+          {!isLoggedIn && (
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('open-auth'))}
-                className="text-xs font-bold uppercase tracking-wider px-6 py-2.5 rounded-lg transition-all cursor-pointer bg-[#111111] hover:bg-black text-white shadow-sm"
+                className="text-[13.5px] sm:text-[14px] font-bold uppercase tracking-wider px-8 sm:px-9 py-2.5 sm:py-3 rounded-full transition-all duration-200 cursor-pointer bg-pink-600 hover:bg-pink-700 text-white shadow-xs hover:shadow-md hover:shadow-pink-600/20 hover:scale-[1.02] active:scale-[0.98]"
               >
-                Login
+                LOGIN
               </button>
             </div>
           )}
@@ -276,11 +308,11 @@ export function Header({ onBook }: { onBook: () => void }) {
       {menuOpen && (
         <div className="border-t border-zinc-100 bg-[#FFFBF2] p-6 shadow-xl lg:hidden animate-in slide-in-from-top-4 duration-200">
           <nav className="flex flex-col gap-4">
-            {headerNavItems.map((item) => (
+            {navItems.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
-                className={`font-sans text-xs font-bold uppercase tracking-[0.15em] transition-colors py-2 border-b border-zinc-50 ${
+                className={`font-serif text-[15px] font-medium uppercase tracking-[0.16em] transition-colors py-2 border-b border-zinc-50 ${
                   pathname === item.href ? 'text-pink-600 font-bold' : 'text-zinc-800 hover:text-pink-600'
                 }`}
               >
@@ -288,13 +320,25 @@ export function Header({ onBook }: { onBook: () => void }) {
               </Link>
             ))}
             
-            {user ? (
+            {isLoggedIn ? (
               <div className="mt-4 flex flex-col gap-2 pt-4 border-t border-zinc-100">
+                <div className="px-1 pb-2 border-b border-zinc-100 mb-1">
+                  <p className="text-xs font-semibold text-zinc-700 truncate">{currentCustomerEmail}</p>
+                </div>
                 <Link
                   href="/history"
+                  onClick={() => setMenuOpen(false)}
                   className="flex w-full items-center justify-center gap-2 rounded-full bg-pink-50 border border-pink-200 py-3 text-xs font-bold uppercase tracking-widest text-pink-600 hover:bg-pink-100 transition-all"
                 >
-                  <History size={15} /> History
+                  <Calendar size={15} /> My Appointments
+                </Link>
+
+                <Link
+                  href="/profile"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-50 border border-zinc-200 py-3 text-xs font-bold uppercase tracking-widest text-zinc-700 hover:bg-zinc-100 transition-all"
+                >
+                  <User size={15} /> Profile Settings
                 </Link>
 
                 <button
@@ -319,7 +363,7 @@ export function Header({ onBook }: { onBook: () => void }) {
                   }}
                   className="flex w-full items-center justify-center gap-2 rounded-full bg-pink-500 py-3 text-xs font-bold uppercase tracking-widest text-white hover:bg-pink-600 transition-all shadow-sm cursor-pointer"
                 >
-                  Login / Register
+                  Login
                 </button>
               </div>
             )}
@@ -336,39 +380,64 @@ export function Header({ onBook }: { onBook: () => void }) {
             setLogoutError('');
           }
         }}
-        onConfirm={handlePerformLogout}
+        onConfirm={handleConfirmLogout}
         loading={loggingOut}
         error={logoutError}
+      />
+
+      {/* Thank You Modal */}
+      <LogoutThankYouModal
+        open={thankYouModalOpen}
+        customerName={logoutCustomerName}
+        onClose={() => setThankYouModalOpen(false)}
+        onContinue={handleCompleteLogout}
+        onLogout={handleCompleteLogout}
+        loading={loggingOut}
       />
     </header>
   );
 }
 
 function ProfileMenu({ onClose }: { onClose: () => void }) {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, customer, signOut } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   const loadAppointments = async () => {
-    if (!user) return;
+    if (!user && !customer) return;
     try {
-      let custId: string | null = null;
-      if (user.email) {
+      let custId: string | null = customer?.id || null;
+      if (!custId && user?.id) {
         const { data: cust } = await supabase
           .from('customers')
           .select('id')
-          .or(`user_id.eq.${user.id},email.ilike.${user.email.trim().toLowerCase()}`)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        custId = cust?.id || null;
+      }
+      if (!custId && user?.email) {
+        const { data: cust } = await supabase
+          .from('customers')
+          .select('id')
+          .ilike('email', user.email.trim().toLowerCase())
+          .order('created_at', { ascending: false })
+          .limit(1)
           .maybeSingle();
         custId = cust?.id || null;
       }
 
-      let query = supabase.from('appointments').select('*');
-      if (custId) {
-        query = query.or(`customer_id.eq.${custId},customer_name.eq.${profile?.full_name || user.email?.split('@')[0]}`);
-      } else {
-        query = query.eq('customer_name', profile?.full_name || user.email?.split('@')[0]);
+      if (!custId) {
+        setAppointments([]);
+        return;
       }
 
-      const { data } = await query.order('created_at', { ascending: false }).limit(6);
+      const { data } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('customer_id', custId)
+        .order('appointment_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(6);
+
       if (data) {
         setAppointments(data as Appointment[]);
       }
@@ -552,6 +621,91 @@ export function LogoutConfirmationModal({
   );
 }
 
+export function LogoutThankYouModal({
+  open,
+  customerName,
+  onClose,
+  onContinue,
+  onLogout,
+  loading = false,
+}: {
+  open: boolean;
+  customerName: string;
+  onClose?: () => void;
+  onContinue?: () => void;
+  onLogout?: () => void;
+  loading?: boolean;
+}) {
+  if (!open) return null;
+
+  const displayName = customerName && customerName !== 'valued customer' ? customerName : 'Josh Matthew';
+  const handleLogoutAction = onLogout || onContinue;
+
+  return (
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in"
+      onClick={onClose}
+    >
+      <div 
+        className="relative w-full max-w-[460px] my-auto rounded-[32px] sm:rounded-[36px] bg-[#FFF9FC] pt-10 pb-9 sm:pt-12 sm:pb-11 px-7 sm:px-10 shadow-[0_20px_60px_-15px_rgba(217,59,120,0.18),0_10px_30px_-10px_rgba(0,0,0,0.1)] animate-scale-in border border-pink-200/80 flex flex-col items-center text-center transition-all duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Top-Right "X" Close Button */}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            aria-label="Close"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 p-1.5 rounded-full text-zinc-400 hover:text-pink-600 hover:bg-pink-50/70 transition-colors cursor-pointer disabled:opacity-40"
+          >
+            <X size={18} />
+          </button>
+        )}
+
+        <div className="w-full flex flex-col items-center">
+          {/* Headline: Elegant Black Serif with Vibrant Pink Name */}
+          <h2 
+            className="font-serif font-medium text-2xl sm:text-[27px] tracking-normal sm:tracking-tight text-center leading-snug max-w-full"
+            style={{ fontFamily: 'var(--font-serif), "Playfair Display", Georgia, serif' }}
+          >
+            <span className="text-zinc-950">Thank you, </span>
+            <span className="text-pink-600 font-semibold">{displayName}!</span>
+          </h2>
+
+          {/* Warm, Heartfelt Message with Clear Hierarchy */}
+          <p 
+            className="mt-4 sm:mt-5 font-sans font-normal text-xs sm:text-[14px] text-zinc-600 leading-[1.7] text-center max-w-[360px]"
+            style={{ fontFamily: 'var(--font-poppins), Poppins, system-ui, sans-serif' }}
+          >
+            We’re so glad you chose us for your beauty and self-care. Your visit means so much to us, and we can’t wait to welcome you back for another wonderful experience.
+          </p>
+        </div>
+
+        {/* Wide Pill-Shaped CTA Button with 28-32px compact gap from description */}
+        <div className="mt-7 sm:mt-8 w-full flex justify-center">
+          <button
+            type="button"
+            disabled={loading}
+            onClick={handleLogoutAction}
+            style={{ fontFamily: 'var(--font-poppins), Poppins, system-ui, sans-serif' }}
+            className="w-full max-w-[320px] h-[52px] sm:h-[54px] rounded-full bg-pink-600 hover:bg-pink-700 text-white font-sans font-bold text-[16px] sm:text-[17px] uppercase tracking-[0.2em] shadow-lg shadow-pink-600/30 hover:shadow-pink-600/40 hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                <span>Logging out...</span>
+              </>
+            ) : (
+              <span>LOGOUT</span>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Footer() {
   const [salonInfo, setSalonInfo] = useState<SalonInfo>(defaultSalonInfo);
 
@@ -646,7 +800,7 @@ export function PageShell({ children, onBook }: { children: ReactNode; onBook: (
   return (
     <div className="min-h-screen flex flex-col bg-transparent">
       <Header onBook={onBook} />
-      <div className={`${isHome ? '' : 'pt-20'} flex-1`}>{children}</div>
+      <div className={`${isHome ? '' : 'pt-[88px] sm:pt-[92px]'} flex-1`}>{children}</div>
       <Footer />
     </div>
   );
@@ -690,7 +844,7 @@ function GoogleIcon({ className = "w-5 h-5" }: { className?: string }) {
 }
 
 export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess: () => void }) {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user, profile, customer } = useAuth();
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [step, setStep] = useState<'form' | 'regSuccess' | 'welcome' | 'forgotSuccess'>('form');
   const [name, setName] = useState('');
@@ -702,6 +856,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [customerDisplayName, setCustomerDisplayName] = useState('');
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleGoogleSignIn = async () => {
@@ -773,6 +928,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
       setMode('login');
       setError('');
       setBusy(false);
+      setCustomerDisplayName('');
       if (timerRef.current) clearTimeout(timerRef.current);
     }
   }, [open]);
@@ -794,6 +950,7 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
     if (timerRef.current) clearTimeout(timerRef.current);
     setStep('form');
     setMode('login');
+    setCustomerDisplayName('');
     onClose();
   };
 
@@ -849,6 +1006,21 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
         if (result.error) {
           setError(result.error);
         } else {
+          try {
+            const { data: custRecord } = await supabase
+              .from('customers')
+              .select('full_name, name')
+              .ilike('email', email.trim().toLowerCase())
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            const resolved = custRecord?.full_name || custRecord?.name;
+            if (resolved) {
+              setCustomerDisplayName(resolved.trim());
+            }
+          } catch (_) {}
+
           setName('');
           setPassword('');
           setConfirmPassword('');
@@ -926,28 +1098,66 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
 
   // Enhanced Welcome Message Modal
   if (step === 'welcome') {
+    const rawCustomerName =
+      customerDisplayName ||
+      profile?.full_name ||
+      profile?.name ||
+      customer?.full_name ||
+      customer?.name ||
+      user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      '';
+    const customerName = rawCustomerName.trim();
+    const welcomeTitle = customerName ? `Welcome, ${customerName}!` : 'Welcome!';
+
     return (
       <div 
         onClick={handleBackdropClick}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in"
       >
-        <div className="relative w-[90%] max-w-[500px] my-auto rounded-[32px] bg-white p-8 sm:p-12 md:p-14 shadow-[0_20px_60px_rgba(0,0,0,0.18)] animate-scale-in text-center flex flex-col items-center">
-          <h2 className="font-sans text-2xl sm:text-3xl lg:text-[34px] font-medium text-[#231F20] tracking-tight leading-[1.25]">
-            Welcome to Candy and<br />
-            Rose Salon
-          </h2>
-          <p className="mt-3.5 mb-9 text-sm sm:text-base text-[#77727A] font-normal">
-            Continue your booking
-          </p>
+        <div 
+          onClick={(e) => e.stopPropagation()}
+          className="relative w-[90%] max-w-[440px] min-h-[290px] sm:min-h-[310px] my-auto rounded-[32px] bg-white pt-9 pb-8 px-6 sm:pt-11 sm:pb-9 sm:px-9 shadow-[0_0_25px_rgba(230,30,115,0.12),0_20px_50px_rgba(0,0,0,0.15)] ring-1 ring-pink-100/60 border border-pink-200/70 animate-scale-in text-center flex flex-col items-center justify-between"
+        >
+          {/* Top-right X close icon */}
           <button
-            onClick={() => {
-              handleClose();
-              onSuccess();
-            }}
-            className="w-full h-[54px] rounded-full bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 ease-out hover:scale-[1.02] active:scale-[0.99] cursor-pointer flex items-center justify-center shadow-md"
+            type="button"
+            onClick={handleClose}
+            aria-label="Close"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 text-zinc-400 hover:text-[#E61E73] transition-colors p-1.5 cursor-pointer rounded-full hover:bg-zinc-100"
           >
-            CONTINUE
+            <X size={20} />
           </button>
+
+          <div className="w-full flex-1 flex flex-col items-center justify-center">
+            <h2 className="font-serif text-2xl sm:text-3xl lg:text-[32px] font-normal text-[#231F20] tracking-wide leading-[1.28] text-center">
+              {welcomeTitle}
+            </h2>
+            <p className="font-serif text-xs sm:text-[13.5px] font-light text-[#77727A] tracking-wider mt-2.5 mb-6 text-center">
+              Continue your booking
+            </p>
+          </div>
+
+          {/* Action buttons: [ CANCEL ]    [ CONTINUE ] */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 w-full">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="w-full h-[48px] sm:h-[50px] rounded-full border border-pink-300 hover:border-[#E61E73] bg-white hover:bg-pink-50/40 text-neutral-800 font-serif font-medium sm:font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center shadow-xs hover:scale-[1.01] active:scale-[0.99]"
+            >
+              CANCEL
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleClose();
+                onSuccess();
+              }}
+              className="w-full h-[48px] sm:h-[50px] rounded-full bg-[#E61E73] hover:bg-[#D91868] text-white font-serif font-medium sm:font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center shadow-md shadow-pink-200/50 hover:scale-[1.01] active:scale-[0.99]"
+            >
+              CONTINUE
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1369,8 +1579,8 @@ export function GoogleWelcomeModal({
 
   const displayName = name?.trim();
   const welcomeHeading = displayName
-    ? `WELCOME TO CANDY & ROSE, ${displayName.toUpperCase()}!`
-    : 'WELCOME TO CANDY & ROSE!';
+    ? `Welcome, ${displayName}!`
+    : 'Welcome!';
 
   const handleContinueClick = () => {
     if (onContinue) {
@@ -1386,7 +1596,7 @@ export function GoogleWelcomeModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in"
     >
       <div
-        className="relative w-[90%] max-w-[440px] my-auto rounded-3xl bg-white pt-10 pb-8 px-6 sm:pt-12 sm:pb-9 sm:px-8 shadow-2xl animate-scale-in text-center flex flex-col items-center border border-pink-100/60"
+        className="relative w-[90%] max-w-[440px] min-h-[290px] sm:min-h-[310px] my-auto rounded-[32px] bg-white pt-9 pb-8 px-6 sm:pt-11 sm:pb-9 sm:px-9 shadow-[0_0_25px_rgba(230,30,115,0.12),0_20px_50px_rgba(0,0,0,0.15)] ring-1 ring-pink-100/60 border border-pink-200/70 animate-scale-in text-center flex flex-col items-center justify-between"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top-right X close button */}
@@ -1398,29 +1608,31 @@ export function GoogleWelcomeModal({
           <X size={20} />
         </button>
 
-        {/* Dynamic Welcome Title */}
-        <h2 className="font-sans text-xl sm:text-2xl font-semibold text-[#231F20] tracking-tight uppercase leading-snug mb-3">
-          {welcomeHeading}
-        </h2>
+        <div className="w-full flex-1 flex flex-col items-center justify-center">
+          {/* Dynamic Welcome Title */}
+          <h2 className="font-serif text-2xl sm:text-3xl lg:text-[32px] font-normal text-[#231F20] tracking-wide leading-[1.28] mb-3">
+            {welcomeHeading}
+          </h2>
 
-        {/* Question text below welcome */}
-        <p className="text-sm sm:text-base text-[#77727A] font-normal mb-8">
-          Want to book service?
-        </p>
+          {/* Question text below welcome */}
+          <p className="font-serif text-xs sm:text-[13.5px] font-light text-[#77727A] tracking-wider mt-1 mb-6">
+            Continue your booking
+          </p>
+        </div>
 
         {/* Side-by-side Action Buttons: [CANCEL]  [CONTINUE] */}
         <div className="grid grid-cols-2 gap-3 sm:gap-4 w-full">
           <button
             type="button"
             onClick={onClose}
-            className="w-full h-[50px] sm:h-[52px] rounded-xl bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center shadow-md hover:scale-[1.01] active:scale-[0.99]"
+            className="w-full h-[48px] sm:h-[50px] rounded-full border border-pink-300 hover:border-[#E61E73] bg-white hover:bg-pink-50/40 text-neutral-800 font-serif font-medium sm:font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center shadow-xs hover:scale-[1.01] active:scale-[0.99]"
           >
             CANCEL
           </button>
           <button
             type="button"
             onClick={handleContinueClick}
-            className="w-full h-[50px] sm:h-[52px] rounded-xl bg-[#E61E73] hover:bg-[#D91868] text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center shadow-md shadow-pink-200/50 hover:scale-[1.01] active:scale-[0.99]"
+            className="w-full h-[48px] sm:h-[50px] rounded-full bg-[#E61E73] hover:bg-[#D91868] text-white font-serif font-medium sm:font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center shadow-md shadow-pink-200/50 hover:scale-[1.01] active:scale-[0.99]"
           >
             CONTINUE
           </button>
