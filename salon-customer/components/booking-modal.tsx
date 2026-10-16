@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, AlertCircle, X, ChevronLeft, ChevronRight, ArrowLeft, Banknote, Smartphone, Check, Upload, Image, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, X, ChevronLeft, ChevronRight, ArrowLeft, Banknote, Check, Upload, Image, AlertTriangle } from 'lucide-react';
 import { supabase, type Service, type Staff, parseDurationToMinutes } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import type { NailDesignItem } from '@/lib/nail-designs';
@@ -145,7 +145,7 @@ export function BookingModal({
   const [customerNotes, setCustomerNotes] = useState('');
 
   const [step, setStep] = useState<'datetime' | 'details' | 'payment_select' | 'cash_confirm' | 'gcash_qr' | 'gcash_proof' | 'gcash_success' | 'success'>('datetime');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | 'GCash' | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'Cash' | null>('Cash');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [bookingReceipt, setBookingReceipt] = useState<any>(null);
@@ -160,7 +160,7 @@ export function BookingModal({
   useEffect(() => {
     if (!open) return;
     setStep('datetime');
-    setSelectedPaymentMethod(null);
+    setSelectedPaymentMethod('Cash');
     setErrorMsg('');
     setFilenameError('');
     setVerificationInput('');
@@ -407,7 +407,8 @@ export function BookingModal({
       console.error('Failed checking booking limit:', e);
     }
 
-    // Proceed to Payment Method Selection
+    // Proceed to Payment Method Selection with Cash preselected
+    setSelectedPaymentMethod('Cash');
     setStep('payment_select');
   };
 
@@ -701,6 +702,8 @@ export function BookingModal({
           ? 'max-w-[520px] overflow-y-auto'
           : step === 'gcash_success'
           ? 'max-w-[500px] overflow-y-auto'
+          : step === 'payment_select'
+          ? 'max-w-[520px] overflow-y-auto'
           : 'max-w-[560px] overflow-y-auto'
       } max-h-[94vh] rounded-[28px] sm:rounded-[32px] bg-[#FFFDFB] shadow-[0_0_25px_rgba(230,30,115,0.12),0_20px_50px_rgba(0,0,0,0.15)] ring-1 ring-pink-100/60 border border-pink-200/70 my-auto flex flex-col justify-between transition-all duration-200`}>
         
@@ -1124,8 +1127,8 @@ export function BookingModal({
               </div>
 
               {/* Payment Options Grid */}
-              <div className="space-y-3">
-                {/* OPTION 1: CASH */}
+              <div>
+                {/* OPTION: CASH */}
                 <button
                   type="button"
                   onClick={() => setSelectedPaymentMethod('Cash')}
@@ -1152,49 +1155,15 @@ export function BookingModal({
                     {selectedPaymentMethod === 'Cash' && <Check size={14} strokeWidth={3} />}
                   </div>
                 </button>
-
-                {/* OPTION 2: GCASH */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPaymentMethod('GCash');
-                    setStep('gcash_qr');
-                  }}
-                  className={`w-full p-4 rounded-2xl text-left transition-all duration-200 flex items-center justify-between border cursor-pointer ${
-                    selectedPaymentMethod === 'GCash'
-                      ? 'border-2 border-pink-500 bg-pink-50/60 shadow-md shadow-pink-500/10 scale-[1.01]'
-                      : 'border-neutral-200 bg-white hover:border-pink-300 hover:bg-pink-50/20'
-                  }`}
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div className={`h-11 w-11 rounded-xl flex items-center justify-center transition-colors ${
-                      selectedPaymentMethod === 'GCash' ? 'bg-pink-500 text-white' : 'bg-neutral-100 text-neutral-600'
-                    }`}>
-                      <Smartphone size={22} />
-                    </div>
-                    <div>
-                      <div className="font-serif font-semibold text-base text-neutral-900 flex items-center gap-2">
-                        <span>GCash</span>
-                        <span className="text-[10px] font-sans font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">E-Wallet</span>
-                      </div>
-                      <div className="text-xs text-neutral-500 mt-0.5">Pay using GCash</div>
-                    </div>
-                  </div>
-                  <div className={`h-6 w-6 rounded-full border flex items-center justify-center transition-colors ${
-                    selectedPaymentMethod === 'GCash' ? 'border-pink-500 bg-pink-500 text-white' : 'border-neutral-300 bg-white'
-                  }`}>
-                    {selectedPaymentMethod === 'GCash' && <Check size={14} strokeWidth={3} />}
-                  </div>
-                </button>
               </div>
             </div>
 
             {/* Bottom Action Buttons */}
-            <div className="pt-6 flex items-center justify-end gap-3">
+            <div className="pt-6 sm:pt-7 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setStep('details')}
-                className="h-[46px] rounded-full bg-neutral-100 px-6 sm:px-7 text-xs font-bold uppercase tracking-wider text-neutral-700 hover:bg-neutral-200 transition-colors"
+                className="h-[46px] rounded-full bg-neutral-100 px-6 sm:px-7 text-xs font-bold uppercase tracking-wider text-neutral-700 hover:bg-neutral-200 transition-colors cursor-pointer"
               >
                 BACK
               </button>
@@ -1203,7 +1172,6 @@ export function BookingModal({
                 disabled={!selectedPaymentMethod}
                 onClick={() => {
                   if (selectedPaymentMethod === 'Cash') setStep('cash_confirm');
-                  else if (selectedPaymentMethod === 'GCash') setStep('gcash_qr');
                 }}
                 className="h-[46px] rounded-full bg-pink-500 hover:bg-pink-600 px-8 sm:px-9 text-xs sm:text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer"
               >
