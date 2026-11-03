@@ -40,27 +40,27 @@ export default function TermsPage() {
   return (
     <SalonLayout>
       <main>
-        <section className="hero-gradient px-6 py-20 text-white lg:px-10 lg:py-28">
+        <section className="hero-gradient px-4 sm:px-6 py-14 sm:py-20 text-white lg:px-10 lg:py-28">
           <div className="mx-auto max-w-7xl">
-            <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">The fine print</p>
-            <h1 className="font-serif text-6xl leading-none sm:text-7xl">Terms &amp; Conditions</h1>
-            <p className="mt-6 max-w-xl text-base leading-8 text-white/60">
+            <p className="mb-3 sm:mb-4 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">The fine print</p>
+            <h1 className="font-serif text-3xl sm:text-5xl lg:text-7xl leading-tight sm:leading-none">Terms &amp; Conditions</h1>
+            <p className="mt-4 sm:mt-6 max-w-xl text-sm sm:text-base leading-relaxed sm:leading-8 text-white/60">
               Last updated August 12, 2026. These terms explain how bookings, accounts, and services work at Candy and Rose Salon.
             </p>
           </div>
         </section>
 
-        <section className="px-6 py-20 lg:px-10">
+        <section className="px-4 sm:px-6 py-12 sm:py-20 lg:px-10">
           <div className="mx-auto max-w-3xl">
-            <div className="space-y-10">
+            <div className="space-y-8 sm:space-y-10">
               {sections.map((s) => (
-                <div key={s.title} className="border-b border-neutral-100 pb-8">
-                  <h2 className="font-serif text-2xl">{s.title}</h2>
-                  <p className="mt-3 text-sm leading-7 text-neutral-500">{s.body}</p>
+                <div key={s.title} className="border-b border-neutral-100 pb-6 sm:pb-8">
+                  <h2 className="font-serif text-xl sm:text-2xl">{s.title}</h2>
+                  <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm leading-relaxed sm:leading-7 text-neutral-500">{s.body}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-12 rounded-2xl bg-pink-50 p-7 text-center">
+            <div className="mt-10 sm:mt-12 rounded-2xl bg-pink-50 p-6 sm:p-7 text-center">
               <SectionHeading centered eyebrow="Questions?" title="We are happy to help." />
               <Link href="/contact" className="mt-6 inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-xs font-bold uppercase tracking-widest text-white hover:bg-primary">
                 Contact us <ArrowUpRight size={15} />

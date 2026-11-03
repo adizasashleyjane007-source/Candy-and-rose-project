@@ -1,14 +1,40 @@
 "use client";
 
-import { useState, useEffect, Suspense, useRef } from "react";
+import { useState, useEffect, useCallback, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { Eye, EyeOff, Mail, Lock, X as CloseIcon, Sparkles, ShieldCheck, ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, X as CloseIcon, Sparkles, ShieldCheck, Loader2, CheckCircle2 } from "lucide-react";
+
+function SearchParamsListener({
+  onParams,
+}: {
+  onParams: (params: {
+    error: string | null;
+    errorDesc: string | null;
+    verifyOtp: string | null;
+    queryEmail: string | null;
+    showForm: boolean;
+  }) => void;
+}) {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    onParams({
+      error: searchParams.get("error"),
+      errorDesc: searchParams.get("error_description"),
+      verifyOtp: searchParams.get("verify_otp"),
+      queryEmail: searchParams.get("email"),
+      showForm: searchParams.get("showForm") === "true",
+    });
+  }, [searchParams, onParams]);
+
+  return null;
+}
 
 function LoginContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -36,50 +62,72 @@ function LoginContent() {
   useEffect(() => {
     const loadSalonInfo = async () => {
       try {
-        const { SettingsDB } = await import("@/lib/db");
-        const info = await SettingsDB.get("salon_info");
-        if (info) {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("salon_settings")
+          .select("*")
+          .eq("key", "salon_info")
+          .maybeSingle();
+
+        if (data && (data.name || data.logo_url || data.value)) {
+          const val = data.value || {};
           setSalonInfo({
-            name: info.name || "Candy & Rose",
-            logo: info.logo_url || "/LOGO.jpg"
+            name: data.name || val.name || "Candy & Rose",
+            logo: data.logo_url || val.logo_url || "/LOGO.jpg",
           });
         }
       } catch (err) {
         console.error("Failed to load salon info:", err);
       }
     };
-    loadSalonInfo();
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      const handle = (window as any).requestIdleCallback(() => loadSalonInfo());
+      return () => (window as any).cancelIdleCallback(handle);
+    } else {
+      const timer = setTimeout(loadSalonInfo, 100);
+      return () => clearTimeout(timer);
+    }
   }, []);
 
-  useEffect(() => {
-    const err = searchParams.get("error");
-    const errDesc = searchParams.get("error_description");
-    const verifyOtp = searchParams.get("verify_otp");
-    const queryEmail = searchParams.get("email");
-
-    if (verifyOtp === "true") {
-      setShowForm(true);
-      setShowOtpModal(true);
-      if (queryEmail) {
-        setEmail(decodeURIComponent(queryEmail));
-      } else {
-        checkAdminSession(false);
+  const handleUrlParams = useCallback(
+    ({
+      error: err,
+      errorDesc,
+      verifyOtp,
+      queryEmail,
+      showForm: shouldShowForm,
+    }: {
+      error: string | null;
+      errorDesc: string | null;
+      verifyOtp: string | null;
+      queryEmail: string | null;
+      showForm: boolean;
+    }) => {
+      if (verifyOtp === "true") {
+        setShowForm(true);
+        setShowOtpModal(true);
+        if (queryEmail) {
+          setEmail(decodeURIComponent(queryEmail));
+        } else {
+          checkAdminSession(false);
+        }
+      } else if (err) {
+        if (err === "auth_callback_failed") {
+          setError("Authentication failed. Please try again.");
+        } else if (err === "verification_required") {
+          setError("Security verification required to access dashboard.");
+          checkAdminSession(true);
+        } else {
+          setError(decodeURIComponent(errorDesc || err));
+        }
       }
-    } else if (err) {
-      if (err === "auth_callback_failed") {
-        setError("Authentication failed. Please try again.");
-      } else if (err === "verification_required") {
-        setError("Security verification required to access dashboard.");
-        checkAdminSession(true);
-      } else {
-        setError(decodeURIComponent(errDesc || err));
-      }
-    }
 
-    if (searchParams.get("showForm") === "true") {
-      setShowForm(true);
-    }
-  }, [searchParams]);
+      if (shouldShowForm) {
+        setShowForm(true);
+      }
+    },
+    []
+  );
 
   const checkAdminSession = async (shouldResend = true) => {
     try {
@@ -366,26 +414,40 @@ function LoginContent() {
   };
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-between relative overflow-hidden"
-      style={{
-        backgroundImage: "url('/background.jpg')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
+    <div className="min-h-screen flex flex-col items-center justify-between relative overflow-hidden">
+      <Suspense fallback={null}>
+        <SearchParamsListener onParams={handleUrlParams} />
+      </Suspense>
+
+      <Image
+        src="/background.jpg"
+        alt="Salon Background"
+        fill
+        priority
+        quality={80}
+        sizes="100vw"
+        className="object-cover object-center pointer-events-none -z-10"
+      />
+
+      {/* Subtle overlay texture */}
+      <div className="absolute inset-0 pointer-events-none bg-black/30 -z-10" />
+
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 p-8 z-20 flex justify-between items-center bg-transparent">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white rounded-full overflow-hidden shadow-lg ring-1 ring-white/20">
-            <img src={salonInfo.logo} alt="Logo" className="w-full h-full object-cover" />
+          <div className="w-10 h-10 bg-white rounded-full overflow-hidden shadow-lg ring-1 ring-white/20 relative">
+            <Image
+              src={salonInfo.logo}
+              alt={salonInfo.name}
+              width={40}
+              height={40}
+              priority
+              className="w-full h-full object-cover"
+            />
           </div>
           <span className="text-white font-semibold text-lg tracking-tight drop-shadow-md">{salonInfo.name}</span>
         </div>
       </header>
-
-      {/* Subtle overlay texture */}
-      <div className="absolute inset-0 pointer-events-none bg-black/30" />
 
       {/* Styles for OTP inputs and animations */}
       <style>{`
@@ -446,6 +508,7 @@ function LoginContent() {
               {/* Close Button */}
               <button
                 onClick={handleCancelOtp}
+                aria-label="Close verification modal"
                 className="absolute right-4 top-4 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all z-20"
               >
                 <CloseIcon className="w-5 h-5" />
@@ -553,6 +616,7 @@ function LoginContent() {
             {/* Close Button */}
             <button
               onClick={() => setShowForm(false)}
+              aria-label="Close login form"
               className="absolute right-4 top-4 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all z-20"
             >
               <CloseIcon className="w-5 h-5" />
@@ -615,6 +679,7 @@ function LoginContent() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -748,16 +813,5 @@ function LoginContent() {
 }
 
 export default function LoginPage() {
-  return (
-    <Suspense fallback={
-       <div className="min-h-screen flex items-center justify-center bg-[#fac2d9]">
-          <div className="flex flex-col items-center gap-4">
-             <div className="w-12 h-12 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
-             <p className="text-pink-600 font-bold animate-pulse">Loading...</p>
-          </div>
-       </div>
-    }>
-      <LoginContent />
-    </Suspense>
-  );
+  return <LoginContent />;
 }

@@ -1,0 +1,709 @@
+const fs = require('fs');
+const path = require('path');
+const sharp = require('c:/Users/xianr/OneDrive/Desktop/Salon System/salon-customer/node_modules/sharp');
+
+const width = 1600;
+const height = 1040;
+
+const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1040" width="1600" height="1040" style="background:#FFFFFF; font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF0F5" />
+      <stop offset="100%" stop-color="#FFE4E8" />
+    </linearGradient>
+
+    <linearGradient id="clientGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#FFF9FA" />
+    </linearGradient>
+
+    <linearGradient id="cloudGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F8FAFC" />
+      <stop offset="100%" stop-color="#EDF2F7" />
+    </linearGradient>
+
+    <linearGradient id="vercelGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#FFF8F9" />
+    </linearGradient>
+
+    <linearGradient id="supabaseGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#F6FFFA" />
+    </linearGradient>
+
+    <linearGradient id="googleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#FFFDF8" />
+    </linearGradient>
+
+    <linearGradient id="resendGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#FDF8FF" />
+    </linearGradient>
+
+    <linearGradient id="aiCardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF0F5" />
+      <stop offset="100%" stop-color="#FFE4EC" />
+    </linearGradient>
+
+    <!-- Filters & Shadows -->
+    <filter id="cardShadow" x="-5%" y="-3%" width="110%" height="110%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.04" />
+    </filter>
+
+    <filter id="pillShadow" x="-10%" y="-20%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#000000" flood-opacity="0.06" />
+    </filter>
+
+    <!-- Arrow Markers -->
+    <marker id="arrow-rose" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#E11D48" />
+    </marker>
+    <marker id="arrow-start-rose" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 8 1.5 L 0 5 L 8 8.5 z" fill="#E11D48" />
+    </marker>
+
+    <marker id="arrow-emerald" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#059669" />
+    </marker>
+    <marker id="arrow-start-emerald" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 8 1.5 L 0 5 L 8 8.5 z" fill="#059669" />
+    </marker>
+
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#D97706" />
+    </marker>
+    <marker id="arrow-start-amber" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 8 1.5 L 0 5 L 8 8.5 z" fill="#D97706" />
+    </marker>
+
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#7C3AED" />
+    </marker>
+
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#2563EB" />
+    </marker>
+    <marker id="arrow-start-blue" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 8 1.5 L 0 5 L 8 8.5 z" fill="#2563EB" />
+    </marker>
+  </defs>
+
+  <!-- Canvas Outer Background -->
+  <rect x="0" y="0" width="1600" height="1040" fill="#FFFFFF" />
+
+  <!-- Academic Border Frame -->
+  <rect x="16" y="16" width="1568" height="1008" rx="8" fill="none" stroke="#F1F5F9" stroke-width="2" />
+  
+  <!-- ==================== HEADER AREA ==================== -->
+  <g id="header-section" transform="translate(40, 32)">
+    <rect x="0" y="0" width="1520" height="66" rx="6" fill="url(#headerGrad)" stroke="#FBCFE8" stroke-width="1.2" />
+    
+    <text x="24" y="27" font-size="14" font-weight="700" fill="#BE185D" letter-spacing="1">CANDY &amp; ROSE SALON — MANAGEMENT INFORMATION SYSTEM</text>
+    <text x="24" y="49" font-size="16" font-weight="600" fill="#1E293B">Client-Server Network Model &amp; System Architecture</text>
+
+    <!-- Academic Metadata Badge -->
+    <rect x="1235" y="16" width="260" height="34" rx="4" fill="#FFFFFF" stroke="#F472B6" stroke-width="1" />
+    <text x="1248" y="38" font-size="12" font-weight="600" fill="#831843">Chapter 3: Network Architecture</text>
+  </g>
+
+  <!-- ==================== TIER 1: CLIENTS ==================== -->
+  <g id="tier-clients" transform="translate(40, 118)">
+    <rect x="0" y="0" width="290" height="780" rx="10" fill="url(#clientGrad)" stroke="#FBCFE8" stroke-width="1.5" filter="url(#cardShadow)" />
+    
+    <!-- Tier Header -->
+    <rect x="0" y="0" width="290" height="42" rx="10" fill="#FFF1F5" stroke="#FBCFE8" stroke-width="1.5" />
+    <rect x="0" y="30" width="290" height="12" fill="#FFF1F5" />
+    <text x="145" y="26" font-size="13" font-weight="700" fill="#9D174D" text-anchor="middle" letter-spacing="0.5">TIER 1: CLIENTS (PRESENTATION)</text>
+
+    <!-- Sub-Box 1: Customer Devices -->
+    <g transform="translate(14, 56)">
+      <rect x="0" y="0" width="262" height="340" rx="8" fill="#FFFFFF" stroke="#F472B6" stroke-width="1.2" />
+      
+      <!-- Sub-Box Title -->
+      <rect x="0" y="0" width="262" height="32" rx="8" fill="#FFF0F3" stroke="#F472B6" stroke-width="1.2" />
+      <rect x="0" y="24" width="262" height="8" fill="#FFF0F3" />
+      <circle cx="18" cy="16" r="6" fill="#FB7185" />
+      <text x="32" y="20" font-size="12" font-weight="700" fill="#881337">Customer Client</text>
+
+      <!-- Device Icons Row -->
+      <g transform="translate(14, 44)">
+        <!-- Smartphone -->
+        <rect x="6" y="4" width="22" height="36" rx="3" fill="#F8FAFC" stroke="#64748B" stroke-width="1.5" />
+        <rect x="9" y="8" width="16" height="26" rx="1" fill="#E2E8F0" />
+        <circle cx="17" cy="36" r="1.5" fill="#94A3B8" />
+
+        <!-- Tablet -->
+        <rect x="44" y="2" width="34" height="42" rx="3" fill="#F8FAFC" stroke="#64748B" stroke-width="1.5" />
+        <rect x="47" y="6" width="28" height="32" rx="1" fill="#E2E8F0" />
+        <circle cx="61" cy="40.5" r="1.5" fill="#94A3B8" />
+
+        <!-- Laptop -->
+        <rect x="96" y="8" width="46" height="28" rx="2" fill="#F8FAFC" stroke="#64748B" stroke-width="1.5" />
+        <rect x="100" y="11" width="38" height="21" fill="#E2E8F0" />
+        <path d="M 90 38 L 148 38 L 144 42 L 94 42 z" fill="#64748B" />
+
+        <!-- Desktop Monitor -->
+        <rect x="162" y="2" width="48" height="32" rx="2" fill="#F8FAFC" stroke="#64748B" stroke-width="1.5" />
+        <rect x="165" y="5" width="42" height="24" fill="#E2E8F0" />
+        <path d="M 183 34 L 189 34 L 191 42 L 181 42 z" fill="#64748B" />
+        <rect x="176" y="42" width="20" height="2" fill="#64748B" />
+      </g>
+      <text x="131" y="99" font-size="10.5" font-weight="600" fill="#64748B" text-anchor="middle">Smartphone • Tablet • Laptop • Desktop</text>
+
+      <!-- Client Details List -->
+      <line x1="12" y1="110" x2="250" y2="110" stroke="#F1F5F9" stroke-width="1" />
+      
+      <text x="14" y="130" font-size="11" font-weight="700" fill="#1E293B">Browser Application Environment:</text>
+      <text x="24" y="148" font-size="10.5" fill="#475569">• Modern Web Browsers (Chrome, Safari, Edge)</text>
+      <text x="24" y="165" font-size="10.5" fill="#475569">• Responsive HTML5 / CSS3 / JavaScript</text>
+
+      <text x="14" y="193" font-size="11" font-weight="700" fill="#1E293B">Client-Side Capabilities &amp; Access:</text>
+      <g transform="translate(18, 204)">
+        <rect x="0" y="0" width="224" height="22" rx="4" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="8" y="15" font-size="10" font-weight="600" fill="#9F1239">✓ Interactive Salon Service Catalog</text>
+      </g>
+      <g transform="translate(18, 232)">
+        <rect x="0" y="0" width="224" height="22" rx="4" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="8" y="15" font-size="10" font-weight="600" fill="#9F1239">✓ Real-Time Booking &amp; Slot Selection</text>
+      </g>
+      <g transform="translate(18, 260)">
+        <rect x="0" y="0" width="224" height="22" rx="4" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="8" y="15" font-size="10" font-weight="600" fill="#9F1239">✓ AI Nail Customization &amp; Recommendation</text>
+      </g>
+      <g transform="translate(18, 288)">
+        <rect x="0" y="0" width="224" height="22" rx="4" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="8" y="15" font-size="10" font-weight="600" fill="#9F1239">✓ Customer Account &amp; Booking History</text>
+      </g>
+      <g transform="translate(18, 316)">
+        <rect x="0" y="0" width="224" height="15" rx="3" fill="#F1F5F9" />
+        <text x="112" y="11.5" font-size="9" font-weight="600" fill="#475569" text-anchor="middle">Google SSO &amp; Email Authentication</text>
+      </g>
+    </g>
+
+    <!-- Sub-Box 2: Administrator Workstation -->
+    <g transform="translate(14, 412)">
+      <rect x="0" y="0" width="262" height="350" rx="8" fill="#FFFFFF" stroke="#F472B6" stroke-width="1.2" />
+      
+      <!-- Sub-Box Title -->
+      <rect x="0" y="0" width="262" height="32" rx="8" fill="#FFF0F3" stroke="#F472B6" stroke-width="1.2" />
+      <rect x="0" y="24" width="262" height="8" fill="#FFF0F3" />
+      <circle cx="18" cy="16" r="6" fill="#E11D48" />
+      <text x="32" y="20" font-size="12" font-weight="700" fill="#881337">Administrator Workstation</text>
+
+      <!-- Admin Device Icon -->
+      <g transform="translate(90, 42)">
+        <rect x="14" y="0" width="54" height="36" rx="3" fill="#F8FAFC" stroke="#475569" stroke-width="1.5" />
+        <rect x="17" y="3" width="48" height="27" fill="#E2E8F0" />
+        <path d="M 37 36 L 45 36 L 47 44 L 35 44 z" fill="#475569" />
+        <rect x="29" y="44" width="24" height="2.5" fill="#475569" />
+        <!-- Admin lock badge -->
+        <circle cx="56" cy="10" r="7" fill="#BE185D" />
+        <path d="M 53 10 L 53 8 C 53 6.5 59 6.5 59 8 L 59 10 M 52 10 L 60 10 L 60 14 L 52 14 z" stroke="#FFFFFF" stroke-width="1" fill="none" />
+      </g>
+      <text x="131" y="99" font-size="10.5" font-weight="600" fill="#64748B" text-anchor="middle">Admin PC / Authorized Terminal</text>
+
+      <line x1="12" y1="110" x2="250" y2="110" stroke="#F1F5F9" stroke-width="1" />
+      
+      <text x="14" y="130" font-size="11" font-weight="700" fill="#1E293B">Browser Application Environment:</text>
+      <text x="24" y="148" font-size="10.5" fill="#475569">• Desktop / Laptop Web Browser</text>
+      <text x="24" y="165" font-size="10.5" fill="#475569">• Role-Based Access Control (RBAC)</text>
+
+      <text x="14" y="193" font-size="11" font-weight="700" fill="#1E293B">Administrative Control Functions:</text>
+      <g transform="translate(18, 204)">
+        <rect x="0" y="0" width="224" height="22" rx="4" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="8" y="15" font-size="10" font-weight="600" fill="#9F1239">✓ Appointment Approvals &amp; Rescheduling</text>
+      </g>
+      <g transform="translate(18, 232)">
+        <rect x="0" y="0" width="224" height="22" rx="4" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="8" y="15" font-size="10" font-weight="600" fill="#9F1239">✓ POS Billing &amp; Transaction Settlement</text>
+      </g>
+      <g transform="translate(18, 260)">
+        <rect x="0" y="0" width="224" height="22" rx="4" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="8" y="15" font-size="10" font-weight="600" fill="#9F1239">✓ Inventory Stock &amp; Material Tracking</text>
+      </g>
+      <g transform="translate(18, 288)">
+        <rect x="0" y="0" width="224" height="22" rx="4" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="8" y="15" font-size="10" font-weight="600" fill="#9F1239">✓ Staff Rosters, Attendance &amp; Analytics</text>
+      </g>
+      <g transform="translate(18, 316)">
+        <rect x="0" y="0" width="224" height="22" rx="4" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="8" y="15" font-size="10" font-weight="600" fill="#9F1239">✓ Real-Time Booking Alerts (WebSockets)</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ==================== TIER 2: INTERNET ==================== -->
+  <g id="tier-internet" transform="translate(385, 310)">
+    <rect x="0" y="0" width="160" height="390" rx="10" fill="url(#cloudGrad)" stroke="#CBD5E1" stroke-width="1.5" filter="url(#cardShadow)" />
+    
+    <rect x="0" y="0" width="160" height="36" rx="10" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.5" />
+    <rect x="0" y="24" width="160" height="12" fill="#F1F5F9" />
+    <text x="80" y="22" font-size="12" font-weight="700" fill="#334155" text-anchor="middle" letter-spacing="0.5">PUBLIC INTERNET</text>
+
+    <!-- Cloud & Globe Graphics -->
+    <g transform="translate(40, 50)">
+      <path d="M 22 36 A 16 16 0 0 1 50 18 A 22 22 0 0 1 70 32 A 15 15 0 0 1 66 52 L 18 52 A 15 15 0 0 1 22 36 z" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1.5" />
+      <circle cx="44" cy="36" r="13" fill="#FFFFFF" stroke="#0284C7" stroke-width="1.2" />
+      <ellipse cx="44" cy="36" rx="5.5" ry="13" fill="none" stroke="#0284C7" stroke-width="1" />
+      <line x1="31" y1="36" x2="57" y2="36" stroke="#0284C7" stroke-width="1" />
+    </g>
+
+    <text x="80" y="126" font-size="11" font-weight="700" fill="#1E293B" text-anchor="middle">Network Gateway</text>
+    <text x="80" y="142" font-size="10" fill="#64748B" text-anchor="middle">Wide Area Network (WAN)</text>
+
+    <!-- Security Protocol Badges -->
+    <g transform="translate(12, 160)">
+      <rect x="0" y="0" width="136" height="42" rx="6" fill="#FFFFFF" stroke="#0284C7" stroke-width="1.2" />
+      <text x="68" y="17" font-size="10.5" font-weight="700" fill="#0369A1" text-anchor="middle">HTTPS / TLS 1.3</text>
+      <text x="68" y="32" font-size="9.5" fill="#0284C7" text-anchor="middle">TCP Port 443 (SSL/TLS)</text>
+    </g>
+
+    <g transform="translate(12, 212)">
+      <rect x="0" y="0" width="136" height="38" rx="6" fill="#FFFFFF" stroke="#2563EB" stroke-width="1" />
+      <text x="68" y="16" font-size="10" font-weight="700" fill="#1D4ED8" text-anchor="middle">Secure WebSocket</text>
+      <text x="68" y="30" font-size="9" fill="#3B82F6" text-anchor="middle">WSS Protocol (Realtime)</text>
+    </g>
+
+    <g transform="translate(12, 260)">
+      <rect x="0" y="0" width="136" height="48" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1" />
+      <text x="68" y="16" font-size="9.5" font-weight="700" fill="#334155" text-anchor="middle">DNS &amp; Global Edge</text>
+      <text x="68" y="30" font-size="8.5" fill="#64748B" text-anchor="middle">Anycast CDN Routing</text>
+      <text x="68" y="42" font-size="8.5" fill="#64748B" text-anchor="middle">DDoS / Bot Mitigation</text>
+    </g>
+
+    <g transform="translate(12, 318)">
+      <rect x="0" y="0" width="136" height="56" rx="6" fill="#ECFDF5" stroke="#10B981" stroke-width="1" />
+      <text x="68" y="17" font-size="9.5" font-weight="700" fill="#065F46" text-anchor="middle">End-to-End Encryption</text>
+      <text x="68" y="32" font-size="8.5" fill="#047857" text-anchor="middle">Confidentiality &amp;</text>
+      <text x="68" y="45" font-size="8.5" fill="#047857" text-anchor="middle">Data Integrity Enforced</text>
+    </g>
+  </g>
+
+  <!-- ==================== TIER 3: WEB APPLICATION (VERCEL) ==================== -->
+  <g id="tier-vercel" transform="translate(595, 118)">
+    <rect x="0" y="0" width="480" height="780" rx="10" fill="url(#vercelGrad)" stroke="#F472B6" stroke-width="1.5" filter="url(#cardShadow)" />
+    
+    <!-- Tier Header -->
+    <rect x="0" y="0" width="480" height="42" rx="10" fill="#FFF1F5" stroke="#F472B6" stroke-width="1.5" />
+    <rect x="0" y="30" width="480" height="12" fill="#FFF1F5" />
+    <path d="M 22 28 L 28 16 L 34 28 z" fill="#000000" />
+    <text x="44" y="26" font-size="13" font-weight="700" fill="#9D174D" letter-spacing="0.5">TIER 2: WEB APPLICATION SERVER — VERCEL</text>
+    <rect x="385" y="10" width="80" height="22" rx="4" fill="#000000" />
+    <text x="425" y="24.5" font-size="10" font-weight="700" fill="#FFFFFF" text-anchor="middle">NEXT.JS</text>
+
+    <!-- Sub-Box 1: Frontend Presentation Layer -->
+    <g transform="translate(16, 54)">
+      <rect x="0" y="0" width="448" height="130" rx="8" fill="#FFFFFF" stroke="#FDA4AF" stroke-width="1" />
+      <rect x="0" y="0" width="448" height="26" rx="8" fill="#FFF0F5" stroke="#FDA4AF" stroke-width="1" />
+      <rect x="0" y="18" width="448" height="8" fill="#FFF0F5" />
+      <text x="12" y="17" font-size="11" font-weight="700" fill="#881337">Frontend Presentation Layer (React / Next.js Client Interface)</text>
+
+      <!-- Customer Portal Card -->
+      <g transform="translate(12, 34)">
+        <rect x="0" y="0" width="206" height="84" rx="6" fill="#FFF8F9" stroke="#FB7185" stroke-width="0.8" />
+        <text x="10" y="17" font-size="10.5" font-weight="700" fill="#9F1239">Customer Web Portal</text>
+        <text x="10" y="33" font-size="9" fill="#475569">• Dynamic Service Catalog View</text>
+        <text x="10" y="48" font-size="9" fill="#475569">• Interactive Booking Workflow</text>
+        <text x="10" y="63" font-size="9" fill="#475569">• Artisan Nail Gallery &amp; Inspo</text>
+        <text x="10" y="78" font-size="9" fill="#475569">• Client Profile &amp; Auth Context</text>
+      </g>
+
+      <!-- Admin Dashboard Card -->
+      <g transform="translate(230, 34)">
+        <rect x="0" y="0" width="206" height="84" rx="6" fill="#FFF8F9" stroke="#FB7185" stroke-width="0.8" />
+        <text x="10" y="17" font-size="10.5" font-weight="700" fill="#9F1239">Admin Management Portal</text>
+        <text x="10" y="33" font-size="9" fill="#475569">• Unified Operational Dashboard</text>
+        <text x="10" y="48" font-size="9" fill="#475569">• Realtime Booking Alert Toasts</text>
+        <text x="10" y="63" font-size="9" fill="#475569">• Appointment Calendar Grid</text>
+        <text x="10" y="78" font-size="9" fill="#475569">• Financial &amp; Inventory Controls</text>
+      </g>
+    </g>
+
+    <!-- Sub-Box 2: Backend & Serverless API Routes -->
+    <g transform="translate(16, 196)">
+      <rect x="0" y="0" width="448" height="114" rx="8" fill="#FFFFFF" stroke="#FDA4AF" stroke-width="1" />
+      <rect x="0" y="0" width="448" height="26" rx="8" fill="#FFF0F5" stroke="#FDA4AF" stroke-width="1" />
+      <rect x="0" y="18" width="448" height="8" fill="#FFF0F5" />
+      <text x="12" y="17" font-size="11" font-weight="700" fill="#881337">Backend &amp; Serverless API Routes (/api/*)</text>
+
+      <!-- Auth Endpoints -->
+      <g transform="translate(12, 34)">
+        <rect x="0" y="0" width="206" height="68" rx="5" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="0.8" />
+        <text x="10" y="16" font-size="10" font-weight="700" fill="#0F172A">/api/auth/*</text>
+        <text x="10" y="31" font-size="9" fill="#475569">• Admin Email OTP Dispatcher</text>
+        <text x="10" y="46" font-size="9" fill="#475569">• Secure Password Reset Flows</text>
+        <text x="10" y="60" font-size="9" fill="#475569">• Session Token Validation</text>
+      </g>
+
+      <!-- Notification Endpoints -->
+      <g transform="translate(230, 34)">
+        <rect x="0" y="0" width="206" height="68" rx="5" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="0.8" />
+        <text x="10" y="16" font-size="10" font-weight="700" fill="#0F172A">/api/send-notifications/*</text>
+        <text x="10" y="31" font-size="9" fill="#475569">• Booking Confirmation Dispatch</text>
+        <text x="10" y="46" font-size="9" fill="#475569">• Resend API SDK Orchestrator</text>
+        <text x="10" y="60" font-size="9" fill="#475569">• Automated Status Triggers</text>
+      </g>
+    </g>
+
+    <!-- Sub-Box 3: Salon MIS Core Functional Modules -->
+    <g transform="translate(16, 322)">
+      <rect x="0" y="0" width="448" height="246" rx="8" fill="#FFFFFF" stroke="#FDA4AF" stroke-width="1" />
+      <rect x="0" y="0" width="448" height="26" rx="8" fill="#FFF0F3" stroke="#FDA4AF" stroke-width="1" />
+      <rect x="0" y="18" width="448" height="8" fill="#FFF0F3" />
+      <text x="12" y="17" font-size="11" font-weight="700" fill="#881337">Salon Management Information System Functions</text>
+
+      <!-- Module 1: Appointment Scheduling -->
+      <g transform="translate(12, 34)">
+        <rect x="0" y="0" width="206" height="60" rx="5" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="10" y="16" font-size="9.5" font-weight="700" fill="#9F1239">Appointment &amp; Calendar MIS</text>
+        <text x="10" y="32" font-size="8.5" fill="#475569">• Realtime Status: Pending / Scheduled</text>
+        <text x="10" y="48" font-size="8.5" fill="#475569">• Slot conflict checking &amp; approvals</text>
+      </g>
+
+      <!-- Module 2: Service & Pricing -->
+      <g transform="translate(230, 34)">
+        <rect x="0" y="0" width="206" height="60" rx="5" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="10" y="16" font-size="9.5" font-weight="700" fill="#9F1239">Services &amp; Pricing Catalog</text>
+        <text x="10" y="32" font-size="8.5" fill="#475569">• Dynamic tier &amp; duration definitions</text>
+        <text x="10" y="48" font-size="8.5" fill="#475569">• Nail art add-ons &amp; inclusions list</text>
+      </g>
+
+      <!-- Module 3: Billing & POS -->
+      <g transform="translate(12, 102)">
+        <rect x="0" y="0" width="206" height="60" rx="5" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="10" y="16" font-size="9.5" font-weight="700" fill="#9F1239">POS, Billing &amp; Sales Tracker</text>
+        <text x="10" y="32" font-size="8.5" fill="#475569">• Automated invoice generation</text>
+        <text x="10" y="48" font-size="8.5" fill="#475569">• Cash/E-Wallet transaction logs</text>
+      </g>
+
+      <!-- Module 4: Inventory & Material -->
+      <g transform="translate(230, 102)">
+        <rect x="0" y="0" width="206" height="60" rx="5" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="10" y="16" font-size="9.5" font-weight="700" fill="#9F1239">Inventory &amp; Supplies Control</text>
+        <text x="10" y="32" font-size="8.5" fill="#475569">• Polish &amp; gel stock depletion tracking</text>
+        <text x="10" y="48" font-size="8.5" fill="#475569">• Automated low-stock warning threshold</text>
+      </g>
+
+      <!-- Module 5: Staff & Roster -->
+      <g transform="translate(12, 170)">
+        <rect x="0" y="0" width="206" height="64" rx="5" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="10" y="16" font-size="9.5" font-weight="700" fill="#9F1239">Staff Roster &amp; Attendance</text>
+        <text x="10" y="32" font-size="8.5" fill="#475569">• Artisan assignment &amp; scheduling</text>
+        <text x="10" y="48" font-size="8.5" fill="#475569">• Attendance logs &amp; productivity metrics</text>
+      </g>
+
+      <!-- Module 6: Customer Analytics -->
+      <g transform="translate(230, 170)">
+        <rect x="0" y="0" width="206" height="64" rx="5" fill="#FFF5F7" stroke="#FDA4AF" stroke-width="0.8" />
+        <text x="10" y="16" font-size="9.5" font-weight="700" fill="#9F1239">Customer Relationship (CRM)</text>
+        <text x="10" y="32" font-size="8.5" fill="#475569">• Dynamic visit count &amp; spend stats</text>
+        <text x="10" y="48" font-size="8.5" fill="#475569">• Booking history &amp; review metrics</text>
+      </g>
+    </g>
+
+    <!-- Sub-Box 4: AI-Integrated Nail Customization & Recommendation Engine -->
+    <g transform="translate(16, 580)">
+      <rect x="0" y="0" width="448" height="184" rx="8" fill="url(#aiCardGrad)" stroke="#BE185D" stroke-width="1.5" />
+      
+      <!-- AI Header -->
+      <rect x="0" y="0" width="448" height="30" rx="8" fill="#FCE7F3" stroke="#BE185D" stroke-width="1.5" />
+      <rect x="0" y="22" width="448" height="8" fill="#FCE7F3" />
+      <path d="M 18 15 L 20 9 L 22 15 L 28 17 L 22 19 L 20 25 L 18 19 L 12 17 z" fill="#BE185D" />
+      <text x="34" y="19.5" font-size="11.5" font-weight="700" fill="#831843">AI-Integrated Nail Customization &amp; Recommendation Engine</text>
+
+      <!-- Intelligent Customizer -->
+      <g transform="translate(12, 38)">
+        <rect x="0" y="0" width="206" height="134" rx="6" fill="#FFFFFF" stroke="#F472B6" stroke-width="1" />
+        <text x="10" y="18" font-size="10" font-weight="700" fill="#9F1239">Intelligent Customizer</text>
+        <text x="10" y="36" font-size="8.5" fill="#475569">• Nail Shape Matching Engine</text>
+        <text x="18" y="49" font-size="8" fill="#64748B">(Almond, Coffin, Square, Oval)</text>
+        <text x="10" y="65" font-size="8.5" fill="#475569">• Texture &amp; Finish Synthesizer</text>
+        <text x="18" y="78" font-size="8" fill="#64748B">(Chrome, Matte, Glaze, 3D Gel)</text>
+        <text x="10" y="94" font-size="8.5" fill="#475569">• Multi-tone Palette Selector</text>
+        <text x="10" y="110" font-size="8.5" fill="#475569">• Client Inspo Upload Matcher</text>
+        <text x="18" y="123" font-size="8" fill="#64748B">(Reference Image Analysis)</text>
+      </g>
+
+      <!-- Recommendation Engine -->
+      <g transform="translate(230, 38)">
+        <rect x="0" y="0" width="206" height="134" rx="6" fill="#FFFFFF" stroke="#F472B6" stroke-width="1" />
+        <text x="10" y="18" font-size="10" font-weight="700" fill="#9F1239">Recommendation Engine</text>
+        <text x="10" y="36" font-size="8.5" fill="#475569">• Aesthetics &amp; Skin-Tone Matching</text>
+        <text x="10" y="53" font-size="8.5" fill="#475569">• Trending Seasonal Style Scorer</text>
+        <text x="10" y="70" font-size="8.5" fill="#475569">• Historical Preference Learning</text>
+        <text x="10" y="87" font-size="8.5" fill="#475569">• Dynamic Longevity Estimator</text>
+        <text x="10" y="104" font-size="8.5" fill="#475569">• Automated Pricing Aggregator</text>
+        <text x="18" y="118" font-size="8" fill="#64748B">(Base + Add-ons + Art Work)</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ==================== TIER 4: BACKEND SERVICES (RIGHT) ==================== -->
+  
+  <!-- 4A: DATABASE AND STORAGE (SUPABASE) -->
+  <g id="service-supabase" transform="translate(1125, 118)">
+    <rect x="0" y="0" width="435" height="360" rx="10" fill="url(#supabaseGrad)" stroke="#10B981" stroke-width="1.5" filter="url(#cardShadow)" />
+    
+    <!-- Header -->
+    <rect x="0" y="0" width="435" height="42" rx="10" fill="#ECFDF5" stroke="#10B981" stroke-width="1.5" />
+    <rect x="0" y="30" width="435" height="12" fill="#ECFDF5" />
+    <path d="M 22 28 L 27 16 L 35 16 L 31 23 L 37 23 L 25 34 L 28 28 z" fill="#10B981" />
+    <text x="44" y="26" font-size="13" font-weight="700" fill="#065F46" letter-spacing="0.5">TIER 3: DATABASE &amp; STORAGE — SUPABASE</text>
+
+    <!-- Sub-Box 1: PostgreSQL Database -->
+    <g transform="translate(16, 54)">
+      <rect x="0" y="0" width="403" height="186" rx="8" fill="#FFFFFF" stroke="#6EE7B7" stroke-width="1.2" />
+      <rect x="0" y="0" width="403" height="26" rx="8" fill="#F0FDF4" stroke="#6EE7B7" stroke-width="1.2" />
+      <rect x="0" y="18" width="403" height="8" fill="#F0FDF4" />
+      <circle cx="16" cy="13" r="5" fill="#059669" />
+      <text x="28" y="17" font-size="11" font-weight="700" fill="#047857">Relational Database Engine (PostgreSQL 15)</text>
+
+      <!-- Tables Grid -->
+      <g transform="translate(10, 36)">
+        <!-- Table 1: appointments -->
+        <g transform="translate(0, 0)">
+          <rect x="0" y="0" width="186" height="42" rx="4" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="0.8" />
+          <text x="8" y="16" font-size="9.5" font-weight="700" fill="#1F2937">appointments</text>
+          <text x="8" y="31" font-size="8.5" fill="#6B7280">Date, Time, Status, Client, Staff</text>
+        </g>
+
+        <!-- Table 2: customers & profiles -->
+        <g transform="translate(196, 0)">
+          <rect x="0" y="0" width="186" height="42" rx="4" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="0.8" />
+          <text x="8" y="16" font-size="9.5" font-weight="700" fill="#1F2937">customers &amp; profiles</text>
+          <text x="8" y="31" font-size="8.5" fill="#6B7280">Profiles, Contacts, Spend, Visits</text>
+        </g>
+
+        <!-- Table 3: nail_designs -->
+        <g transform="translate(0, 48)">
+          <rect x="0" y="0" width="186" height="42" rx="4" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="0.8" />
+          <text x="8" y="16" font-size="9.5" font-weight="700" fill="#1F2937">nail_designs &amp; custom</text>
+          <text x="8" y="31" font-size="8.5" fill="#6B7280">Styles, Palette, JSONB specs</text>
+        </g>
+
+        <!-- Table 4: services -->
+        <g transform="translate(196, 48)">
+          <rect x="0" y="0" width="186" height="42" rx="4" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="0.8" />
+          <text x="8" y="16" font-size="9.5" font-weight="700" fill="#1F2937">services &amp; categories</text>
+          <text x="8" y="31" font-size="8.5" fill="#6B7280">Tiered Pricing, Durations</text>
+        </g>
+
+        <!-- Table 5: billings -->
+        <g transform="translate(0, 96)">
+          <rect x="0" y="0" width="186" height="42" rx="4" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="0.8" />
+          <text x="8" y="16" font-size="9.5" font-weight="700" fill="#1F2937">billings &amp; transactions</text>
+          <text x="8" y="31" font-size="8.5" fill="#6B7280">Invoices, Payment status</text>
+        </g>
+
+        <!-- Table 6: inventory -->
+        <g transform="translate(196, 96)">
+          <rect x="0" y="0" width="186" height="42" rx="4" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="0.8" />
+          <text x="8" y="16" font-size="9.5" font-weight="700" fill="#1F2937">inventory &amp; staff_roster</text>
+          <text x="8" y="31" font-size="8.5" fill="#6B7280">Stock levels, Shifts, Logs</text>
+        </g>
+      </g>
+    </g>
+
+    <!-- Sub-Box 2: Storage & Realtime Engine -->
+    <g transform="translate(16, 252)">
+      <!-- Storage Bucket -->
+      <g transform="translate(0, 0)">
+        <rect x="0" y="0" width="196" height="94" rx="6" fill="#FFFFFF" stroke="#6EE7B7" stroke-width="1" />
+        <text x="10" y="18" font-size="10.5" font-weight="700" fill="#047857">Supabase Storage</text>
+        <text x="10" y="34" font-size="9" fill="#475569">• Nail Portfolio High-Res Media</text>
+        <text x="10" y="49" font-size="9" fill="#475569">• Customer Inspiration Uploads</text>
+        <text x="10" y="64" font-size="9" fill="#475569">• Salon Branding &amp; Static Assets</text>
+        <text x="10" y="80" font-size="8.5" fill="#6B7280">Public / Authenticated Buckets</text>
+      </g>
+
+      <!-- Realtime Engine -->
+      <g transform="translate(207, 0)">
+        <rect x="0" y="0" width="196" height="94" rx="6" fill="#FFFFFF" stroke="#6EE7B7" stroke-width="1" />
+        <text x="10" y="18" font-size="10.5" font-weight="700" fill="#047857">Supabase Realtime</text>
+        <text x="10" y="34" font-size="9" fill="#475569">• PostgreSQL CDC Replication</text>
+        <text x="10" y="49" font-size="9" fill="#475569">• WebSocket Event Broadcasts</text>
+        <text x="10" y="64" font-size="9" fill="#475569">• Instant Admin Booking Toasts</text>
+        <text x="10" y="80" font-size="8.5" fill="#6B7280">Zero-Polling Low Latency</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- 4B: AUTHENTICATION SERVICE (GOOGLE AUTH) -->
+  <g id="service-google" transform="translate(1125, 500)">
+    <rect x="0" y="0" width="435" height="180" rx="10" fill="url(#googleGrad)" stroke="#F59E0B" stroke-width="1.5" filter="url(#cardShadow)" />
+    
+    <!-- Header -->
+    <rect x="0" y="0" width="435" height="42" rx="10" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5" />
+    <rect x="0" y="30" width="435" height="12" fill="#FEF3C7" />
+    
+    <!-- Google 'G' Icon Badge -->
+    <circle cx="28" cy="21" r="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" />
+    <text x="23.5" y="25" font-size="12" font-weight="800" fill="#EA4335">G</text>
+    <text x="46" y="26" font-size="13" font-weight="700" fill="#92400E" letter-spacing="0.5">AUTHENTICATION SERVICE — GOOGLE AUTH</text>
+
+    <g transform="translate(16, 54)">
+      <rect x="0" y="0" width="403" height="112" rx="8" fill="#FFFFFF" stroke="#FCD34D" stroke-width="1" />
+      
+      <g transform="translate(14, 20)">
+        <text x="0" y="0" font-size="11" font-weight="700" fill="#B45309">OAuth 2.0 &amp; OpenID Connect Identity Provider</text>
+        <text x="0" y="19" font-size="9.5" fill="#475569">• Secure Federated Single Sign-On (SSO) for Customers &amp; Staff</text>
+        <text x="0" y="35" font-size="9.5" fill="#475569">• Cryptographic Identity Assertion (OAuth Consent &amp; Callback)</text>
+        <text x="0" y="51" font-size="9.5" fill="#475569">• Automated User Profile &amp; Email Ingestion to Supabase Auth</text>
+        <text x="0" y="67" font-size="9.5" fill="#475569">• Stateless JWT Token Exchange (Access &amp; Refresh Tokens)</text>
+        <text x="0" y="85" font-size="9" font-weight="600" fill="#D97706">Protocol: OAuth 2.0 / HTTPS TLS Handshake</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- 4C: EMAIL SERVICE (RESEND API) -->
+  <g id="service-resend" transform="translate(1125, 702)">
+    <rect x="0" y="0" width="435" height="196" rx="10" fill="url(#resendGrad)" stroke="#A855F7" stroke-width="1.5" filter="url(#cardShadow)" />
+    
+    <!-- Header -->
+    <rect x="0" y="0" width="435" height="42" rx="10" fill="#F3E8FF" stroke="#A855F7" stroke-width="1.5" />
+    <rect x="0" y="30" width="435" height="12" fill="#F3E8FF" />
+    <rect x="20" y="16" width="16" height="12" rx="1.5" fill="#A855F7" />
+    <path d="M 20 16 L 28 22 L 36 16" stroke="#FFFFFF" stroke-width="1.2" fill="none" />
+    <text x="44" y="26" font-size="13" font-weight="700" fill="#6B21A8" letter-spacing="0.5">EMAIL NOTIFICATION SERVICE — RESEND API</text>
+
+    <g transform="translate(16, 54)">
+      <rect x="0" y="0" width="403" height="128" rx="8" fill="#FFFFFF" stroke="#D8B4FE" stroke-width="1" />
+      
+      <g transform="translate(14, 20)">
+        <text x="0" y="0" font-size="11" font-weight="700" fill="#7E22CE">Cloud Transactional Email Engine (Resend REST API)</text>
+        <text x="0" y="19" font-size="9.5" fill="#475569">• Automated Appointment Booking Confirmation Emails</text>
+        <text x="0" y="35" font-size="9.5" fill="#475569">• Realtime Appointment Status Alerts (Approved / Rescheduled)</text>
+        <text x="0" y="51" font-size="9.5" fill="#475569">• Administrative One-Time Password (OTP) Code Verification</text>
+        <text x="0" y="67" font-size="9.5" fill="#475569">• Customer Password Reset &amp; Welcome Notifications</text>
+        <text x="0" y="83" font-size="9.5" fill="#475569">• High-Deliverability DKIM/SPF Signed Infrastructure</text>
+        <text x="0" y="101" font-size="9" font-weight="600" fill="#9333EA">Integration: Node.js SDK / REST API via HTTPS POST</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ==================== COMMUNICATION ARROWS & FLOWS ==================== -->
+  
+  <!-- Flow 1: Clients <-> Internet -->
+  <g id="flow-clients-internet">
+    <line x1="330" y1="505" x2="385" y2="505" stroke="#2563EB" stroke-width="2.5" marker-end="url(#arrow-blue)" marker-start="url(#arrow-start-blue)" />
+    
+    <g transform="translate(326, 468)" filter="url(#pillShadow)">
+      <rect x="0" y="0" width="64" height="22" rx="4" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1" />
+      <text x="32" y="15" font-size="8.5" font-weight="700" fill="#1D4ED8" text-anchor="middle">HTTPS/TLS</text>
+    </g>
+    <text x="358" y="522" font-size="8" font-weight="600" fill="#64748B" text-anchor="middle">Port 443</text>
+  </g>
+
+  <!-- Flow 2: Internet <-> Vercel -->
+  <g id="flow-internet-vercel">
+    <line x1="545" y1="505" x2="595" y2="505" stroke="#2563EB" stroke-width="2.5" marker-end="url(#arrow-blue)" marker-start="url(#arrow-start-blue)" />
+    
+    <g transform="translate(538, 468)" filter="url(#pillShadow)">
+      <rect x="0" y="0" width="64" height="22" rx="4" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1" />
+      <text x="32" y="15" font-size="8.5" font-weight="700" fill="#1D4ED8" text-anchor="middle">HTTPS/TLS</text>
+    </g>
+    <text x="570" y="522" font-size="8" font-weight="600" fill="#64748B" text-anchor="middle">Edge Routing</text>
+  </g>
+
+  <!-- Flow 3: Vercel <-> Supabase (Database & Storage) -->
+  <g id="flow-vercel-supabase">
+    <path d="M 1075 298 L 1125 298" stroke="#059669" stroke-width="2.5" marker-end="url(#arrow-emerald)" marker-start="url(#arrow-start-emerald)" />
+    
+    <g transform="translate(1055, 260)" filter="url(#pillShadow)">
+      <rect x="0" y="0" width="90" height="25" rx="4" fill="#ECFDF5" stroke="#10B981" stroke-width="1" />
+      <text x="45" y="12" font-size="8" font-weight="700" fill="#065F46" text-anchor="middle">PostgREST / SQL</text>
+      <text x="45" y="21.5" font-size="7.5" fill="#059669" text-anchor="middle">WSS Realtime</text>
+    </g>
+  </g>
+
+  <!-- Flow 4: Vercel <-> Google Auth -->
+  <g id="flow-vercel-google">
+    <path d="M 1075 590 L 1125 590" stroke="#D97706" stroke-width="2.5" marker-end="url(#arrow-amber)" marker-start="url(#arrow-start-amber)" />
+    
+    <g transform="translate(1055, 552)" filter="url(#pillShadow)">
+      <rect x="0" y="0" width="90" height="25" rx="4" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1" />
+      <text x="45" y="12" font-size="8" font-weight="700" fill="#92400E" text-anchor="middle">OAuth 2.0 Flow</text>
+      <text x="45" y="21.5" font-size="7.5" fill="#B45309" text-anchor="middle">JWT Verification</text>
+    </g>
+  </g>
+
+  <!-- Flow 5: Vercel -> Resend API -->
+  <g id="flow-vercel-resend">
+    <path d="M 1075 800 L 1125 800" stroke="#7C3AED" stroke-width="2.5" marker-end="url(#arrow-purple)" />
+    
+    <g transform="translate(1055, 762)" filter="url(#pillShadow)">
+      <rect x="0" y="0" width="90" height="25" rx="4" fill="#F3E8FF" stroke="#A855F7" stroke-width="1" />
+      <text x="45" y="12" font-size="8" font-weight="700" fill="#6B21A8" text-anchor="middle">REST API (POST)</text>
+      <text x="45" y="21.5" font-size="7.5" fill="#7E22CE" text-anchor="middle">Email Trigger</text>
+    </g>
+  </g>
+
+  <!-- Flow 6: Resend Outbound Email Delivery Loop back to End-Users & Admin -->
+  <g id="flow-resend-delivery">
+    <path d="M 1342 898 L 1342 920 L 185 920 L 185 898" stroke="#A855F7" stroke-width="1.8" stroke-dasharray="5,4" fill="none" marker-end="url(#arrow-purple)" />
+    
+    <g transform="translate(720, 908)" filter="url(#pillShadow)">
+      <rect x="0" y="0" width="230" height="22" rx="4" fill="#FAF5FF" stroke="#C084FC" stroke-width="1" />
+      <text x="115" y="15" font-size="9" font-weight="600" fill="#6B21A8" text-anchor="middle">Outbound Email Delivery to Inboxes (SMTP / TLS)</text>
+    </g>
+  </g>
+
+  <!-- ==================== LEGEND SECTION ==================== -->
+  <g id="legend" transform="translate(40, 946)">
+    <rect x="0" y="0" width="1520" height="34" rx="6" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1" />
+    <text x="16" y="21" font-size="10.5" font-weight="700" fill="#334155">NETWORK PROTOCOL LEGEND:</text>
+
+    <!-- Legend Item 1 -->
+    <line x1="210" y1="17" x2="235" y2="17" stroke="#2563EB" stroke-width="2.5" />
+    <text x="242" y="21" font-size="10" fill="#1E293B">HTTPS / TLS (Port 443)</text>
+
+    <!-- Legend Item 2 -->
+    <line x1="410" y1="17" x2="435" y2="17" stroke="#059669" stroke-width="2.5" />
+    <text x="442" y="21" font-size="10" fill="#1E293B">Database REST &amp; WSS Realtime</text>
+
+    <!-- Legend Item 3 -->
+    <line x1="660" y1="17" x2="685" y2="17" stroke="#D97706" stroke-width="2.5" />
+    <text x="692" y="21" font-size="10" fill="#1E293B">OAuth 2.0 Identity Protocol</text>
+
+    <!-- Legend Item 4 -->
+    <line x1="880" y1="17" x2="905" y2="17" stroke="#7C3AED" stroke-width="2.5" />
+    <text x="912" y="21" font-size="10" fill="#1E293B">REST API Email Dispatch</text>
+
+    <!-- Legend Item 5 -->
+    <line x1="1100" y1="17" x2="1125" y2="17" stroke="#A855F7" stroke-width="2" stroke-dasharray="4,3" />
+    <text x="1132" y="21" font-size="10" fill="#1E293B">SMTP Outbound Notification</text>
+
+    <!-- Legend Item 6 -->
+    <rect x="1330" y="8" width="16" height="16" rx="3" fill="#FFE4EC" stroke="#BE185D" stroke-width="1" />
+    <text x="1354" y="21" font-size="10" font-weight="600" fill="#9D174D">AI Engine Integration</text>
+  </g>
+
+  <!-- ==================== FORMAL ACADEMIC FIGURE CAPTION ==================== -->
+  <g id="academic-caption" transform="translate(40, 995)">
+    <text x="760" y="20" font-size="13.5" font-weight="700" fill="#0F172A" text-anchor="middle" font-family="'Times New Roman', 'Segoe UI', serif">
+      Figure 4. Client-Server Network Model of the Proposed Management Information System.
+    </text>
+  </g>
+
+</svg>`;
+
+const docsDir = path.resolve('c:/Users/xianr/OneDrive/Desktop/Salon System/docs');
+const svgPath = path.join(docsDir, 'figure_4_network_model.svg');
+fs.writeFileSync(svgPath, svgContent, 'utf8');
+console.log('SVG updated successfully:', svgPath);
+
+// Generate high-resolution PNG using Sharp
+const pngPath = path.join(docsDir, 'figure_4_network_model.png');
+sharp(Buffer.from(svgContent))
+  .png()
+  .toFile(pngPath)
+  .then((info) => {
+    console.log('PNG updated successfully:', pngPath, info);
+  })
+  .catch((err) => {
+    console.error('Sharp error:', err);
+  });

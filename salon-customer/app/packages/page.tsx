@@ -76,24 +76,24 @@ export default function PackagesPage() {
             <p className="text-sm text-zinc-500 font-medium">Loading current promotions...</p>
           </section>
         ) : promotions.length > 0 ? (
-          <section className="px-6 pt-12 pb-20 lg:pt-16 lg:px-10 max-w-7xl mx-auto">
-            <div className="mb-14 text-center sm:text-left flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 border-b border-zinc-100 pb-8">
+          <section className="px-4 sm:px-6 pt-10 sm:pt-12 pb-16 sm:pb-20 lg:pt-16 lg:px-10 max-w-7xl mx-auto">
+            <div className="mb-10 sm:mb-14 text-center sm:text-left flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 sm:gap-6 border-b border-zinc-100 pb-6 sm:pb-8">
               <div>
                 <div className="mb-2">
-                  <span className="font-serif italic text-2xl text-pink-600 font-medium">Special Offers</span>
+                  <span className="font-serif italic text-xl sm:text-2xl text-pink-600 font-medium">Special Offers</span>
                 </div>
-                <h2 className="font-serif text-3xl sm:text-4xl font-medium text-zinc-900">Current Promotions</h2>
+                <h2 className="font-serif text-2xl sm:text-4xl font-medium text-zinc-900">Current Promotions</h2>
               </div>
               <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 self-center sm:self-end">
                 {promotions.length} {promotions.length === 1 ? 'promotion' : 'promotions'}
               </span>
             </div>
 
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-3">
               {promotions.map((pkg) => (
                 <div 
                   key={pkg.id} 
-                  className="group relative overflow-hidden rounded-3xl bg-white border border-zinc-200/80 p-6 sm:p-8 transition-all duration-500 hover:shadow-2xl hover:shadow-pink-100/50 hover:-translate-y-1.5 flex flex-col justify-between"
+                  className="group relative overflow-hidden rounded-2xl sm:rounded-3xl bg-white border border-zinc-200/80 p-5 sm:p-8 transition-all duration-500 hover:shadow-2xl hover:shadow-pink-100/50 hover:-translate-y-1.5 flex flex-col justify-between"
                 >
                   <div>
                     {/* Header: Available Month Badge */}
@@ -104,30 +104,30 @@ export default function PackagesPage() {
                     </div>
 
                     {/* Title */}
-                    <h3 className="font-serif text-xl sm:text-2xl font-medium text-zinc-900 group-hover:text-pink-600 transition-colors mt-2">
+                    <h3 className="font-serif text-lg sm:text-2xl font-medium text-zinc-900 group-hover:text-pink-600 transition-colors mt-2">
                       {pkg.name}
                     </h3>
 
                     {/* Inclusions */}
                     <div className="mt-5 space-y-2 border-t border-zinc-50 pt-4">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Package Inclusions:</p>
-                      <p className="text-sm text-zinc-600 whitespace-pre-line leading-relaxed">
+                      <p className="text-xs sm:text-sm text-zinc-600 whitespace-pre-line leading-relaxed">
                         {pkg.inclusions}
                       </p>
                     </div>
                   </div>
 
                   {/* Footer Actions */}
-                  <div className="mt-8 pt-6 border-t border-zinc-100 flex items-center justify-between">
+                  <div className="mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                       <p className="text-[9px] uppercase tracking-widest text-zinc-400 font-bold">Promo Price</p>
-                      <p className="font-serif text-3xl font-bold text-zinc-950 mt-0.5">
+                      <p className="font-serif text-2xl sm:text-3xl font-bold text-zinc-950 mt-0.5">
                         {new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(pkg.price || 0))}
                       </p>
                     </div>
                     <button
                       onClick={() => handleBookPackage(pkg)}
-                      className="flex items-center gap-2 rounded-full bg-pink-600 text-white hover:bg-pink-700 hover:shadow-pink-700/20 px-6 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all duration-300 shadow-md active:scale-95 whitespace-nowrap cursor-pointer"
+                      className="flex items-center justify-center gap-2 rounded-full bg-pink-600 text-white hover:bg-pink-700 hover:shadow-pink-700/20 px-6 py-3.5 text-[10px] font-bold uppercase tracking-widest transition-all duration-300 shadow-md active:scale-95 whitespace-nowrap cursor-pointer w-full sm:w-auto"
                     >
                       Book Now <ArrowRight size={13} />
                     </button>

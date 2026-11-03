@@ -39,11 +39,11 @@ const teamMembers: TeamMember[] = [
 export default function AboutPage() {
   return (
     <SalonLayout>
-      <main className="about-page bg-[#FFFBF2] text-zinc-900 font-sans min-h-screen pt-24 pb-20">
+      <main className="about-page bg-[#FFFBF2] text-zinc-900 font-sans min-h-screen pt-8 sm:pt-16 pb-16 sm:pb-20">
         
         {/* 1. TOP HERO IMAGE SECTION (No video player, clean rectangular container) */}
-        <section className="mx-auto max-w-6xl px-6 lg:px-10 mb-16">
-          <div className="relative w-full h-[380px] sm:h-[480px] md:h-[540px] overflow-hidden rounded-2xl sm:rounded-3xl shadow-md border border-zinc-200/60 bg-zinc-900">
+        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 mb-12 sm:mb-16">
+          <div className="relative w-full h-[240px] sm:h-[400px] md:h-[540px] overflow-hidden rounded-2xl sm:rounded-3xl shadow-md border border-zinc-200/60 bg-zinc-900">
             <img
               src="/images/about-img.jpg"
               alt="CANDY & ROSE Salon Interior"
@@ -53,7 +53,7 @@ export default function AboutPage() {
         </section>
 
         {/* 2. THREE-COLUMN EDITORIAL INTRODUCTION SECTION */}
-        <section className="mx-auto max-w-6xl px-6 lg:px-10 mb-24">
+        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 mb-16 sm:mb-24">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10 items-start border-b border-zinc-200/80 pb-16">
             
             {/* Column 1: CANDY & ROSE Logo / Wordmark */}
@@ -81,11 +81,11 @@ export default function AboutPage() {
         </section>
 
         {/* 3. OUR STORY SECTION */}
-        <section className="mx-auto max-w-4xl px-6 lg:px-10 text-center mb-16">
-          <h2 className="font-sans text-3xl sm:text-4xl md:text-[42px] font-medium text-zinc-950 tracking-tight mb-8">
+        <section className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-10 text-center mb-14 sm:mb-16">
+          <h2 className="font-sans text-2xl sm:text-4xl md:text-[42px] font-medium text-zinc-950 tracking-tight mb-6 sm:mb-8">
             Our <span className="text-pink-500 italic font-normal">Story</span>
           </h2>
-          <div className="space-y-6 text-xs sm:text-sm md:text-[15px] leading-relaxed text-zinc-600 font-normal max-w-3xl mx-auto">
+          <div className="space-y-4 sm:space-y-6 text-xs sm:text-sm md:text-[15px] leading-relaxed text-zinc-600 font-normal max-w-3xl mx-auto">
             <p>
               CANDY &amp; ROSE was established with a passionate vision to create a beautiful, welcoming, and serene workspace where every client feels genuinely cared for and valued. Inspired by the high standards, meticulous care, and peaceful atmosphere of beauty salons in Japan, we set out to redefine the salon experience.
             </p>
@@ -96,8 +96,8 @@ export default function AboutPage() {
         </section>
 
         {/* 4. THREE IMAGE STORY GRID */}
-        <section className="mx-auto max-w-6xl px-6 lg:px-10 mb-28">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 mb-20 sm:mb-28">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-sm border border-zinc-200/80 bg-zinc-100">
               <img
                 src="/images/pic1.jpg"
@@ -123,11 +123,11 @@ export default function AboutPage() {
         </section>
 
         {/* 5. OWNER / FOUNDER SECTION */}
-        <section className="mx-auto max-w-6xl px-6 lg:px-10 mb-32">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 mb-20 sm:mb-32">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 lg:gap-16 items-center">
             
             {/* Left: Owner Image */}
-            <div className="lg:col-span-5">
+            <div className="lg:col-span-5 max-w-md mx-auto lg:max-w-none w-full">
               <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-md border border-zinc-200/80 bg-zinc-100">
                 <img
                   src="/images/owner.jpg"
@@ -142,16 +142,16 @@ export default function AboutPage() {
               <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-2">
                 FOUNDER &amp; OWNER
               </span>
-              <h2 className="font-sans text-3xl sm:text-4xl lg:text-5xl font-medium text-zinc-950 tracking-tight mb-6">
+              <h2 className="font-sans text-2xl sm:text-4xl lg:text-5xl font-medium text-zinc-950 tracking-tight mb-4 sm:mb-6">
                 Roselyn Nishimura
               </h2>
               
-              <p className="text-xs sm:text-sm leading-relaxed text-zinc-600 font-normal mb-10">
+              <p className="text-xs sm:text-sm leading-relaxed text-zinc-600 font-normal mb-8 sm:mb-10">
                 “I’ve always enjoyed being presentable and feeling beautiful in my own way, and I love being able to contribute to other people’s experience of feeling that way too. I wanted to create my own unique workspace where I could choose specific product lines and set the artistic tone of the environment. After visiting many salons in Japan, I thought it would be exciting to open my own salon — but here in the Philippines.”
               </p>
 
               {/* Owner Highlights (01, 02, 03 Number Blocks) */}
-              <div className="space-y-6">
+              <div className="space-y-5 sm:space-y-6">
                 
                 {/* Highlight 01 */}
                 <div className="flex items-start gap-4">
@@ -163,7 +163,7 @@ export default function AboutPage() {
                       Personalized Beauty
                     </h4>
                     <p className="text-xs text-zinc-600 font-normal mt-1 leading-relaxed">
-                      Tailoring every hair, nail, and skin ritual to highlight each client's unique features and personal style.
+                      Tailoring every hair, nail, and skin ritual to highlight each client&apos;s unique features and personal style.
                     </p>
                   </div>
                 </div>
@@ -205,20 +205,20 @@ export default function AboutPage() {
         </section>
 
         {/* 6. MEET OUR TEAM SECTION */}
-        <section className="mx-auto max-w-6xl px-6 lg:px-10 mb-16">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+        <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 mb-16">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6 mb-8 sm:mb-12">
             <div>
-              <h2 className="font-sans text-3xl sm:text-4xl lg:text-5xl font-medium text-zinc-950 tracking-tight">
+              <h2 className="font-sans text-2xl sm:text-4xl lg:text-5xl font-medium text-zinc-950 tracking-tight">
                 Meet <span className="text-pink-500 font-medium">Our Team</span>
               </h2>
-              <p className="mt-3 text-xs sm:text-sm text-zinc-600 max-w-xl font-normal leading-relaxed">
+              <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm text-zinc-600 max-w-xl font-normal leading-relaxed">
                 Meet the talented individuals behind CANDY &amp; ROSE, dedicated to creating beautiful experiences and helping every client feel confident and cared for.
               </p>
             </div>
           </div>
 
           {/* Team Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {teamMembers.map((member) => (
               <div
                 key={member.name}

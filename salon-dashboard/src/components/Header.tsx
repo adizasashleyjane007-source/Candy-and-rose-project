@@ -4,6 +4,7 @@ import { Bell, ChevronDown, User, Settings, LogOut, Menu, Check, Trash2, Loader2
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { useSidebar } from "./SidebarContext";
 import GlobalSearch from "./GlobalSearch";
@@ -435,9 +436,9 @@ export default function Header() {
                     }}
                 />
             )}
-            {showLogoutConfirm && (
-                <div 
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in"
+            {showLogoutConfirm && typeof document !== "undefined" && createPortal(
+                <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
                     onClick={() => {
                         if (!loggingOut) {
                             setShowLogoutConfirm(false);
@@ -445,7 +446,7 @@ export default function Header() {
                         }
                     }}
                 >
-                    <div 
+                    <div
                         className="relative bg-white rounded-[24px] sm:rounded-[28px] p-6 sm:p-8 max-w-[400px] w-full shadow-2xl border border-pink-100/60 flex flex-col items-center text-center transition-all duration-200"
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -507,7 +508,8 @@ export default function Header() {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </header>
     );

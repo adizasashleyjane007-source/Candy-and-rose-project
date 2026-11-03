@@ -3,7 +3,8 @@
 import { FormEvent, useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Lock, Eye, EyeOff, Check, AlertCircle } from 'lucide-react';
+import { Check, AlertCircle } from 'lucide-react';
+import { PasswordField } from '@/components/auth-fields';
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -12,8 +13,6 @@ function ResetPasswordForm() {
   
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -73,8 +72,18 @@ function ResetPasswordForm() {
       return;
     }
 
-    if (!newPassword || newPassword.length < 6) {
-      setError('Password must be at least 6 characters long.');
+    if (!newPassword || newPassword.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+
+    if (!/[A-Z]/.test(newPassword)) {
+      setError('Password must contain an uppercase letter.');
+      return;
+    }
+
+    if (!/[0-9\W_]/.test(newPassword)) {
+      setError('Password must contain a number or symbol.');
       return;
     }
 
@@ -111,17 +120,17 @@ function ResetPasswordForm() {
   };
 
   return (
-    <main className="min-h-screen bg-[#181818] font-sans flex flex-col items-center justify-center p-4 sm:p-6 md:p-10">
+    <main className="min-h-screen bg-[#181818] font-sans flex flex-col items-center justify-center p-3 sm:p-6 md:p-10">
       <div className="w-full max-w-[1080px] mx-auto">
         {/* Top Header Label */}
-        <h1 className="text-zinc-400 text-xl sm:text-2xl font-light tracking-wide mb-3 pl-1">
+        <h1 className="text-zinc-400 text-lg sm:text-2xl font-light tracking-wide mb-2 sm:mb-3 pl-1">
           Reset Password
         </h1>
 
         {/* Cream Main Container */}
-        <div className="bg-[#F7F3EB] rounded-3xl p-4 sm:p-6 md:p-8 shadow-2xl">
+        <div className="bg-[#F7F3EB] rounded-2xl sm:rounded-3xl p-3 sm:p-6 md:p-8 shadow-2xl">
           {/* Top Navigation */}
-          <div className="mb-4 pt-1 pl-1">
+          <div className="mb-3 sm:mb-4 pt-1 pl-1">
             <Link 
               href="/" 
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-700 hover:text-zinc-950 transition-colors group"
@@ -131,9 +140,9 @@ function ResetPasswordForm() {
           </div>
 
           {/* 2-Column Split Card */}
-          <div className="grid md:grid-cols-2 rounded-2xl overflow-hidden shadow-xl min-h-[540px] md:min-h-[580px]">
-            {/* Left Column: Image with Overlay */}
-            <div className="relative min-h-[260px] md:min-h-[580px] bg-zinc-950 flex flex-col justify-end p-8 sm:p-12 md:p-14 overflow-hidden">
+          <div className="grid md:grid-cols-2 rounded-xl sm:rounded-2xl overflow-hidden shadow-xl md:min-h-[580px]">
+            {/* Left Column: Image with Overlay (desktop only for optimal mobile experience) */}
+            <div className="relative hidden md:flex md:min-h-[580px] bg-zinc-950 flex-col justify-end p-8 sm:p-12 md:p-14 overflow-hidden">
               <img
                 src="/images/login-img.jpg"
                 alt="Candy & Rose Beauty Experience"
@@ -155,7 +164,7 @@ function ResetPasswordForm() {
             </div>
 
             {/* Right Column: Refined White Form Panel */}
-            <div className="bg-[#FCFBF9] p-8 sm:p-12 md:p-14 flex flex-col justify-center text-zinc-900">
+            <div className="bg-[#FCFBF9] p-5 sm:p-8 md:p-12 lg:p-14 flex flex-col justify-center text-zinc-900">
               {isSuccess ? (
                 /* Success State */
                 <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col items-center justify-center text-center animate-scale-in py-6">
@@ -220,58 +229,43 @@ function ResetPasswordForm() {
 
                   <form onSubmit={handleSubmit} className="space-y-4">
                     {/* New Password */}
-                    <div className="space-y-1.5">
-                      <label htmlFor="reset-new-password" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                        New Password *
-                      </label>
-                      <div className="relative group">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                        <input
-                          id="reset-new-password"
-                          type={showPassword ? 'text' : 'password'}
-                          required
-                          placeholder="Enter your new password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          className="w-full h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          aria-label={showPassword ? 'Hide password' : 'Show password'}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
-                        >
-                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
-                    </div>
+                    <PasswordField
+                      id="reset-new-password"
+                      label="NEW PASSWORD"
+                      required
+                      showStrengthAndRequirements={true}
+                      placeholder="Enter your new password"
+                      value={newPassword}
+                      onChange={setNewPassword}
+                      autoComplete="new-password"
+                    />
 
                     {/* Confirm New Password */}
-                    <div className="space-y-1.5">
-                      <label htmlFor="reset-confirm-password" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                        Confirm New Password *
-                      </label>
-                      <div className="relative group">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                        <input
-                          id="reset-confirm-password"
-                          type={showConfirmPassword ? 'text' : 'password'}
-                          required
-                          placeholder="Confirm your new password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
-                        >
-                          {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
-                    </div>
+                    <PasswordField
+                      id="reset-confirm-password"
+                      label="CONFIRM NEW PASSWORD"
+                      required
+                      showStrengthAndRequirements={false}
+                      placeholder="Confirm your new password"
+                      value={confirmPassword}
+                      onChange={setConfirmPassword}
+                      autoComplete="new-password"
+                      inlineFeedback={
+                        confirmPassword.length > 0 ? (
+                          confirmPassword === newPassword ? (
+                            <div className="text-[11.5px] sm:text-xs text-emerald-700 font-medium flex items-center gap-1.5 pt-0.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20 shrink-0" />
+                              <span>Passwords match</span>
+                            </div>
+                          ) : (
+                            <div className="text-[11.5px] sm:text-xs text-rose-500 font-medium flex items-center gap-1.5 pt-0.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                              <span>Passwords do not match</span>
+                            </div>
+                          )
+                        ) : null
+                      }
+                    />
 
                     {/* Submit Button */}
                     <div className="pt-2">

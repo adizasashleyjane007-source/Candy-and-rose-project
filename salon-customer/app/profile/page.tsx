@@ -145,18 +145,18 @@ export default function ProfilePage() {
 
   return (
     <SalonLayout>
-      <main className="bg-zinc-50/50 min-h-screen pt-[65px] pb-16 px-6 lg:px-10">
+      <main className="bg-zinc-50/50 min-h-screen pt-8 sm:pt-[65px] pb-14 sm:pb-16 px-4 sm:px-6 lg:px-10">
         <div className="mx-auto max-w-7xl">
           {/* HEADER SECTION */}
-          <div className="mb-12 border-b border-zinc-200/60 pb-8">
-            <h1 className="font-serif text-[32px] font-normal text-zinc-950 leading-tight">
+          <div className="mb-8 sm:mb-12 border-b border-zinc-200/60 pb-6 sm:pb-8">
+            <h1 className="font-serif text-2xl sm:text-[32px] font-normal text-zinc-950 leading-tight">
               Customer Profile
             </h1>
           </div>
 
           <div className="max-w-2xl mx-auto">
             {/* COLUMN 1: PROFILE EDIT */}
-            <section className="bg-white rounded-3xl border border-zinc-200/80 p-6 sm:p-8 shadow-sm">
+            <section className="bg-white rounded-2xl sm:rounded-3xl border border-zinc-200/80 p-5 sm:p-8 shadow-sm">
               <div className="flex items-center gap-3.5 border-b border-zinc-100 pb-5 mb-6">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-pink-50 text-pink-600 border border-pink-200/50 overflow-hidden shrink-0 shadow-sm">
                   {(profile?.image_url || profile?.avatar_url) ? (

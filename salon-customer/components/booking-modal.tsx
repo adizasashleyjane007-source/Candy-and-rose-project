@@ -690,7 +690,7 @@ export function BookingModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-6 backdrop-blur-sm animate-fade-in overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2.5 sm:p-5 lg:p-6 backdrop-blur-sm animate-fade-in overflow-y-auto">
       <div className={`relative w-full ${
         step === 'datetime'
           ? 'max-w-[1360px] min-h-[615px] lg:h-[628px] overflow-y-auto lg:overflow-hidden'
@@ -705,20 +705,20 @@ export function BookingModal({
           : step === 'payment_select'
           ? 'max-w-[520px] overflow-y-auto'
           : 'max-w-[560px] overflow-y-auto'
-      } max-h-[94vh] rounded-[28px] sm:rounded-[32px] bg-[#FFFDFB] shadow-[0_0_25px_rgba(230,30,115,0.12),0_20px_50px_rgba(0,0,0,0.15)] ring-1 ring-pink-100/60 border border-pink-200/70 my-auto flex flex-col justify-between transition-all duration-200`}>
+      } max-h-[95vh] rounded-[24px] sm:rounded-[32px] bg-[#FFFDFB] shadow-[0_0_25px_rgba(230,30,115,0.12),0_20px_50px_rgba(0,0,0,0.15)] ring-1 ring-pink-100/60 border border-pink-200/70 my-auto flex flex-col justify-between transition-all duration-200`}>
         
         {/* Top-Right Circular Close Button */}
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 sm:right-6 top-4 sm:top-6 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100/90 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-800 transition-colors shadow-xs"
+          className="absolute right-3.5 sm:right-6 top-3.5 sm:top-6 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100/90 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-800 transition-colors shadow-xs"
         >
           <X size={16} />
         </button>
 
         {/* STEP 1: 3-COLUMN APPOINTMENT BOOKING DESIGN */}
         {step === 'datetime' && (
-          <div className="p-6 sm:p-8 lg:py-8 lg:px-9 flex-1 flex flex-col justify-between">
+          <div className="p-4 sm:p-6 lg:py-8 lg:px-9 flex-1 flex flex-col justify-between">
             {errorMsg && (
               <div className="mb-5 flex items-center gap-2 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-600">
                 <AlertCircle size={18} />
@@ -796,7 +796,7 @@ export function BookingModal({
                             <button
                               type="button"
                               onClick={() => setSelectedDate(dateStr)}
-                              className="h-9 w-9 rounded-full bg-pink-500 text-white font-bold flex items-center justify-center shadow-md shadow-pink-500/30 transition-transform active:scale-95"
+                              className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-pink-500 text-white font-bold flex items-center justify-center shadow-md shadow-pink-500/30 transition-transform active:scale-95 text-xs sm:text-sm"
                             >
                               {d}
                             </button>
@@ -810,7 +810,7 @@ export function BookingModal({
                             <button
                               type="button"
                               onClick={() => setSelectedDate(dateStr)}
-                              className="h-9 w-9 rounded-full border border-pink-400 text-pink-500 font-semibold flex items-center justify-center hover:bg-pink-50 transition-colors"
+                              className="h-8 w-8 sm:h-9 sm:w-9 rounded-full border border-pink-400 text-pink-500 font-semibold flex items-center justify-center hover:bg-pink-50 transition-colors text-xs sm:text-sm"
                             >
                               {d}
                             </button>
@@ -823,7 +823,7 @@ export function BookingModal({
                           <button
                             type="button"
                             onClick={() => setSelectedDate(dateStr)}
-                            className="h-9 w-9 rounded-full text-neutral-700 font-medium hover:bg-pink-50 hover:text-pink-600 transition-colors flex items-center justify-center"
+                            className="h-8 w-8 sm:h-9 sm:w-9 rounded-full text-neutral-700 font-medium hover:bg-pink-50 hover:text-pink-600 transition-colors flex items-center justify-center text-xs sm:text-sm"
                           >
                             {d}
                           </button>
@@ -962,7 +962,7 @@ export function BookingModal({
 
         {/* STEP 2: CUSTOMER DETAILS FORM (UNCHANGED DESIGN) */}
         {step === 'details' && (
-          <div className="w-full px-8 sm:px-12 md:px-14 py-6 sm:py-7 flex-1 flex flex-col justify-between">
+          <div className="w-full px-4 sm:px-8 md:px-14 py-5 sm:py-7 flex-1 flex flex-col justify-between">
             <div>
               <button
                 type="button"
@@ -1062,19 +1062,19 @@ export function BookingModal({
                 </div>
 
                 {/* Action Buttons */}
-                <div className="pt-4 sm:pt-5 flex items-center justify-end gap-3">
+                <div className="pt-4 sm:pt-5 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3">
                   <button
                     type="button"
                     onClick={() => setStep('datetime')}
                     disabled={submitting}
-                    className="h-[44px] rounded-full bg-neutral-100 px-6 sm:px-7 text-xs font-bold uppercase tracking-wider text-neutral-700 hover:bg-neutral-200 transition-colors"
+                    className="h-[44px] rounded-full bg-neutral-100 px-6 sm:px-7 text-xs font-bold uppercase tracking-wider text-neutral-700 hover:bg-neutral-200 transition-colors w-full sm:w-auto"
                   >
                     Back
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="h-[44px] rounded-full bg-pink-500 hover:bg-pink-600 px-8 sm:px-9 text-xs sm:text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all disabled:opacity-60"
+                    className="h-[44px] rounded-full bg-pink-500 hover:bg-pink-600 px-8 sm:px-9 text-xs sm:text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-pink-500/25 transition-all disabled:opacity-60 w-full sm:w-auto"
                   >
                     Confirm Booking
                   </button>

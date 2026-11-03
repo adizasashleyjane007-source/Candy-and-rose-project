@@ -85,7 +85,7 @@ export default function ContactPage() {
                   Contact Information
                 </h2>
                 <p className="text-zinc-600 text-sm leading-relaxed mb-6 lg:mb-8 font-normal">
-                  Feel free to reach out to us for appointments, inquiries, or any questions about our salon services. We're here to make your beauty experience as comfortable and welcoming as possible.
+                  Feel free to reach out to us for appointments, inquiries, or any questions about our salon services. We&apos;re here to make your beauty experience as comfortable and welcoming as possible.
                 </p>
 
                 <div className="space-y-5 lg:space-y-6">
@@ -258,7 +258,7 @@ export default function ContactPage() {
                     <button 
                       type="submit"
                       disabled={busy} 
-                      className="inline-flex items-center justify-center rounded-none bg-zinc-950 px-9 py-3 text-sm font-medium text-white transition-all duration-300 hover:bg-pink-500 disabled:opacity-60"
+                      className="w-full sm:w-auto inline-flex items-center justify-center rounded-none bg-zinc-950 px-9 py-3.5 text-sm font-medium text-white transition-all duration-300 hover:bg-pink-500 disabled:opacity-60 cursor-pointer shadow-sm"
                     >
                       {busy ? 'Sending...' : 'Send'}
                     </button>
@@ -281,15 +281,15 @@ export default function ContactPage() {
           </div>
 
           {/* Side-by-side Images on Desktop */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-            <div className="w-full h-[280px] sm:h-[340px] lg:h-[380px] border border-zinc-200/80 rounded-sm overflow-hidden shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
+            <div className="w-full h-[220px] sm:h-[320px] lg:h-[380px] border border-zinc-200/80 rounded-sm overflow-hidden shadow-sm">
               <img 
                 src="/images/contactpage-pic.jpg" 
                 alt="Candy & Rose Salon Interior 1" 
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="w-full h-[280px] sm:h-[340px] lg:h-[380px] border border-zinc-200/80 rounded-sm overflow-hidden shadow-sm">
+            <div className="w-full h-[220px] sm:h-[320px] lg:h-[380px] border border-zinc-200/80 rounded-sm overflow-hidden shadow-sm">
               <img 
                 src="/images/contact2.jpg" 
                 alt="Candy & Rose Salon Interior 2" 

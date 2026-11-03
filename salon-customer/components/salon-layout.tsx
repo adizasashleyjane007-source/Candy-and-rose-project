@@ -1,13 +1,28 @@
 'use client';
 
 import { ReactNode, useEffect, useState, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
-import { PageShell, BookingLauncher, AuthModal, GoogleWelcomeModal } from './salon-ui';
-import { BookingModal } from './booking-modal';
+import { PageShell, BookingLauncher } from './salon-ui';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, type Service } from '@/lib/supabase';
 import type { NailDesignItem } from '@/lib/nail-designs';
+
+const AuthModal = dynamic(
+  () => import('./auth-modals').then((mod) => mod.AuthModal),
+  { ssr: false }
+);
+
+const GoogleWelcomeModal = dynamic(
+  () => import('./auth-modals').then((mod) => mod.GoogleWelcomeModal),
+  { ssr: false }
+);
+
+const BookingModal = dynamic(
+  () => import('./booking-modal').then((mod) => mod.BookingModal),
+  { ssr: false }
+);
 
 export default function SalonLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -87,20 +102,24 @@ export default function SalonLayout({ children }: { children: ReactNode }) {
     <>
       <PageShell onBook={() => handleBookingRequest()}>{children}</PageShell>
       <BookingLauncher onBook={() => handleBookingRequest()} />
-      <AuthModal
-        open={authOpen}
-        onClose={handleAuthClose}
-        onSuccess={handleAuthSuccess}
-      />
-      <GoogleWelcomeModal
-        open={!!googleWelcomeUser}
-        name={googleWelcomeUser?.name}
-        onClose={dismissGoogleWelcome}
-        onContinue={() => {
-          dismissGoogleWelcome();
-          handleBookingRequest();
-        }}
-      />
+      {authOpen && (
+        <AuthModal
+          open={authOpen}
+          onClose={handleAuthClose}
+          onSuccess={handleAuthSuccess}
+        />
+      )}
+      {googleWelcomeUser && (
+        <GoogleWelcomeModal
+          open={!!googleWelcomeUser}
+          name={googleWelcomeUser?.name}
+          onClose={dismissGoogleWelcome}
+          onContinue={() => {
+            dismissGoogleWelcome();
+            handleBookingRequest();
+          }}
+        />
+      )}
       {noServiceModalOpen && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in"
@@ -152,17 +171,19 @@ export default function SalonLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
-      <BookingModal
-        open={bookingModalOpen}
-        onClose={() => {
-          setBookingModalOpen(false);
-          setPreselectedServices([]);
-          setSelectedDesign(null);
-          setPendingBookingAttempt(false);
-        }}
-        initialServices={preselectedServices}
-        selectedDesign={selectedDesign}
-      />
+      {bookingModalOpen && (
+        <BookingModal
+          open={bookingModalOpen}
+          onClose={() => {
+            setBookingModalOpen(false);
+            setPreselectedServices([]);
+            setSelectedDesign(null);
+            setPendingBookingAttempt(false);
+          }}
+          initialServices={preselectedServices}
+          selectedDesign={selectedDesign}
+        />
+      )}
     </>
   );
 }

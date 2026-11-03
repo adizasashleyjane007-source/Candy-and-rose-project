@@ -207,30 +207,30 @@ export default function TestimonialsPage() {
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           
           {/* Header */}
-          <div className="text-center mb-16">
-            <h1 className="font-serif text-4xl sm:text-5xl text-zinc-900 mb-4 tracking-tight">TESTIMONIALS</h1>
-            <p className="text-zinc-500 max-w-xl mx-auto font-medium">
+          <div className="text-center mb-10 sm:mb-16">
+            <h1 className="font-serif text-3xl sm:text-5xl text-zinc-900 mb-3 sm:mb-4 tracking-tight">TESTIMONIALS</h1>
+            <p className="text-zinc-500 max-w-xl mx-auto text-xs sm:text-sm font-medium">
               Real experiences from our CANDY & ROSE clients.
             </p>
           </div>
 
           {/* Review Summary */}
-          <div className="bg-pink-50/50 border border-pink-100 rounded-3xl p-8 sm:p-12 mb-16 flex flex-col md:flex-row items-center gap-12 shadow-sm">
+          <div className="bg-pink-50/50 border border-pink-100 rounded-2xl sm:rounded-3xl p-5 sm:p-12 mb-12 sm:mb-16 flex flex-col md:flex-row items-center gap-8 sm:gap-12 shadow-sm">
             <div className="text-center md:text-left flex-shrink-0">
               {reviews.length > 0 ? (
                 <>
                   <div className="flex items-center justify-center md:justify-start gap-1 mb-2 text-pink-600">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} size={28} className={i < Math.round(Number(averageRating)) ? "fill-pink-600 text-pink-600" : "fill-transparent text-pink-200"} />
+                      <Star key={i} size={24} className={i < Math.round(Number(averageRating)) ? "fill-pink-600 text-pink-600" : "fill-transparent text-pink-200"} />
                     ))}
                   </div>
-                  <h2 className="font-serif text-5xl text-zinc-900 mb-2">{averageRating} <span className="text-2xl text-zinc-400 font-sans">out of 5</span></h2>
-                  <p className="text-sm text-zinc-500 font-medium">Based on {reviews.length} customer review{reviews.length !== 1 && 's'}</p>
+                  <h2 className="font-serif text-4xl sm:text-5xl text-zinc-900 mb-2">{averageRating} <span className="text-xl sm:text-2xl text-zinc-400 font-sans">out of 5</span></h2>
+                  <p className="text-xs sm:text-sm text-zinc-500 font-medium">Based on {reviews.length} customer review{reviews.length !== 1 && 's'}</p>
                 </>
               ) : (
                 <div className="py-4">
-                  <h2 className="font-serif text-3xl text-zinc-900 mb-2">No reviews yet</h2>
-                  <p className="text-sm text-zinc-500 font-medium max-w-xs">Be the first to share your CANDY & ROSE experience.</p>
+                  <h2 className="font-serif text-2xl sm:text-3xl text-zinc-900 mb-2">No reviews yet</h2>
+                  <p className="text-xs sm:text-sm text-zinc-500 font-medium max-w-xs">Be the first to share your CANDY & ROSE experience.</p>
                 </div>
               )}
             </div>
@@ -266,7 +266,7 @@ export default function TestimonialsPage() {
                         <Star key={i} size={16} className={i < review.rating ? "fill-pink-600 text-pink-600" : "fill-transparent text-pink-200"} />
                       ))}
                     </div>
-                    <p className="text-zinc-700 leading-relaxed italic mb-6">"{review.review || review.comment}"</p>
+                    <p className="text-zinc-700 leading-relaxed italic mb-6">&ldquo;{review.review || review.comment}&rdquo;</p>
                     
                     {review.review_image && (
                       <div className="flex gap-3 mb-6">
@@ -300,15 +300,15 @@ export default function TestimonialsPage() {
           </div>
 
           {/* CTA */}
-          <div className="bg-zinc-950 rounded-3xl p-10 sm:p-14 text-center border border-zinc-900 relative overflow-hidden">
+          <div className="bg-zinc-950 rounded-2xl sm:rounded-3xl p-6 sm:p-14 text-center border border-zinc-900 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-pink-900/20 to-transparent pointer-events-none" />
             <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-pink-400 mb-3 relative z-10">Share Your Experience</h3>
-            <p className="font-serif text-3xl sm:text-4xl text-white mb-8 relative z-10">
-              Had an experience at CANDY & ROSE?<br/>We'd love to hear from you.
+            <p className="font-serif text-2xl sm:text-4xl text-white mb-6 sm:mb-8 relative z-10 leading-snug">
+              Had an experience at CANDY &amp; ROSE?<br className="hidden sm:inline" /> We&apos;d love to hear from you.
             </p>
             <button 
               onClick={handleOpenReview}
-              className="inline-flex items-center gap-2 bg-pink-600 text-white px-8 py-4 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-pink-500 transition-colors relative z-10 shadow-xl shadow-pink-900/20"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-pink-600 text-white px-8 py-3.5 sm:py-4 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-pink-500 transition-colors relative z-10 shadow-xl shadow-pink-900/20 active:scale-95"
             >
               LEAVE A REVIEW &rarr;
             </button>
@@ -319,8 +319,8 @@ export default function TestimonialsPage() {
 
       {/* Review Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-lg p-6 sm:p-8 shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl sm:rounded-3xl w-full max-w-lg p-5 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button 
               onClick={() => setShowModal(false)}
               className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 transition-colors"

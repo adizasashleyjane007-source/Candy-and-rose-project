@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import bcrypt from 'bcryptjs';
 import { supabase } from './supabase';
 import type { Profile, Customer } from './supabase';
 
@@ -318,6 +317,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (custRecord && custRecord.password) {
+      const bcrypt = (await import('bcryptjs')).default || await import('bcryptjs');
       const isMatch = bcrypt.compareSync(password, custRecord.password);
       if (!isMatch) {
         return { error: 'Invalid email or password.' };
@@ -437,6 +437,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // 4. Hash password with bcrypt and save customer record to Supabase customers table
+    const bcrypt = (await import('bcryptjs')).default || await import('bcryptjs');
     const hashedPassword = bcrypt.hashSync(password, 10);
     const { data: createdCust, error: custInsertError } = await supabase
       .from('customers')

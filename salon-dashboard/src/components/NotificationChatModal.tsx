@@ -342,8 +342,15 @@ export default function NotificationChatModal({
     
     setIsProcessingAction(true);
     try {
-      await Appointments.update(appointment.id, { status: newStatus });
-      setAppointment((prev: any) => ({ ...prev, status: newStatus }));
+      await Appointments.update(appointment.id, { 
+        status: newStatus,
+        ...(newStatus === 'Cancelled' ? { payment_status: 'Cancelled' } : {})
+      });
+      setAppointment((prev: any) => ({ 
+        ...prev, 
+        status: newStatus,
+        ...(newStatus === 'Cancelled' ? { payment_status: 'Cancelled' } : {})
+      }));
       
       setChatMessages(prev => [...prev, {
         id: `system-status-${Date.now()}`,

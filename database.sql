@@ -234,3 +234,19 @@ ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS end_date date;
 ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS inclusions text;
 ALTER TABLE public.promotions ADD COLUMN IF NOT EXISTS availability_month text;
 
+-- Automatically synchronize payment_status to 'Cancelled' when an appointment is cancelled
+CREATE OR REPLACE FUNCTION sync_cancelled_payment_status()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'Cancelled' THEN
+    NEW.payment_status := 'Cancelled';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_sync_cancelled_payment_status ON public.appointments;
+CREATE TRIGGER trigger_sync_cancelled_payment_status
+BEFORE INSERT OR UPDATE OF status ON public.appointments
+FOR EACH ROW
+EXECUTE FUNCTION sync_cancelled_payment_status();

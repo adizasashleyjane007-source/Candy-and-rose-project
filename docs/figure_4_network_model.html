@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Figure 4. Client-Server Network Model - Candy & Rose Salon MIS</title>
+  <style>
+    :root {
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --text: #0F172A;
+      --subtext: #475569;
+      --border: #E2E8F0;
+      --primary: #BE185D;
+      --primary-light: #FFF1F5;
+      --accent: #E11D48;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 24px;
+    }
+    .container {
+      max-width: 1640px;
+      margin: 0 auto;
+    }
+    header {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 28px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .header-title h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: -0.3px;
+    }
+    .header-title p {
+      font-size: 14px;
+      color: var(--subtext);
+      margin-top: 2px;
+    }
+    .actions {
+      display: flex;
+      gap: 12px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #FFFFFF;
+      border: 1px solid #CBD5E1;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1E293B;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn:hover {
+      background: #F1F5F9;
+      border-color: #94A3B8;
+    }
+    .btn-primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #FFFFFF;
+    }
+    .btn-primary:hover {
+      background: #9D174D;
+      border-color: #9D174D;
+    }
+    .diagram-wrapper {
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+      margin-bottom: 24px;
+      text-align: center;
+      overflow-x: auto;
+    }
+    .diagram-wrapper svg,
+    .diagram-wrapper img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .caption-box {
+      margin-top: 18px;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #0F172A;
+      letter-spacing: 0.2px;
+    }
+    .doc-section {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .doc-section h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 16px;
+      border-bottom: 2px solid var(--primary-light);
+      padding-bottom: 8px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      margin-top: 16px;
+    }
+    .card {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 8px;
+      padding: 18px;
+    }
+    .card h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1E293B;
+      margin-bottom: 8px;
+    }
+    .card p, .card li {
+      font-size: 13px;
+      color: #475569;
+      line-height: 1.5;
+    }
+    .card ul {
+      margin-left: 18px;
+      margin-top: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      font-size: 13px;
+    }
+    th, td {
+      border: 1px solid #E2E8F0;
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th {
+      background-color: #FFF1F5;
+      color: #881337;
+      font-weight: 700;
+    }
+    tr:nth-child(even) {
+      background-color: #F8FAFC;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-title">
+        <h1>Candy &amp; Rose Salon — Management Information System</h1>
+        <p>Chapter 3: System Network Architecture &amp; Client-Server Network Model</p>
+      </div>
+      <div class="actions">
+        <a href="figure_4_network_model.svg" download="figure_4_network_model.svg" class="btn">
+          <span>⬇</span> Download Vector SVG
+        </a>
+        <a href="figure_4_network_model.png" download="figure_4_network_model.png" class="btn btn-primary">
+          <span>⬇</span> Download High-Res PNG
+        </a>
+      </div>
+    </header>
+
+    <div class="diagram-wrapper">
+      <img src="figure_4_network_model.png" alt="Figure 4. Client-Server Network Model of the Proposed Management Information System" />
+      <div class="caption-box">
+        Figure 4. Client-Server Network Model of the Proposed Management Information System.
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <h2>Chapter 3 Technical Architecture Breakdown</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>1. Tier 1: Client Systems (Presentation)</h3>
+          <p>Encompasses Customer mobile and workstation devices interacting through responsive web browsers with the Customer Web Portal, and dedicated Administrator workstations running the salon management control dashboard.</p>
+        </div>
+        <div class="card">
+          <h3>2. Tier 2: Public Internet &amp; Transport Gateway</h3>
+          <p>Guarantees end-to-end transport layer security through HTTPS/TLS 1.3 encryption (TCP Port 443), Secure WebSockets (WSS) for zero-latency bidirectional event broadcasting, and global edge Anycast routing.</p>
+        </div>
+        <div class="card">
+          <h3>3. Tier 3: Web Application Server (Vercel)</h3>
+          <p>Full-stack Next.js serverless cloud infrastructure hosting the React UI presentation layer, secure API routes (/api/*), all core Salon MIS business logic modules, and the AI-Integrated Nail Customization &amp; Recommendation Engine.</p>
+        </div>
+        <div class="card">
+          <h3>4. Tier 4: Database &amp; Storage (Supabase)</h3>
+          <p>Cloud PostgreSQL 15 database persisting relational tables for appointments, customer records, inventory, and billing; S3-compatible cloud object storage for nail portfolios; and Supabase Realtime CDC engine.</p>
+        </div>
+        <div class="card">
+          <h3>5. Federated Authentication (Google Auth)</h3>
+          <p>Provides single sign-on (SSO) via OAuth 2.0 / OpenID Connect brokered through Supabase Auth, exchanging cryptographically signed JWT tokens for secure session validation without plaintext credential risks.</p>
+        </div>
+        <div class="card">
+          <h3>6. Transactional Email Service (Resend API)</h3>
+          <p>High-deliverability cloud transactional email infrastructure triggered via authenticated HTTPS REST POST endpoints to deliver booking confirmations, status updates, and administrative OTP verification codes.</p>
+        </div>
+      </div>
+
+      <h2 style="margin-top: 32px;">Communication Protocol Matrix</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Interface / Connection</th>
+            <th>Source Node</th>
+            <th>Destination Node</th>
+            <th>Protocol / Port</th>
+            <th>Data Payload &amp; Functional Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Client Web Traffic</strong></td>
+            <td>Client Devices</td>
+            <td>Public Internet</td>
+            <td>HTTPS / TLS 1.3 (Port 443)</td>
+            <td>Encrypted HTTP GET/POST requests for pages, static assets, and user form submissions.</td>
+          </tr>
+          <tr>
+            <td><strong>Edge Routing</strong></td>
+            <td>Public Internet</td>
+            <td>Vercel Web Server</td>
+            <td>HTTPS / TLS 1.3 (Port 443)</td>
+            <td>Edge proxy routing, SSL termination, and execution of Next.js serverless functions.</td>
+          </tr>
+          <tr>
+            <td><strong>Database Operations</strong></td>
+            <td>Vercel Backend</td>
+            <td>Supabase Database</td>
+            <td>HTTPS / PostgREST (Port 443)</td>
+            <td>Relational CRUD queries, transaction settlements, appointment inserts, and inventory updates.</td>
+          </tr>
+          <tr>
+            <td><strong>Realtime WebSockets</strong></td>
+            <td>Admin Browser</td>
+            <td>Supabase Realtime</td>
+            <td>WSS / TLS (Port 443)</td>
+            <td>Full-duplex WebSocket channel streaming instant appointment creation and status change events.</td>
+          </tr>
+          <tr>
+            <td><strong>Media Assets &amp; Inspo</strong></td>
+            <td>Vercel / Client</td>
+            <td>Supabase Storage</td>
+            <td>HTTPS / REST (Port 443)</td>
+            <td>Multipart file upload and CDN asset retrieval for nail design portfolio and customer inspo photos.</td>
+          </tr>
+          <tr>
+            <td><strong>Federated SSO Flow</strong></td>
+            <td>Client / Vercel</td>
+            <td>Google Identity</td>
+            <td>OAuth 2.0 / HTTPS (Port 443)</td>
+            <td>Identity authorization code redirect, token exchange, and cryptographically verified JWT claim ingestion.</td>
+          </tr>
+          <tr>
+            <td><strong>Email API Trigger</strong></td>
+            <td>Vercel Backend</td>
+            <td>Resend API Engine</td>
+            <td>HTTPS REST POST (Port 443)</td>
+            <td>Secure API call containing email recipient, HTML template parameters, and transactional payload.</td>
+          </tr>
+          <tr>
+            <td><strong>Outbound Email</strong></td>
+            <td>Resend API</td>
+            <td>Customer/Admin Inboxes</td>
+            <td>SMTP / TLS (Ports 587/465)</td>
+            <td>Encrypted message delivery of booking confirmations, calendar updates, and security OTP codes.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>

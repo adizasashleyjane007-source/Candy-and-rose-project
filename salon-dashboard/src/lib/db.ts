@@ -65,6 +65,9 @@ export interface Appointment {
   notes?: string | null;
   phone?: string | null;
   status: 'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled' | 'no_show' | 'No-Show';
+  payment_method?: string | null;
+  payment_status?: string | null;
+  cancellation_reason?: string | null;
   created_at?: string;
   customers?: { name: string; email?: string; phone?: string };
   staff?: { name: string };
@@ -382,6 +385,10 @@ export const Appointments = {
       if (existing && existing.status === "Completed") {
         throw new Error("Forbidden: Once an appointment is Completed, its status is permanently locked.");
       }
+    }
+
+    if (payload.status === "Cancelled" && !payload.payment_status) {
+      payload.payment_status = "Cancelled";
     }
 
     const { data, error } = await supabase()

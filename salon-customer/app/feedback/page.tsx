@@ -89,25 +89,25 @@ export default function FeedbackPage() {
   return (
     <SalonLayout>
       <main>
-        <section className="bg-foreground px-6 py-20 text-white lg:px-10 lg:py-28">
+        <section className="bg-foreground px-4 sm:px-6 py-14 sm:py-20 text-white lg:px-10 lg:py-28">
           <div className="mx-auto max-w-7xl">
             <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.22em] text-primary">Guest book</p>
-            <h1 className="max-w-2xl font-serif text-6xl leading-none sm:text-8xl">
+            <h1 className="max-w-2xl font-serif text-4xl sm:text-6xl lg:text-8xl leading-tight sm:leading-none">
               The glow<br /><em className="font-light text-primary">is real.</em>
             </h1>
-            <div className="mt-10 flex items-center gap-4">
+            <div className="mt-8 sm:mt-10 flex flex-wrap items-center gap-3 sm:gap-4">
               <div className="flex text-primary">{[1, 2, 3, 4, 5].map((s) => <Star key={s} size={18} fill="currentColor" />)}</div>
-              <p className="text-sm text-white/55">4.9 average from 2,000+ guests</p>
+              <p className="text-xs sm:text-sm text-white/55">4.9 average from 2,000+ guests</p>
             </div>
           </div>
         </section>
 
-        <section className="px-6 py-20 lg:px-10">
+        <section className="px-4 sm:px-6 py-14 sm:py-20 lg:px-10">
           <div className="mx-auto max-w-7xl">
             <div className="feedback-marquee overflow-hidden">
-              <div className="feedback-track flex w-max gap-6">
+              <div className="feedback-track flex w-max gap-4 sm:gap-6">
                 {[0, 1].map((copy) => (
-                  <div key={copy} className="flex gap-6" aria-hidden={copy === 1}>
+                  <div key={copy} className="flex gap-4 sm:gap-6" aria-hidden={copy === 1}>
                     {sampleReviews.map((r) => (
                       <ReviewCard key={`${copy}-${r.name}`} name={r.name} rating={r.rating} comment={r.comment} />
                     ))}
@@ -119,12 +119,12 @@ export default function FeedbackPage() {
               </div>
             </div>
 
-            <div className="mt-20 grid items-start gap-16 lg:grid-cols-[0.75fr_1.25fr]">
+            <div className="mt-14 sm:mt-20 grid items-start gap-10 lg:gap-16 lg:grid-cols-[0.75fr_1.25fr]">
               <div>
                 <SectionHeading eyebrow="Your turn" title="How did we do?"
                   description="Your words help us keep making the experience better for everyone." />
               </div>
-              <div className="rounded-3xl bg-pink-50 p-7 sm:p-10">
+              <div className="rounded-2xl sm:rounded-3xl bg-pink-50 p-5 sm:p-10">
                 {!user ? (
                   <div className="py-8 text-center">
                     <p className="font-serif text-2xl">Sign in to share your experience.</p>
@@ -189,12 +189,12 @@ export default function FeedbackPage() {
 
 function ReviewCard({ name, rating, comment }: { name: string; rating: number; comment: string }) {
   return (
-    <article className="rounded-2xl border border-neutral-100 bg-white p-7 shadow-sm">
+    <article className="w-72 sm:w-80 shrink-0 rounded-2xl border border-neutral-100 bg-white p-5 sm:p-7 shadow-sm">
       <div className="flex text-primary">
         {[1, 2, 3, 4, 5].map((s) => <Star key={s} size={14} fill={s <= rating ? 'currentColor' : 'none'} />)}
       </div>
-      <p className="mt-7 font-serif text-xl leading-8">&ldquo;{comment}&rdquo;</p>
-      <p className="mt-8 text-xs font-bold uppercase tracking-widest text-neutral-500">{name}</p>
+      <p className="mt-5 sm:mt-7 font-serif text-lg sm:text-xl leading-7 sm:leading-8">&ldquo;{comment}&rdquo;</p>
+      <p className="mt-6 sm:mt-8 text-xs font-bold uppercase tracking-widest text-neutral-500">{name}</p>
     </article>
   );
 }

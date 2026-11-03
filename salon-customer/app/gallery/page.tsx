@@ -270,7 +270,7 @@ export default function GalleryPage() {
 
         {/* 4. APPROVED "SHARE YOUR LOOK" SECTION (LOCKED DESIGN & VISUAL BASELINE) */}
         <section className="mt-16 sm:mt-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-          <div className="relative overflow-hidden rounded-3xl bg-pink-50/70 border border-pink-200/90 p-8 sm:p-12 lg:p-14 shadow-xs">
+          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-pink-50/70 border border-pink-200/90 p-5 sm:p-12 lg:p-14 shadow-xs">
             {/* Subtle background glow */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-pink-200/30 rounded-full blur-3xl pointer-events-none -z-0" />
 

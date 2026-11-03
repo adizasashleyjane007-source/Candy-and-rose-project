@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /profile
+Disallow: /history
+Disallow: /reset-password
+Disallow: /api/
+
+Sitemap: https://candyandrose.com/sitemap.xml

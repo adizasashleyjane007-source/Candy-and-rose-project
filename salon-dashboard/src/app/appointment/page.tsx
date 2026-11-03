@@ -632,8 +632,15 @@ function AppointmentContent() {
                 return;
             }
 
-            await Appointments.update(id, { status: newStatus });
-            setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
+            await Appointments.update(id, { 
+                status: newStatus,
+                ...(newStatus === 'Cancelled' ? { payment_status: 'Cancelled' } : {})
+            });
+            setAppointments(prev => prev.map(a => a.id === id ? { 
+                ...a, 
+                status: newStatus,
+                ...(newStatus === 'Cancelled' ? { payment_status: 'Cancelled' } : {})
+            } : a));
             if (typeof window !== "undefined") {
                 window.dispatchEvent(new Event("appointmentsUpdated"));
             }

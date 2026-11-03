@@ -3,9 +3,10 @@
 import { FormEvent, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Mail, Lock, Eye, EyeOff, Check } from 'lucide-react';
+import { Mail, Check } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
+import { EmailField, PasswordField, validateEmail } from '@/components/auth-fields';
 
 function LoginFormContent() {
   const router = useRouter();
@@ -17,7 +18,6 @@ function LoginFormContent() {
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [welcomeStep, setWelcomeStep] = useState(false);
   const [customerDisplayName, setCustomerDisplayName] = useState('');
@@ -29,10 +29,21 @@ function LoginFormContent() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !validateEmail(trimmedEmail).isValid) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (!password) {
+      setError('Please enter your password.');
+      return;
+    }
+
     setBusy(true);
     
     try {
-      const result = await signIn(email, password);
+      const result = await signIn(trimmedEmail, password);
       if (result.error) {
         setError(result.error);
       } else {
@@ -63,8 +74,8 @@ function LoginFormContent() {
     e.preventDefault();
     setError('');
     const trimmedEmail = email.trim();
-    if (!trimmedEmail || !trimmedEmail.includes('@')) {
-      setError('Please enter a valid email address.');
+    if (!trimmedEmail || !validateEmail(trimmedEmail).isValid) {
+      setError('Please enter a valid email address (e.g. name@domain.com).');
       return;
     }
     setBusy(true);
@@ -98,17 +109,17 @@ function LoginFormContent() {
   const registerHref = returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : '/register';
 
   return (
-    <main className="min-h-screen bg-[#181818] font-sans flex flex-col items-center justify-center p-4 sm:p-6 md:p-10">
+    <main className="min-h-screen bg-[#181818] font-sans flex flex-col items-center justify-center p-3 sm:p-6 md:p-10">
       <div className="w-full max-w-[1080px] mx-auto">
         {/* Top Header Label outside container */}
-        <h1 className="text-zinc-400 text-xl sm:text-2xl font-light tracking-wide mb-3 pl-1">
+        <h1 className="text-zinc-400 text-lg sm:text-2xl font-light tracking-wide mb-2 sm:mb-3 pl-1">
           Login
         </h1>
 
         {/* Cream Main Container */}
-        <div className="bg-[#F7F3EB] rounded-3xl p-4 sm:p-6 md:p-8 shadow-2xl">
+        <div className="bg-[#F7F3EB] rounded-2xl sm:rounded-3xl p-3 sm:p-6 md:p-8 shadow-2xl">
           {/* Top Navigation inside container */}
-          <div className="mb-4 pt-1 pl-1">
+          <div className="mb-3 sm:mb-4 pt-1 pl-1">
             <Link 
               href="/" 
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-700 hover:text-zinc-950 transition-colors group"
@@ -118,9 +129,9 @@ function LoginFormContent() {
           </div>
 
           {/* 2-Column Split Card */}
-          <div className="grid md:grid-cols-2 rounded-2xl overflow-hidden shadow-xl min-h-[580px] md:min-h-[620px]">
-            {/* Left Column: Image with Overlay */}
-            <div className="relative min-h-[280px] md:min-h-[620px] bg-zinc-950 flex flex-col justify-end p-8 sm:p-12 md:p-14 overflow-hidden">
+          <div className="grid md:grid-cols-2 rounded-xl sm:rounded-2xl overflow-hidden shadow-xl md:min-h-[620px]">
+            {/* Left Column: Image with Overlay (desktop only for optimal mobile experience) */}
+            <div className="relative hidden md:flex md:min-h-[620px] bg-zinc-950 flex-col justify-end p-8 sm:p-12 md:p-14 overflow-hidden">
               <img
                 src="/images/login-img.jpg"
                 alt="Candy & Rose Beauty Experience"
@@ -142,7 +153,7 @@ function LoginFormContent() {
             </div>
 
             {/* Right Column: Refined White Form Panel */}
-            <div className="bg-[#FCFBF9] p-8 sm:p-12 md:p-14 lg:p-16 flex flex-col justify-center text-zinc-900">
+            <div className="bg-[#FCFBF9] p-5 sm:p-8 md:p-12 lg:p-16 flex flex-col justify-center text-zinc-900">
               {welcomeStep ? (
                 <div className="max-w-[420px] w-full mx-auto my-auto flex flex-col items-center justify-center text-center animate-scale-in py-6">
                   {(() => {
@@ -215,23 +226,15 @@ function LoginFormContent() {
                   )}
 
                   <form onSubmit={handleForgotSubmit} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label htmlFor="login-forgot-email" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
-                        Email Address *
-                      </label>
-                      <div className="relative group">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                        <input
-                          id="login-forgot-email"
-                          type="email"
-                          required
-                          placeholder="Enter your email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                        />
-                      </div>
-                    </div>
+                    <EmailField
+                      id="login-forgot-email"
+                      label="EMAIL ADDRESS"
+                      required
+                      placeholder="name@domain.com"
+                      value={email}
+                      onChange={setEmail}
+                      autoComplete="email"
+                    />
 
                     <div className="pt-2">
                       <button
@@ -273,49 +276,26 @@ function LoginFormContent() {
                   )}
 
                   <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label htmlFor="login-email" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
-                        Email
-                      </label>
-                      <div className="relative group">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                        <input
-                          id="login-email"
-                          type="email"
-                          required
-                          placeholder="Enter your email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                        />
-                      </div>
-                    </div>
+                    <EmailField
+                      id="login-email"
+                      label="EMAIL ADDRESS"
+                      required
+                      placeholder="name@domain.com"
+                      value={email}
+                      onChange={setEmail}
+                      autoComplete="email"
+                    />
 
-                    <div className="space-y-1.5">
-                      <label htmlFor="login-password" className="block text-xs sm:text-[14px] font-medium text-[#231F20]">
-                        Password
-                      </label>
-                      <div className="relative group">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                        <input
-                          id="login-password"
-                          type={showPassword ? 'text' : 'password'}
-                          required
-                          placeholder="Enter your password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="w-full h-[52px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          aria-label={showPassword ? 'Hide password' : 'Show password'}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
-                        >
-                          {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
-                        </button>
-                      </div>
-                    </div>
+                    <PasswordField
+                      id="login-password"
+                      label="PASSWORD"
+                      required
+                      showStrengthAndRequirements={false}
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={setPassword}
+                      autoComplete="current-password"
+                    />
 
                     <div className="flex items-center justify-between pt-0.5">
                       <label className="flex items-center gap-2.5 text-xs text-[#77727A] cursor-pointer select-none">
@@ -343,7 +323,7 @@ function LoginFormContent() {
                       <button
                         type="submit"
                         disabled={busy}
-                        className="w-[calc(100%+16px)] -ml-[8px] h-[56px] sm:h-[60px] rounded-lg bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-md"
+                        className="w-full h-[52px] sm:h-[56px] rounded-xl bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-md"
                       >
                         {busy ? 'LOGGING IN...' : 'LOGIN'}
                       </button>

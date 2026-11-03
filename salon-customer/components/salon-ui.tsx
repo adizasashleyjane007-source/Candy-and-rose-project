@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Calendar, CalendarDays, Check, ChevronRight, Clock3, History,
   LogIn, LogOut, Mail, MapPin, Menu, Phone, Plus, Sparkles,
-  Star, X, Facebook, Instagram, ChevronDown, Leaf, Eye, EyeOff, User, Lock, Search, Loader2, AlertCircle
+  Star, X, Facebook, Instagram, ChevronDown, Leaf, Loader2, AlertCircle, User,
+  ArrowRight
 } from 'lucide-react';
 import { supabase, getSalonInfo, defaultSalonInfo, type SalonInfo, type Appointment, type Service } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
@@ -39,9 +40,9 @@ export const footerNavItems: { label: string; href: string }[] = [
 
 export function Logo({ light = false }: { light?: boolean }) {
   return (
-    <Link href="/" aria-label="Candy and Rose Salon home" className="flex items-center shrink-0 group py-1">
-      <span className={`font-cursive text-[28px] sm:text-[34px] lg:text-[2.55rem] font-medium tracking-tight group-hover:text-pink-600 transition-all duration-300 ${light ? 'text-white' : 'text-zinc-950'}`}>
-        Candy <span className="font-cursive italic font-normal text-pink-500 text-[28px] sm:text-[34px] lg:text-[2.65rem] mx-0.5">&amp;</span> Rose
+    <Link href="/" prefetch={false} aria-label="Candy & Rose" className="flex items-center shrink-0 group py-1">
+      <span className={`font-brand text-[24px] sm:text-[32px] lg:text-[35px] font-medium tracking-tight group-hover:text-pink-600 transition-all duration-300 leading-none ${light ? 'text-white' : 'text-zinc-950'}`}>
+        Candy <span className="font-brand italic font-normal text-pink-500 text-[25px] sm:text-[33px] lg:text-[37px] mx-0.5 sm:mx-1 leading-none">&amp;</span> Rose
       </span>
     </Link>
   );
@@ -57,8 +58,6 @@ export function Header({ onBook }: { onBook: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [thankYouModalOpen, setThankYouModalOpen] = useState(false);
@@ -73,11 +72,19 @@ export function Header({ onBook }: { onBook: () => void }) {
   const navItems = isLoggedIn ? authenticatedNavItems : publicNavItems;
 
   useEffect(() => {
+    let ticking = false;
     const handleScroll = () => {
-      const threshold = isHome ? window.innerHeight * 0.8 : 20;
-      setIsScrolled(window.scrollY > threshold);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const threshold = isHome ? 300 : 20;
+          const scrolled = window.scrollY > threshold;
+          setIsScrolled((prev) => (prev !== scrolled ? scrolled : prev));
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isHome]);
 
@@ -105,7 +112,6 @@ export function Header({ onBook }: { onBook: () => void }) {
     setMenuOpen(false);
     setProfileOpen(false);
     setServicesDropdownOpen(false);
-    setIsSearchOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -156,21 +162,35 @@ export function Header({ onBook }: { onBook: () => void }) {
 
   return (
     <header className="z-50 fixed top-0 left-0 right-0 w-full transition-all duration-300 bg-[#FFFBF2]">
-      <div className="mx-auto flex h-[88px] sm:h-[92px] max-w-[90rem] w-full items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Logo />
+      <div className="mx-auto flex h-[80px] sm:h-[92px] max-w-[90rem] w-full items-center justify-between px-3.5 sm:px-6 lg:px-8 xl:px-10">
+        {/* Left: Clearly visible Candy & Rose Logo */}
+        <div className={`flex items-center shrink-0 ${isLoggedIn ? 'mr-3 sm:mr-6 lg:mr-[50px] xl:mr-[65px]' : 'mr-3 sm:mr-8'}`}>
+          <Logo />
+        </div>
         
         {/* Main Desktop Navigation */}
-        <nav className="hidden items-center gap-8 xl:gap-11 lg:flex">
+        <nav
+          className={`hidden items-center lg:flex shrink-0 ${
+            isLoggedIn
+              ? 'gap-[22px] lg:gap-[28px] xl:gap-[32px]'
+              : 'gap-7 xl:gap-11'
+          }`}
+        >
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
                 key={item.label}
                 href={item.href}
-                className={`font-serif text-[16px] sm:text-[16.5px] font-medium uppercase tracking-[0.18em] transition-all duration-200 py-1.5 ${
+                prefetch={false}
+                className={`font-serif font-medium uppercase transition-all duration-200 py-1.5 whitespace-nowrap ${
+                  isLoggedIn
+                    ? 'text-[14px] lg:text-[14.5px] tracking-[2.2px]'
+                    : 'text-[16px] sm:text-[16.5px] tracking-[0.18em]'
+                } ${
                   isActive
-                    ? 'text-pink-600 font-semibold border-b-2 border-pink-600'
-                    : 'text-zinc-800 hover:text-pink-600'
+                    ? 'text-pink-700 font-semibold border-b-2 border-pink-700'
+                    : 'text-zinc-800 hover:text-pink-700'
                 }`}
               >
                 {item.label}
@@ -180,51 +200,17 @@ export function Header({ onBook }: { onBook: () => void }) {
         </nav>
 
         {/* Right Action Section */}
-        <div className="flex items-center gap-4">
-          {/* Search Action */}
-          <div className="relative flex items-center">
-            {isSearchOpen ? (
-              <div className="flex items-center rounded-full px-3.5 py-2 bg-zinc-100 border border-zinc-200 text-zinc-900 shadow-xs">
-                <Search size={16} className="text-zinc-600" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && searchQuery.trim()) {
-                      setIsSearchOpen(false);
-                      router.push(`/services?q=${encodeURIComponent(searchQuery.trim())}`);
-                    }
-                  }}
-                  placeholder="Search..."
-                  autoFocus
-                  onBlur={() => !searchQuery && setIsSearchOpen(false)}
-                  className="ml-2 bg-transparent text-[14px] font-medium outline-none w-28 sm:w-36 md:w-52 text-zinc-900 placeholder:text-zinc-400"
-                />
-                <button onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }} className="ml-1 p-0.5 rounded-full hover:bg-zinc-200 text-zinc-600">
-                  <X size={14} />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setIsSearchOpen(true)}
-                className="p-2.5 rounded-full transition-colors text-zinc-800 hover:bg-zinc-100/80 cursor-pointer"
-                aria-label="Search"
-              >
-                <Search size={24} />
-              </button>
-            )}
-          </div>
-
+        <div className={`flex items-center shrink-0 ${isLoggedIn ? 'ml-auto lg:ml-[42px] xl:ml-[55px] gap-2 sm:gap-3 lg:gap-3.5 xl:gap-4' : 'gap-2.5 sm:gap-4'}`}>
           {isLoggedIn && (
-            <div ref={dropdownRef} className="relative flex items-center gap-3">
-              {/* My Appointment */}
+            <div ref={dropdownRef} className="relative flex items-center gap-2 sm:gap-2.5 lg:gap-3 xl:gap-3.5 shrink-0">
+              {/* My Appointment - visible on tablets and desktops; available in mobile drawer */}
               <Link
                 href="/history"
-                className="group flex items-center gap-2 py-1.5 px-2 rounded-lg text-[16px] font-medium text-[#000000] transition-colors"
+                prefetch={false}
+                className="group hidden sm:flex items-center gap-1.5 py-1.5 px-2 rounded-lg text-[13.5px] xl:text-[14px] font-medium text-zinc-900 hover:text-pink-600 transition-colors shrink-0 whitespace-nowrap"
                 title="My Appointment"
               >
-                <Calendar size={18} className="text-pink-600" />
+                <Calendar size={16} className="text-pink-600 shrink-0" />
                 <span>My Appointment</span>
               </Link>
 
@@ -232,23 +218,24 @@ export function Header({ onBook }: { onBook: () => void }) {
               <button
                 type="button"
                 onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center gap-1.5 rounded-full py-1.5 px-2 transition-all duration-200 hover:bg-zinc-100 cursor-pointer"
+                className="group flex items-center gap-1.5 rounded-full py-1.5 px-2 sm:px-2.5 bg-zinc-50/80 hover:bg-zinc-100 border border-zinc-200/60 transition-all duration-200 cursor-pointer shrink-0 max-w-[110px] sm:max-w-[180px] xl:max-w-[220px]"
                 aria-label="Toggle user menu"
+                title={currentCustomerEmail}
               >
-                <span className="text-[14px] font-bold transition-colors text-zinc-800 hover:text-pink-600">
+                <span className="text-[12px] sm:text-[13px] xl:text-[13.5px] font-semibold transition-colors text-zinc-800 group-hover:text-pink-600 truncate">
                   {currentCustomerEmail}
                 </span>
-                <ChevronDown size={16} className={`transition-transform duration-200 ${profileOpen ? 'rotate-180' : ''} text-zinc-600`} />
+                <ChevronDown size={14} className={`transition-transform duration-200 shrink-0 ${profileOpen ? 'rotate-180' : ''} text-zinc-600 group-hover:text-pink-600`} />
               </button>
 
               {/* Dropdown Menu */}
               {profileOpen && (
-                <div className="absolute right-0 top-full mt-2 w-[330px] max-w-[calc(100vw-2rem)] rounded-2xl border border-zinc-100 bg-white px-[22px] py-7 shadow-xl shadow-black/8 z-50 animate-scale-in">
+                <div className="absolute right-0 top-full mt-2 w-[290px] sm:w-[330px] max-w-[calc(100vw-2rem)] rounded-2xl border border-zinc-100 bg-white px-5 sm:px-[22px] py-6 sm:py-7 shadow-xl shadow-black/8 z-50 animate-scale-in">
                   <div className="border-b border-zinc-100 pb-3 mb-2">
-                    <p className="truncate font-serif font-semibold text-zinc-900 text-[15.5px] tracking-wide">
+                    <p className="truncate font-serif font-semibold text-zinc-900 text-[15px] sm:text-[15.5px] tracking-wide">
                       {profile?.full_name || profile?.name || customer?.full_name || customer?.name || 'Candy & Rose guest'}
                     </p>
-                    <p className="truncate text-[13px] text-zinc-500 mt-1">
+                    <p className="truncate text-xs sm:text-[13px] text-zinc-500 mt-1">
                       {currentCustomerEmail}
                     </p>
                   </div>
@@ -286,7 +273,7 @@ export function Header({ onBook }: { onBook: () => void }) {
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent('open-auth'))}
-                className="text-[13.5px] sm:text-[14px] font-bold uppercase tracking-wider px-8 sm:px-9 py-2.5 sm:py-3 rounded-full transition-all duration-200 cursor-pointer bg-pink-600 hover:bg-pink-700 text-white shadow-xs hover:shadow-md hover:shadow-pink-600/20 hover:scale-[1.02] active:scale-[0.98]"
+                className="text-[12px] sm:text-[13.5px] md:text-[14px] font-bold uppercase tracking-wider px-5 sm:px-8 lg:px-9 py-2 sm:py-2.5 lg:py-3 rounded-full transition-all duration-200 cursor-pointer bg-pink-600 hover:bg-pink-700 text-white shadow-xs hover:shadow-md hover:shadow-pink-600/20 hover:scale-[1.02] active:scale-[0.98]"
               >
                 LOGIN
               </button>
@@ -295,7 +282,7 @@ export function Header({ onBook }: { onBook: () => void }) {
 
           {/* Mobile Menu Toggle */}
           <button
-            className="p-2 lg:hidden transition-colors text-zinc-800 hover:text-pink-600"
+            className="p-2 lg:hidden transition-colors text-zinc-800 hover:text-pink-600 cursor-pointer"
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="Menu"
           >
@@ -306,14 +293,16 @@ export function Header({ onBook }: { onBook: () => void }) {
 
       {/* Mobile Drawer */}
       {menuOpen && (
-        <div className="border-t border-zinc-100 bg-[#FFFBF2] p-6 shadow-xl lg:hidden animate-in slide-in-from-top-4 duration-200">
-          <nav className="flex flex-col gap-4">
+        <div className="border-t border-zinc-100 bg-[#FFFBF2] p-5 sm:p-6 shadow-xl lg:hidden animate-in slide-in-from-top-4 duration-200 max-h-[calc(100vh-5rem)] overflow-y-auto">
+          <nav className="flex flex-col gap-3 sm:gap-4">
             {navItems.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
-                className={`font-serif text-[15px] font-medium uppercase tracking-[0.16em] transition-colors py-2 border-b border-zinc-50 ${
-                  pathname === item.href ? 'text-pink-600 font-bold' : 'text-zinc-800 hover:text-pink-600'
+                prefetch={false}
+                onClick={() => setMenuOpen(false)}
+                className={`font-serif text-[15px] font-medium uppercase tracking-[0.16em] transition-colors py-2 border-b border-zinc-100/60 ${
+                  pathname === item.href ? 'text-pink-700 font-bold' : 'text-zinc-800 hover:text-pink-700'
                 }`}
               >
                 {item.label}
@@ -327,6 +316,7 @@ export function Header({ onBook }: { onBook: () => void }) {
                 </div>
                 <Link
                   href="/history"
+                  prefetch={false}
                   onClick={() => setMenuOpen(false)}
                   className="flex w-full items-center justify-center gap-2 rounded-full bg-pink-50 border border-pink-200 py-3 text-xs font-bold uppercase tracking-widest text-pink-600 hover:bg-pink-100 transition-all"
                 >
@@ -335,6 +325,7 @@ export function Header({ onBook }: { onBook: () => void }) {
 
                 <Link
                   href="/profile"
+                  prefetch={false}
                   onClick={() => setMenuOpen(false)}
                   className="flex w-full items-center justify-center gap-2 rounded-full bg-zinc-50 border border-zinc-200 py-3 text-xs font-bold uppercase tracking-widest text-zinc-700 hover:bg-zinc-100 transition-all"
                 >
@@ -402,7 +393,7 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
   const { user, profile, customer, signOut } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
-  const loadAppointments = async () => {
+  const loadAppointments = useCallback(async () => {
     if (!user && !customer) return;
     try {
       let custId: string | null = customer?.id || null;
@@ -444,14 +435,14 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
     } catch (e) {
       console.error('Failed to load appointments in profile:', e);
     }
-  };
+  }, [user, customer]);
 
   useEffect(() => {
     loadAppointments();
     const handleUpdate = () => loadAppointments();
     window.addEventListener('appointmentsUpdated', handleUpdate);
     return () => window.removeEventListener('appointmentsUpdated', handleUpdate);
-  }, [user, profile]);
+  }, [loadAppointments]);
 
   if (!user) {
     return (
@@ -710,84 +701,120 @@ export function Footer() {
   const [salonInfo, setSalonInfo] = useState<SalonInfo>(defaultSalonInfo);
 
   useEffect(() => {
-    getSalonInfo().then(setSalonInfo);
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(() => {
+        getSalonInfo().then(setSalonInfo);
+      }, { timeout: 3000 });
+    } else {
+      const timer = setTimeout(() => {
+        getSalonInfo().then(setSalonInfo);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
   }, []);
 
+  const handleBookClick = () => {
+    window.dispatchEvent(new CustomEvent('open-book'));
+  };
+
   return (
-    <footer className="bg-zinc-950 text-white pt-16 pb-12 border-t border-zinc-900">
+    <footer className="w-full bg-zinc-950 text-white pt-16 pb-12 border-t border-zinc-900 mt-auto">
+      <div className="w-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-10">
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8 sm:gap-10 lg:gap-10 border-b border-zinc-800/80 pb-14">
+          {/* Column 1 — Brand (Wider on desktop to comfortably fit logo, description & social links) */}
+          <div className="col-span-1 sm:col-span-1 lg:col-span-4 space-y-4">
+            <Logo light />
+            <p className="text-sm leading-6 text-zinc-400 max-w-sm">
+              Where natural beauty meets luxury care. Step into our haven for bespoke styling, advanced treatments, and glowing transformation.
+            </p>
+            <div className="flex items-center gap-3 pt-2 text-zinc-400">
+              <a
+                href="https://instagram.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Candy & Rose Instagram"
+                className="h-9 w-9 rounded-full bg-zinc-900 flex items-center justify-center hover:bg-pink-600 hover:text-white transition-colors"
+              >
+                <Instagram size={16} />
+              </a>
+              <a
+                href="https://www.facebook.com/profile.php?id=61576903201744"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-9 w-9 rounded-full bg-zinc-900 flex items-center justify-center hover:bg-pink-600 hover:text-white transition-colors"
+                aria-label="Candy & Rose Facebook"
+              >
+                <Facebook size={16} />
+              </a>
+            </div>
+          </div>
 
+          {/* Column 2 — Explore */}
+          <div className="col-span-1 sm:col-span-1 lg:col-span-2">
+            <p className="mb-5 text-sm font-bold uppercase tracking-[0.2em] text-pink-400">Explore</p>
+            <ul className="space-y-3 text-sm text-zinc-400 font-medium">
+              {footerNavItems.map((item) => (
+                <li key={item.label}>
+                  <Link href={item.href} prefetch={false} className="hover:text-pink-400 transition-colors">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-      <div className="mx-auto max-w-7xl px-6 lg:px-10 grid gap-10 md:grid-cols-4 border-b border-zinc-800/80 pb-14">
-        {/* Brand Column */}
-        <div className="space-y-4">
-          <Logo light />
-          <p className="text-sm leading-6 text-zinc-400 max-w-xs">
-            Where natural beauty meets luxury care. Step into our haven for bespoke styling, advanced treatments, and glowing transformation.
-          </p>
-          <div className="flex items-center gap-3 pt-2 text-zinc-400">
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-full bg-zinc-900 flex items-center justify-center hover:bg-pink-600 hover:text-white transition-colors">
-              <Instagram size={16} />
-            </a>
-            <a href="https://www.facebook.com/profile.php?id=61576903201744" target="_blank" rel="noopener noreferrer" className="h-9 w-9 rounded-full bg-zinc-900 flex items-center justify-center hover:bg-pink-600 hover:text-white transition-colors" aria-label="Candy & Rose Facebook">
-              <Facebook size={16} />
-            </a>
+          {/* Column 3 — Our Services */}
+          <div className="col-span-1 sm:col-span-1 lg:col-span-3">
+            <p className="mb-5 text-sm font-bold uppercase tracking-[0.2em] text-pink-400">Our Services</p>
+            <ul className="space-y-3 text-sm text-zinc-400 font-medium">
+              <li><Link href="/services" prefetch={false} className="hover:text-pink-400 transition-colors">Haircut &amp; Styling</Link></li>
+              <li><Link href="/services" prefetch={false} className="hover:text-pink-400 transition-colors">Hair Care</Link></li>
+              <li><Link href="/services" prefetch={false} className="hover:text-pink-400 transition-colors">Treatments &amp; Services</Link></li>
+              <li><Link href="/services" prefetch={false} className="hover:text-pink-400 transition-colors">Nail Art</Link></li>
+              <li><Link href="/services" prefetch={false} className="hover:text-pink-400 transition-colors">Additional Services</Link></li>
+            </ul>
+          </div>
+
+          {/* Column 4 — Contact / Opening Hours */}
+          <div className="col-span-1 sm:col-span-1 lg:col-span-3">
+            <p className="mb-5 text-sm font-bold uppercase tracking-[0.2em] text-pink-400">Visit Us</p>
+            <div className="space-y-3 text-sm leading-6 text-zinc-400">
+              <p className="flex items-start gap-2">
+                <MapPin size={15} className="text-pink-400 shrink-0 mt-0.5" />
+                <span>{salonInfo.address}</span>
+              </p>
+              <p className="flex items-center gap-2">
+                <Phone size={15} className="text-pink-400 shrink-0" />
+                <span>{salonInfo.phone}</span>
+              </p>
+              <p className="flex items-center gap-2">
+                <Mail size={15} className="text-pink-400 shrink-0" />
+                <span>{salonInfo.email}</span>
+              </p>
+              <p className="text-xs text-zinc-400 pt-1">
+                Mon - Sun: 10:00 AM - 8:00 PM
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleBookClick}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-pink-400 hover:text-pink-300 transition-colors cursor-pointer group"
+                >
+                  <span>Book an Appointment</span>
+                  <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Explore */}
-        <div>
-          <p className="mb-5 text-sm font-bold uppercase tracking-[0.2em] text-pink-400">Explore</p>
-          <ul className="space-y-3 text-sm text-zinc-400 font-medium">
-            {footerNavItems.map((item) => (
-              <li key={item.label}>
-                <Link href={item.href} className="hover:text-pink-400 transition-colors">
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Services */}
-        <div>
-          <p className="mb-5 text-sm font-bold uppercase tracking-[0.2em] text-pink-400">Our Services</p>
-          <ul className="space-y-3 text-sm text-zinc-400 font-medium">
-            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Haircut &amp; Styling</Link></li>
-            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Hair Care</Link></li>
-            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Treatments &amp; Services</Link></li>
-            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Nail Art</Link></li>
-            <li><Link href="/services" className="hover:text-pink-400 transition-colors">Additional Services</Link></li>
-          </ul>
-        </div>
-
-        {/* Contact Info */}
-        <div>
-          <p className="mb-5 text-sm font-bold uppercase tracking-[0.2em] text-pink-400">Visit Us</p>
-          <div className="space-y-3 text-sm leading-6 text-zinc-400">
-            <p className="flex items-start gap-2">
-              <MapPin size={15} className="text-pink-400 shrink-0 mt-0.5" />
-              {salonInfo.address}
-            </p>
-            <p className="flex items-center gap-2">
-              <Phone size={15} className="text-pink-400 shrink-0" />
-              {salonInfo.phone}
-            </p>
-            <p className="flex items-center gap-2">
-              <Mail size={15} className="text-pink-400 shrink-0" />
-              {salonInfo.email}
-            </p>
-            <p className="text-xs text-zinc-500 pt-1">
-              Mon - Sun: 10:00 AM - 8:00 PM
-            </p>
+        {/* Bottom copyright & legal */}
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left text-xs sm:text-sm text-zinc-400">
+          <p>© 2024 Candy and Rose Beauty Salon. All Rights Reserved.</p>
+          <div className="flex flex-wrap justify-center sm:justify-end gap-4 sm:gap-6">
+            <Link href="/terms" prefetch={false} className="hover:text-pink-400 transition-colors">Terms of Service</Link>
+            <Link href="/terms" prefetch={false} className="hover:text-pink-400 transition-colors">Privacy Policy</Link>
           </div>
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-7xl px-6 lg:px-10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-zinc-500">
-        <p>© 2024 Candy and Rose Beauty Salon. All Rights Reserved.</p>
-        <div className="flex gap-6">
-          <Link href="/terms" className="hover:text-pink-400 transition-colors">Terms of Service</Link>
-          <Link href="/terms" className="hover:text-pink-400 transition-colors">Privacy Policy</Link>
         </div>
       </div>
     </footer>
@@ -798,664 +825,15 @@ export function PageShell({ children, onBook }: { children: ReactNode; onBook: (
   const pathname = usePathname();
   const isHome = pathname === '/';
   return (
-    <div className="min-h-screen flex flex-col bg-transparent">
+    <div className="w-full min-h-screen flex flex-col bg-transparent">
       <Header onBook={onBook} />
-      <div className={`${isHome ? '' : 'pt-[88px] sm:pt-[92px]'} flex-1`}>{children}</div>
+      <div className={`${isHome ? '' : 'pt-[88px] sm:pt-[92px]'} flex-1 w-full`}>{children}</div>
       <Footer />
     </div>
   );
 }
 
-function Modal({ children, onClose, maxWidth = 'max-w-2xl' }: { children: ReactNode; onClose: () => void; maxWidth?: string }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className={`relative max-h-[90vh] w-full ${maxWidth} overflow-y-auto overflow-hidden rounded-3xl bg-white shadow-2xl animate-scale-in`}>
-        <button onClick={onClose} aria-label="Close"
-          className="absolute right-5 top-5 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/80 text-zinc-600 hover:text-zinc-950 shadow">
-          <X size={17} />
-        </button>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function GoogleIcon({ className = "w-5 h-5" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24">
-      <path
-        fill="#4285F4"
-        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.25 21.32 7.33 24 12 24z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.97 0 12s.46 3.84 1.26 5.42l4.02-3.15z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.25 2.68 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-      />
-    </svg>
-  );
-}
-
-export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess: () => void }) {
-  const { signIn, signUp, user, profile, customer } = useAuth();
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
-  const [step, setStep] = useState<'form' | 'regSuccess' | 'welcome' | 'forgotSuccess'>('form');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [customerDisplayName, setCustomerDisplayName] = useState('');
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const handleGoogleSignIn = async () => {
-    try {
-      setBusy(true);
-      setError('');
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('candy_rose_google_login_pending', 'true');
-      }
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/` : undefined,
-        },
-      });
-      if (error) {
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('candy_rose_google_login_pending');
-        }
-        setError(error.message);
-      }
-    } catch (err: any) {
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem('candy_rose_google_login_pending');
-      }
-      setError(err.message || 'An unexpected error occurred.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleForgotSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || !trimmedEmail.includes('@')) {
-      setError('Please enter a valid email address.');
-      return;
-    }
-    setBusy(true);
-    try {
-      const res = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Failed to send password reset email.');
-      } else {
-        setStep('forgotSuccess');
-      }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!open) {
-      setStep('form');
-      setMode('login');
-      setError('');
-      setBusy(false);
-      setCustomerDisplayName('');
-      if (timerRef.current) clearTimeout(timerRef.current);
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        handleClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open]);
-
-  if (!open) return null;
-
-  const handleClose = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setStep('form');
-    setMode('login');
-    setCustomerDisplayName('');
-    onClose();
-  };
-
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      handleClose();
-    }
-  };
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError('');
-
-    if (mode === 'register') {
-      if (!name.trim()) {
-        setError('Please enter your full name.');
-        return;
-      }
-      if (!email.trim() || !email.includes('@')) {
-        setError('Please enter a valid email address.');
-        return;
-      }
-      if (!password || password.length < 6) {
-        setError('Password must be at least 6 characters long.');
-        return;
-      }
-      if (password !== confirmPassword) {
-        setError('Passwords do not match.');
-        return;
-      }
-    }
-
-    setBusy(true);
-
-    try {
-      if (mode === 'register') {
-        const result = await signUp(email, password, name);
-        if (result.error) {
-          setError(result.error);
-        } else {
-          setName('');
-          setPassword('');
-          setConfirmPassword('');
-          setStep('regSuccess');
-
-          timerRef.current = setTimeout(() => {
-            setStep('form');
-            setMode('login');
-          }, 1500);
-        }
-      } else {
-        const result = await signIn(email, password);
-        if (result.error) {
-          setError(result.error);
-        } else {
-          try {
-            const { data: custRecord } = await supabase
-              .from('customers')
-              .select('full_name, name')
-              .ilike('email', email.trim().toLowerCase())
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-
-            const resolved = custRecord?.full_name || custRecord?.name;
-            if (resolved) {
-              setCustomerDisplayName(resolved.trim());
-            }
-          } catch (_) {}
-
-          setName('');
-          setPassword('');
-          setConfirmPassword('');
-          setStep('welcome');
-        }
-      }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // Compact Registration Success Message Modal
-  if (step === 'regSuccess') {
-    return (
-      <div 
-        onClick={handleBackdropClick}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in"
-      >
-        <div className="relative w-[90%] max-w-[440px] my-auto rounded-3xl bg-white p-8 sm:p-10 shadow-2xl animate-scale-in text-center flex flex-col items-center">
-          <div className="h-16 w-16 rounded-full bg-pink-50 border border-pink-200 flex items-center justify-center mb-5 shadow-sm">
-            <Check size={32} className="text-[#E61E73]" />
-          </div>
-          <h3 className="font-sans text-xl sm:text-2xl font-medium text-[#231F20] tracking-tight mb-2">
-            Your registration was successful!
-          </h3>
-          <p className="text-xs sm:text-sm text-[#77727A] font-normal">
-            Redirecting you to the login page...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Compact Check Email Success Message Modal (Forgot Password)
-  if (step === 'forgotSuccess') {
-    return (
-      <div 
-        onClick={handleBackdropClick}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in"
-      >
-        <div className="relative w-[90%] max-w-[440px] my-auto rounded-3xl bg-white p-8 sm:p-10 shadow-2xl animate-scale-in text-center flex flex-col items-center">
-          <button 
-            onClick={handleClose} 
-            className="absolute top-5 right-6 text-zinc-400 hover:text-[#E61E73] transition-colors p-1 cursor-pointer"
-            aria-label="Close modal"
-          >
-            <X size={20} />
-          </button>
-          <div className="h-16 w-16 rounded-full bg-pink-50 border border-pink-200 flex items-center justify-center mb-5 shadow-sm">
-            <Mail size={30} className="text-[#E61E73]" />
-          </div>
-          <h3 className="font-sans text-xl sm:text-2xl font-medium text-[#231F20] tracking-tight mb-2">
-            Check your email
-          </h3>
-          <p className="text-xs sm:text-sm text-[#77727A] font-normal leading-relaxed mb-6">
-            We&apos;ve sent you a password reset link. Please check your email and follow the link to create a new password.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setStep('form');
-              setMode('login');
-              setError('');
-            }}
-            className="w-full h-[50px] sm:h-[52px] rounded-xl bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 cursor-pointer flex items-center justify-center shadow-sm"
-          >
-            BACK TO LOGIN
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Enhanced Welcome Message Modal
-  if (step === 'welcome') {
-    const rawCustomerName =
-      customerDisplayName ||
-      profile?.full_name ||
-      profile?.name ||
-      customer?.full_name ||
-      customer?.name ||
-      user?.user_metadata?.full_name ||
-      user?.user_metadata?.name ||
-      '';
-    const customerName = rawCustomerName.trim();
-    const welcomeTitle = customerName ? `Welcome, ${customerName}!` : 'Welcome!';
-
-    return (
-      <div 
-        onClick={handleBackdropClick}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in"
-      >
-        <div 
-          onClick={(e) => e.stopPropagation()}
-          className="relative w-[90%] max-w-[440px] min-h-[290px] sm:min-h-[310px] my-auto rounded-[32px] bg-white pt-9 pb-8 px-6 sm:pt-11 sm:pb-9 sm:px-9 shadow-[0_0_25px_rgba(230,30,115,0.12),0_20px_50px_rgba(0,0,0,0.15)] ring-1 ring-pink-100/60 border border-pink-200/70 animate-scale-in text-center flex flex-col items-center justify-between"
-        >
-          {/* Top-right X close icon */}
-          <button
-            type="button"
-            onClick={handleClose}
-            aria-label="Close"
-            className="absolute top-4 right-4 sm:top-5 sm:right-5 text-zinc-400 hover:text-[#E61E73] transition-colors p-1.5 cursor-pointer rounded-full hover:bg-zinc-100"
-          >
-            <X size={20} />
-          </button>
-
-          <div className="w-full flex-1 flex flex-col items-center justify-center">
-            <h2 className="font-serif text-2xl sm:text-3xl lg:text-[32px] font-normal text-[#231F20] tracking-wide leading-[1.28] text-center">
-              {welcomeTitle}
-            </h2>
-            <p className="font-serif text-xs sm:text-[13.5px] font-light text-[#77727A] tracking-wider mt-2.5 mb-6 text-center">
-              Continue your booking
-            </p>
-          </div>
-
-          {/* Action buttons: [ CANCEL ]    [ CONTINUE ] */}
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 w-full">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="w-full h-[48px] sm:h-[50px] rounded-full border border-pink-300 hover:border-[#E61E73] bg-white hover:bg-pink-50/40 text-neutral-800 font-serif font-medium sm:font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center shadow-xs hover:scale-[1.01] active:scale-[0.99]"
-            >
-              CANCEL
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                handleClose();
-                onSuccess();
-              }}
-              className="w-full h-[48px] sm:h-[50px] rounded-full bg-[#E61E73] hover:bg-[#D91868] text-white font-serif font-medium sm:font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center shadow-md shadow-pink-200/50 hover:scale-[1.01] active:scale-[0.99]"
-            >
-              CONTINUE
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Standard 2-Column Split Screen Login & Registration Form Modal
-  return (
-    <div 
-      onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto"
-    >
-      {/* Primary Floating Modal Container */}
-      <div className="relative w-full max-w-[980px] my-auto rounded-3xl overflow-hidden bg-white shadow-2xl animate-scale-in">
-        <div className="grid md:grid-cols-2 min-h-[540px] md:min-h-[580px]">
-          {/* Left Column: Image with Overlay */}
-          <div className="relative min-h-[260px] md:min-h-[580px] bg-zinc-950 flex flex-col justify-end p-8 sm:p-10 lg:p-12 overflow-hidden">
-            <img
-              src={mode === 'register' ? '/images/login-customer.jpg' : '/images/login-img.jpg'}
-              alt="Candy & Rose Beauty Experience"
-              className="absolute inset-0 w-full h-full object-cover object-center"
-            />
-            <div className="absolute inset-0 bg-black/35" />
-
-            <div className="relative z-10 text-white max-w-sm">
-              <h2 className="font-sans text-2xl sm:text-3xl lg:text-[2rem] font-medium leading-[1.2] tracking-tight text-white drop-shadow-md">
-                We show your skin,<br />
-                hair, and body the<br />
-                care and attention<br />
-                they deserve.
-              </h2>
-              <p className="mt-4 text-xs sm:text-sm font-light tracking-wide text-zinc-200/90 drop-shadow">
-                Where Tranquility Meets Transformation.
-              </p>
-            </div>
-          </div>
-
-          {/* Right Column: Refined White Form Panel */}
-          <div className="relative bg-white p-7 sm:p-9 lg:p-11 flex flex-col justify-center text-zinc-900">
-            {/* Minimal X Close Button inside top-right corner */}
-            <button 
-              onClick={handleClose} 
-              className="absolute top-5 right-6 text-zinc-400 hover:text-[#E61E73] transition-colors p-1 cursor-pointer z-20"
-              aria-label="Close modal"
-            >
-              <X size={20} />
-            </button>
-
-            <div className="max-w-[400px] w-full mx-auto my-auto flex flex-col justify-center">
-              <h2 className="font-sans text-2xl sm:text-3xl font-medium text-[#231F20] tracking-tight mb-2">
-                {mode === 'login' ? 'Login' : mode === 'register' ? 'Register' : 'Forgot Password'}
-              </h2>
-              <p className="text-xs sm:text-sm text-[#77727A] font-normal leading-relaxed mb-6">
-                {mode === 'login'
-                  ? "Welcome back, we are glad you're feeling beautiful today. Login to continue"
-                  : mode === 'register'
-                  ? "Welcome to Candy & Rose Beauty Salon, we hope your stay with us feel as bright as the morning sun."
-                  : "Enter your email address and we'll send you a secure link to reset your password."
-                }
-              </p>
-
-              {error && (
-                <div className="mb-4 rounded-xl bg-red-50 border border-red-200 p-3.5 text-xs text-red-600 font-medium">
-                  {error}
-                </div>
-              )}
-
-              {mode === 'login' && (
-                <div className="mb-3.5">
-                  <button
-                    type="button"
-                    onClick={handleGoogleSignIn}
-                    disabled={busy}
-                    className="relative w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-white hover:bg-zinc-50 hover:border-zinc-300 text-[#231F20] font-medium text-xs sm:text-sm transition-all duration-150 flex items-center justify-center shadow-sm cursor-pointer disabled:opacity-60"
-                  >
-                    <GoogleIcon className="absolute left-4 sm:left-4.5 w-4.5 h-4.5 sm:w-5 sm:h-5" />
-                    <span>Continue with Google</span>
-                  </button>
-
-                  <div className="flex items-center my-3 sm:my-3.5">
-                    <div className="flex-grow border-t border-[#E1DFE3]" />
-                    <span className="shrink-0 px-3 text-xs text-[#77727A]">or</span>
-                    <div className="flex-grow border-t border-[#E1DFE3]" />
-                  </div>
-                </div>
-              )}
-
-              {mode === 'forgot' ? (
-                <form onSubmit={handleForgotSubmit} className="space-y-4">
-                  <div className="space-y-1">
-                    <label htmlFor="auth-modal-forgot-email" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                      Email Address *
-                    </label>
-                    <div className="relative group">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                      <input
-                        id="auth-modal-forgot-email"
-                        type="email"
-                        required
-                        placeholder="Enter your email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={busy}
-                      className="w-full h-[50px] sm:h-[52px] rounded-xl bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
-                    >
-                      {busy ? 'SENDING...' : 'SEND RESET LINK'}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <form onSubmit={submit} className="space-y-3.5">
-                  {mode === 'register' && (
-                    <div className="space-y-1">
-                      <label htmlFor="auth-modal-name" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                        Full Name *
-                      </label>
-                      <div className="relative group">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                        <input
-                          id="auth-modal-name"
-                          type="text"
-                          required
-                          placeholder="Enter your full name"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-1">
-                    <label htmlFor="auth-modal-email" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                      Email Address *
-                    </label>
-                    <div className="relative group">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                      <input
-                        id="auth-modal-email"
-                        type="email"
-                        required
-                        placeholder="Enter your email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-4 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label htmlFor="auth-modal-password" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                      Password *
-                    </label>
-                    <div className="relative group">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                      <input
-                        id="auth-modal-password"
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        placeholder="Enter your password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
-                      >
-                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {mode === 'register' && (
-                    <div className="space-y-1">
-                      <label htmlFor="auth-modal-confirm-password" className="block text-xs sm:text-[13px] font-medium text-[#231F20]">
-                        Confirm Password *
-                      </label>
-                      <div className="relative group">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-zinc-400 group-focus-within:text-[#E2A0B8] transition-colors pointer-events-none" />
-                        <input
-                          id="auth-modal-confirm-password"
-                          type={showConfirmPassword ? 'text' : 'password'}
-                          required
-                          placeholder="Confirm your password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full h-[48px] sm:h-[50px] rounded-xl border border-[#E1DFE3] bg-[#FAFAFA] pl-11 sm:pl-12 pr-12 text-xs sm:text-sm text-zinc-900 placeholder-[#9CA3AF] outline-none transition-all focus:border-[#E2A0B8] focus:bg-white focus:ring-3 focus:ring-[#E2A0B8]/15"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors cursor-pointer"
-                        >
-                          {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {mode === 'login' && (
-                    <div className="flex items-center justify-between pt-0.5">
-                      <label className="flex items-center gap-2.5 text-xs text-[#77727A] cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={rememberMe}
-                          onChange={(e) => setRememberMe(e.target.checked)}
-                          className="h-4 w-4 rounded border-zinc-300 accent-[#E61E73] cursor-pointer"
-                        />
-                        <span>Remember me</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMode('forgot');
-                          setError('');
-                        }}
-                        className="text-xs font-medium text-[#E61E73] hover:text-[#D91868] hover:underline transition-colors cursor-pointer"
-                      >
-                        Forgot password?
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={busy}
-                      className="w-full h-[50px] sm:h-[52px] rounded-xl bg-[#111111] hover:bg-black text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-colors duration-200 disabled:opacity-60 cursor-pointer text-center flex items-center justify-center shadow-sm"
-                    >
-                      {busy ? (mode === 'login' ? 'LOGGING IN...' : 'REGISTERING...') : (mode === 'login' ? 'LOGIN' : 'REGISTER')}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              <div className="mt-6 text-center text-xs sm:text-[13.5px] text-[#77727A]">
-                {mode === 'login' ? (
-                  <>
-                    Don&apos;t have an account?{' '}
-                    <button
-                      type="button"
-                      onClick={() => { setMode('register'); setError(''); }}
-                      className="text-[#E61E73] hover:text-[#D91868] font-bold transition-colors cursor-pointer"
-                    >
-                      Register
-                    </button>
-                  </>
-                ) : mode === 'register' ? (
-                  <>
-                    Already have an account?{' '}
-                    <button
-                      type="button"
-                      onClick={() => { setMode('login'); setError(''); }}
-                      className="text-[#E61E73] hover:text-[#D91868] font-bold transition-colors cursor-pointer"
-                    >
-                      Login
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => { setMode('login'); setError(''); }}
-                    className="text-[#E61E73] hover:text-[#D91868] font-bold transition-colors cursor-pointer"
-                  >
-                    Back to Login
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, value, onChange, placeholder, type = 'text' }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder: string; type?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-zinc-500">{label}</span>
-      <input required value={value} onChange={(e) => onChange(e.target.value)} type={type} placeholder={placeholder}
-        className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-xs outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-600 focus:bg-white" />
-    </label>
-  );
-}
+export { Modal, GoogleIcon, AuthModal, GoogleWelcomeModal } from './auth-modals';
 
 export function BookingLauncher({ onBook }: { onBook?: () => void }) {
   const handleClick = () => {
@@ -1538,8 +916,8 @@ export function SectionHeading({ eyebrow, title, description, centered = false }
   return (
     <div className={centered ? 'mx-auto max-w-2xl text-center' : 'max-w-2xl'}>
       <div className={`inline-flex items-center gap-2 mb-3 ${centered ? 'justify-center' : ''}`}>
-        <Leaf size={16} className="text-pink-500" />
-        <p className="text-xs sm:text-[13px] font-bold uppercase tracking-[0.25em] text-pink-600">{eyebrow}</p>
+        <Leaf size={16} className="text-pink-600" />
+        <p className="text-xs sm:text-[13px] font-bold uppercase tracking-[0.25em] text-pink-700">{eyebrow}</p>
       </div>
       <h2 className="font-serif text-4xl leading-tight sm:text-5xl text-zinc-900 font-medium">{title}</h2>
       {description && <p className="mt-3.5 text-xs sm:text-sm leading-6 text-zinc-500">{description}</p>}
@@ -1547,98 +925,5 @@ export function SectionHeading({ eyebrow, title, description, centered = false }
   );
 }
 
-export function GoogleWelcomeModal({
-  open,
-  name,
-  onClose,
-  onContinue,
-}: {
-  open: boolean;
-  name?: string;
-  onClose: () => void;
-  onContinue?: () => void;
-}) {
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
 
-  if (!open) return null;
-
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
-  const displayName = name?.trim();
-  const welcomeHeading = displayName
-    ? `Welcome, ${displayName}!`
-    : 'Welcome!';
-
-  const handleContinueClick = () => {
-    if (onContinue) {
-      onContinue();
-    } else {
-      onClose();
-    }
-  };
-
-  return (
-    <div
-      onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm overflow-y-auto animate-fade-in"
-    >
-      <div
-        className="relative w-[90%] max-w-[440px] min-h-[290px] sm:min-h-[310px] my-auto rounded-[32px] bg-white pt-9 pb-8 px-6 sm:pt-11 sm:pb-9 sm:px-9 shadow-[0_0_25px_rgba(230,30,115,0.12),0_20px_50px_rgba(0,0,0,0.15)] ring-1 ring-pink-100/60 border border-pink-200/70 animate-scale-in text-center flex flex-col items-center justify-between"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Top-right X close button */}
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute top-4 right-4 sm:top-5 sm:right-5 text-zinc-400 hover:text-[#E61E73] transition-colors p-1.5 cursor-pointer rounded-full hover:bg-zinc-100"
-        >
-          <X size={20} />
-        </button>
-
-        <div className="w-full flex-1 flex flex-col items-center justify-center">
-          {/* Dynamic Welcome Title */}
-          <h2 className="font-serif text-2xl sm:text-3xl lg:text-[32px] font-normal text-[#231F20] tracking-wide leading-[1.28] mb-3">
-            {welcomeHeading}
-          </h2>
-
-          {/* Question text below welcome */}
-          <p className="font-serif text-xs sm:text-[13.5px] font-light text-[#77727A] tracking-wider mt-1 mb-6">
-            Continue your booking
-          </p>
-        </div>
-
-        {/* Side-by-side Action Buttons: [CANCEL]  [CONTINUE] */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 w-full">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full h-[48px] sm:h-[50px] rounded-full border border-pink-300 hover:border-[#E61E73] bg-white hover:bg-pink-50/40 text-neutral-800 font-serif font-medium sm:font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center shadow-xs hover:scale-[1.01] active:scale-[0.99]"
-          >
-            CANCEL
-          </button>
-          <button
-            type="button"
-            onClick={handleContinueClick}
-            className="w-full h-[48px] sm:h-[50px] rounded-full bg-[#E61E73] hover:bg-[#D91868] text-white font-serif font-medium sm:font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center shadow-md shadow-pink-200/50 hover:scale-[1.01] active:scale-[0.99]"
-          >
-            CONTINUE
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 

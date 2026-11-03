@@ -131,8 +131,8 @@ export default function NailPortfolioPage() {
 
         {/* Dynamic Category Filtering */}
         {!loading && categories.length > 1 && (
-          <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-10 sm:mb-12">
-            <div className="flex items-center justify-start sm:justify-center gap-2 overflow-x-auto scrollbar-hide py-2 px-1 -mx-4 sm:mx-0 px-4 sm:px-0">
+          <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-8 sm:mb-12">
+            <div className="flex items-center justify-start sm:justify-center gap-2 overflow-x-auto scrollbar-hide py-2 px-1">
               {categories.map((cat) => {
                 const isActive = selectedCategory === cat;
                 return (
@@ -229,7 +229,7 @@ export default function NailPortfolioPage() {
 
         {/* Upgraded Bottom CTA */}
         <section className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-3xl bg-zinc-950 p-8 sm:p-12 lg:p-14 border border-zinc-800 shadow-2xl relative overflow-hidden text-center">
+          <div className="rounded-2xl sm:rounded-3xl bg-zinc-950 p-6 sm:p-12 lg:p-14 border border-zinc-800 shadow-2xl relative overflow-hidden text-center">
             {/* Soft Ambient Warm Pink Glow */}
             <div className="absolute -top-24 -right-24 w-96 h-96 bg-pink-600/15 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl pointer-events-none" />

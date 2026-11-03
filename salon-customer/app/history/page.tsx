@@ -136,6 +136,7 @@ export default function HistoryPage() {
         .from('appointments')
         .update({ 
           status: 'Cancelled',
+          payment_status: 'Cancelled',
           cancellation_reason: finalReason
         })
         .eq('id', cancelModalApptId);
@@ -144,7 +145,7 @@ export default function HistoryPage() {
       
       // Update locally
       setAppointments((cur) =>
-        cur.map((a) => (a.id === cancelModalApptId ? { ...a, status: 'Cancelled', cancellation_reason: finalReason } : a))
+        cur.map((a) => (a.id === cancelModalApptId ? { ...a, status: 'Cancelled', payment_status: 'Cancelled', cancellation_reason: finalReason } : a))
       );
 
       if (typeof window !== 'undefined') {
@@ -199,27 +200,27 @@ export default function HistoryPage() {
 
   return (
     <SalonLayout>
-      <main className="bg-zinc-50/50 min-h-screen py-16 px-6 lg:px-10">
+      <main className="bg-zinc-50/50 min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-10">
         <div className="mx-auto max-w-6xl">
           {/* HEADER SECTION */}
-          <div className="mb-12 border-b border-zinc-200/60 pb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="mb-8 sm:mb-12 border-b border-zinc-200/60 pb-6 sm:pb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
             <div>
-              <h1 className="font-serif text-[32px] font-normal text-zinc-950 leading-tight">
+              <h1 className="font-serif text-2xl sm:text-[32px] font-normal text-zinc-950 leading-tight">
                 Appointment History
               </h1>
             </div>
             
-            <div className="flex items-center gap-3 self-start md:self-center">
+            <div className="flex items-center gap-3 self-stretch sm:self-auto">
               <button
                 onClick={launchBooking}
-                className="inline-flex items-center gap-2.5 rounded-full bg-pink-600 hover:bg-pink-700 text-white px-7 py-3 text-xs font-bold uppercase tracking-widest transition-all duration-300 shadow-md shadow-pink-600/20"
+                className="w-full sm:w-auto justify-center inline-flex items-center gap-2 rounded-full bg-pink-600 hover:bg-pink-700 text-white px-5 sm:px-7 py-3 text-xs font-bold uppercase tracking-widest transition-all duration-300 shadow-md shadow-pink-600/20 active:scale-95"
               >
                 <Plus size={15} /> Select Services & Book
               </button>
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-8 items-start">
+          <div className="flex flex-col md:flex-row gap-6 sm:gap-8 items-start">
             {/* SIDEBAR FILTERS */}
             <aside className="w-full md:w-56 shrink-0 flex flex-row md:flex-col gap-2 overflow-x-auto pb-2 md:pb-0" style={{ scrollbarWidth: 'none' }}>
               {['CURRENT', 'COMPLETED', 'CANCELLED'].map((filter) => {
@@ -228,7 +229,7 @@ export default function HistoryPage() {
                   <button
                     key={filter}
                     onClick={() => setActiveFilter(filter as any)}
-                    className={`text-xs font-bold uppercase tracking-widest px-6 py-4 rounded-full transition-all whitespace-nowrap text-left ${
+                    className={`text-xs font-bold uppercase tracking-widest px-4 sm:px-6 py-2.5 sm:py-3.5 rounded-full transition-all whitespace-nowrap text-center md:text-left ${
                       isActive 
                         ? 'bg-pink-600 text-white shadow-md shadow-pink-600/20' 
                         : 'bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 border border-zinc-200/80'
@@ -241,7 +242,7 @@ export default function HistoryPage() {
             </aside>
 
             {/* APPOINTMENT LOGS */}
-            <section className="flex-1 w-full bg-white rounded-3xl border border-zinc-200/80 p-6 sm:p-8 shadow-sm flex flex-col justify-between min-h-[500px]">
+            <section className="flex-1 w-full bg-white rounded-2xl sm:rounded-3xl border border-zinc-200/80 p-4 sm:p-6 md:p-8 shadow-sm flex flex-col justify-between min-h-[500px]">
               <div>
                 <h3 className="font-serif text-xl font-medium text-zinc-900 mb-6 border-b border-zinc-100 pb-4">
                   {activeFilter === 'CURRENT' && 'Upcoming Bookings'}
@@ -308,11 +309,15 @@ export default function HistoryPage() {
                             <span className="font-medium">Payment Method: <strong className="font-bold text-zinc-900 uppercase">{appt.payment_method || 'Cash'}</strong></span>
                             <span className="text-zinc-300">•</span>
                             <span className="font-medium">Payment Status: <strong className={`font-bold uppercase ${
-                              (appt.payment_method === 'GCash' && appt.status !== 'Cancelled') || (appt as any).payment_status === 'Paid'
+                              appt.status === 'Cancelled' || appt.payment_status === 'Cancelled'
+                                ? 'text-red-600'
+                                : (appt.payment_status === 'Paid' || appt.payment_method === 'GCash')
                                 ? 'text-emerald-600'
                                 : 'text-amber-600'
                             }`}>
-                              {(appt as any).payment_status ? (appt as any).payment_status : (appt.payment_method === 'GCash' && appt.status !== 'Cancelled' ? 'Paid' : 'Pending')}
+                              {appt.status === 'Cancelled'
+                                ? 'Cancelled'
+                                : (appt.payment_status || (appt.payment_method === 'GCash' ? 'Paid' : 'Pending'))}
                             </strong></span>
                           </div>
 

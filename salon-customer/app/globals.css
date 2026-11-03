@@ -52,6 +52,11 @@
     @apply border-border;
   }
 
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
+
   html {
     background-color: #FFFBF2;
   }
