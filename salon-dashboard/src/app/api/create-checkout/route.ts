@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { appointmentId, amount, serviceName, customerName, email, phone } = body;
+    const { appointmentId, amount, serviceName, customerName, email, phone, returnUrl } = body;
 
     if (!appointmentId || !amount || !serviceName) {
       return NextResponse.json(
@@ -22,8 +23,17 @@ export async function POST(req: Request) {
 
     const authHeader = `Basic ${Buffer.from(secretKey + ':').toString('base64')}`;
 
-    // Host of the application to format absolute URLs for success/cancel
-    const originUrl = req.headers.get('origin') || 'http://localhost:3000';
+    // Determine host dynamically to handle local and deployed Vercel environments
+    const forwardedHost = req.headers.get('x-forwarded-host');
+    const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
+    const host = forwardedHost || req.headers.get('host');
+    const originUrl = req.headers.get('origin') || (host ? `${forwardedProto}://${host}` : 'http://localhost:3000');
+
+    // Default return destination is the existing Billing & Transactions page
+    const baseTarget = returnUrl || `${originUrl}/billing`;
+    const separator = baseTarget.includes('?') ? '&' : '?';
+    const successUrl = `${baseTarget}${separator}payment=success&ref=${appointmentId}`;
+    const cancelUrl = `${baseTarget}${separator}payment=cancelled&ref=${appointmentId}`;
 
     const payload = {
       data: {
@@ -45,12 +55,12 @@ export async function POST(req: Request) {
               quantity: 1,
             },
           ],
-          payment_method_types: ['card', 'gcash', 'paymaya', 'grab_pay', 'dob'],
+          payment_method_types: ['gcash', 'card', 'paymaya', 'grab_pay', 'dob'],
           reference_number: appointmentId,
           description: `Payment for ${serviceName}`,
-          success_url: `${originUrl}/success?ref=${appointmentId}`,
-          cancel_url: `${originUrl}/appointment?payment=cancelled`,
-          // We can also store metadata which will be available in the webhook event
+          success_url: successUrl,
+          cancel_url: cancelUrl,
+          // Store metadata which will be available in the webhook event
           metadata: {
             appointment_id: appointmentId,
             service_name: serviceName,
@@ -78,9 +88,46 @@ export async function POST(req: Request) {
       );
     }
 
+    const checkoutSessionId = data.data.id;
+
+    // Record pending billing entry with checkoutSessionId for backend verification
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const { data: existingBill } = await supabase
+        .from('billing')
+        .select('id')
+        .eq('appointment_id', appointmentId)
+        .maybeSingle();
+
+      if (existingBill) {
+        await supabase
+          .from('billing')
+          .update({
+            notes: `paymongo_session_id:${checkoutSessionId}`,
+            payment_method: 'GCash',
+          })
+          .eq('id', existingBill.id);
+      } else {
+        await supabase
+          .from('billing')
+          .insert({
+            appointment_id: appointmentId,
+            amount: Number(amount),
+            payment_method: 'GCash',
+            status: 'Pending',
+            notes: `paymongo_session_id:${checkoutSessionId}`,
+          });
+      }
+    } catch (dbErr) {
+      console.warn('[create-checkout] Could not record pending billing record:', dbErr);
+    }
+
     return NextResponse.json({
       checkout_url: data.data.attributes.checkout_url,
-      checkout_session_id: data.data.id,
+      checkout_session_id: checkoutSessionId,
     });
   } catch (error: any) {
     console.error('Error creating checkout session:', error);

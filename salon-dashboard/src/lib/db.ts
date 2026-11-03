@@ -994,6 +994,7 @@ export async function fulfillPaymentSuccess(input: {
         .update({
           status: "Completed",
           payment_method: paymentMethod || apt.payment_method || "GCash",
+          payment_status: "Paid",
         })
         .eq("id", appointmentId);
 
@@ -1003,6 +1004,12 @@ export async function fulfillPaymentSuccess(input: {
       }
       console.log(`✅ [PAYMENT FULFILLMENT] Appointment ${appointmentId} status updated to Completed.`);
     } else {
+      if (apt.payment_status !== "Paid") {
+        await supabase()
+          .from("appointments")
+          .update({ payment_status: "Paid" })
+          .eq("id", appointmentId);
+      }
       console.log(`ℹ️ [PAYMENT FULFILLMENT] Appointment ${appointmentId} was already Completed.`);
     }
 

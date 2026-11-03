@@ -112,6 +112,7 @@ function LoginContent() {
           checkAdminSession(false);
         }
       } else if (err) {
+        setShowForm(true);
         if (err === "auth_callback_failed") {
           setError("Authentication failed. Please try again.");
         } else if (err === "verification_required") {

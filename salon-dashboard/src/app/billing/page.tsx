@@ -41,6 +41,14 @@ interface PrintingReceiptData {
     changeDue: number;
 }
 
+interface CustomerOption {
+    id?: string | null;
+    name: string;
+    email?: string | null;
+    phone?: string | null;
+    pendingCount: number;
+}
+
 export default function BillingPage() {
     const [filterOpen, setFilterOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState("Pending"); 
@@ -66,15 +74,40 @@ export default function BillingPage() {
     const [receiptModalStep, setReceiptModalStep] = useState<
         'PAYMENT_SUCCESS' | 'SENDING' | 'RECEIPT_SUCCESS' | 'RECEIPT_ERROR' | 'MISSING_EMAIL'
     >('PAYMENT_SUCCESS');
+    const [isSendingReceiptModal, setIsSendingReceiptModal] = useState(false);
     const [receiptErrorMessage, setReceiptErrorMessage] = useState<string | null>(null);
+
+    // Customer-Based Payment Modal States
+    const [isCustomerPayModalOpen, setIsCustomerPayModalOpen] = useState(false);
+    const [customerPayStep, setCustomerPayStep] = useState<'SELECT_CUSTOMER' | 'SELECT_SERVICES'>('SELECT_CUSTOMER');
+    const [customerSearchTerm, setCustomerSearchTerm] = useState("");
+    const [customerSearchResults, setCustomerSearchResults] = useState<CustomerOption[]>([]);
+    const [searchingCustomers, setSearchingCustomers] = useState(false);
+    const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(null);
+    const [customerPendingAppointments, setCustomerPendingAppointments] = useState<Appointment[]>([]);
+    const [loadingCustomerAppointments, setLoadingCustomerAppointments] = useState(false);
+    const [selectedAppointmentIds, setSelectedAppointmentIds] = useState<string[]>([]);
+    const [selectedAppointmentsBatch, setSelectedAppointmentsBatch] = useState<Appointment[]>([]);
     const [paymentSuccessData, setPaymentSuccessData] = useState<{
         customerName: string;
         customerEmail: string | null;
+        serviceName: string;
         totalPaid: number;
         paymentMethod: string;
         cashReceived: number;
         change: number;
         appointmentId: string;
+    } | null>(null);
+
+    // PayMongo GCash Return & Verification States
+    const [showGcashSuccessModal, setShowGcashSuccessModal] = useState(false);
+    const [isVerifyingGcashPayment, setIsVerifyingGcashPayment] = useState(false);
+    const [isRedirectingToPayMongo, setIsRedirectingToPayMongo] = useState(false);
+    const [gcashSuccessData, setGcashSuccessData] = useState<{
+        appointmentId: string;
+        customerName: string;
+        serviceName: string;
+        amount: number;
     } | null>(null);
 
     const [salonInfo, setSalonInfo] = useState({
@@ -85,6 +118,7 @@ export default function BillingPage() {
     });
     const [cashierName, setCashierName] = useState("Staff");
     const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+    const [billingRecords, setBillingRecords] = useState<BillingRecord[]>([]);
     const [selectedBilling, setSelectedBilling] = useState<BillingRecord | null>(null);
     const [isSendingEmail, setIsSendingEmail] = useState<string | null>(null);
 
@@ -93,6 +127,13 @@ export default function BillingPage() {
             setLoading(true);
             const appts = await Appointments.list();
             setAppointments(appts);
+
+            try {
+                const bills = await Billing.list();
+                setBillingRecords(bills || []);
+            } catch (billErr) {
+                console.warn("Could not load billing records:", billErr);
+            }
             
             // Fetch salon settings
             const info = await SettingsDB.get("salon_info");
@@ -113,12 +154,71 @@ export default function BillingPage() {
         }
     };
 
+    const handleVerifyGcashReturn = async (appointmentId: string, sessionId?: string | null) => {
+        setIsVerifyingGcashPayment(true);
+        try {
+            const res = await fetch("/api/verify-payment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    appointmentId,
+                    sessionId: sessionId || undefined,
+                }),
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.verified) {
+                await loadData();
+                setGcashSuccessData({
+                    appointmentId,
+                    customerName: data.customerName || "Valued Customer",
+                    serviceName: data.serviceName || "Salon Service",
+                    amount: data.amount || 0,
+                });
+                setShowGcashSuccessModal(true);
+            } else {
+                addNotification(
+                    "Payment Incomplete",
+                    data.error || "The GCash payment has not been authorized or completed.",
+                    "billing"
+                );
+            }
+        } catch (err) {
+            console.error("Payment verification error:", err);
+            addNotification("Verification Error", "Failed to communicate with payment verification service.", "billing");
+        } finally {
+            setIsVerifyingGcashPayment(false);
+            if (typeof window !== "undefined") {
+                window.history.replaceState({}, "", window.location.pathname);
+            }
+        }
+    };
+
+    const handleCloseGcashSuccessModal = () => {
+        setShowGcashSuccessModal(false);
+        setGcashSuccessData(null);
+        if (typeof window !== "undefined") {
+            window.history.replaceState({}, "", window.location.pathname);
+        }
+        loadData();
+    };
+
     useEffect(() => {
         loadData();
 
         if (typeof window !== "undefined") {
             const params = new URLSearchParams(window.location.search);
-            if (params.get("gmail_auth") === "success") {
+            const paymentParam = params.get("payment");
+            const refParam = params.get("ref");
+            const sessionIdParam = params.get("session_id");
+
+            if (paymentParam === "success" && refParam) {
+                handleVerifyGcashReturn(refParam, sessionIdParam);
+            } else if (paymentParam === "cancelled") {
+                addNotification("Payment Cancelled", "The GCash payment was cancelled or not completed.", "billing");
+                window.history.replaceState({}, "", window.location.pathname);
+            } else if (params.get("gmail_auth") === "success") {
                 addNotification("Gmail Connected", "Gmail account authorized successfully for sending receipts.", "billing");
                 window.history.replaceState({}, "", window.location.pathname);
             } else if (params.get("gmail_error")) {
@@ -132,16 +232,23 @@ export default function BillingPage() {
         const fetchCheckoutUrl = async () => {
             if (paymentMethod.toLowerCase() === 'gcash' && selectedApt) {
                 setGeneratingQR(true);
-                const apptFee = selectedApt.price || 0;
+                const currentFee = selectedAppointmentsBatch.length > 0
+                    ? selectedAppointmentsBatch.reduce((sum, a) => sum + (a.price || 0), 0)
+                    : (selectedApt.price || 0);
+                const svcName = selectedAppointmentsBatch.length > 1
+                    ? `${selectedAppointmentsBatch.length} Services (${selectedAppointmentsBatch.map(s => s.service_name || s.services?.name || 'Service').join(', ')})`
+                    : (selectedApt.service_name || selectedApt.services?.name || 'Salon Service');
+                const custName = selectedCustomer?.name || selectedApt.customers?.name || selectedApt.customer_name || 'Guest';
+
                 try {
                     const response = await fetch('/api/create-checkout', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             appointmentId: selectedApt.id,
-                            amount: apptFee,
-                            serviceName: selectedApt.service_name || 'Salon Service',
-                            customerName: selectedApt.customers?.name || selectedApt.customer_name || 'Guest'
+                            amount: currentFee,
+                            serviceName: svcName,
+                            customerName: custName
                         })
                     });
                     const data = await response.json();
@@ -158,7 +265,7 @@ export default function BillingPage() {
             }
         };
         fetchCheckoutUrl();
-    }, [paymentMethod, selectedApt]);
+    }, [paymentMethod, selectedApt, selectedAppointmentsBatch, selectedCustomer]);
 
     const printReceiptDirectly = (receipt: PrintingReceiptData) => {
         let iframe = document.getElementById("receipt-direct-print-frame") as HTMLIFrameElement;
@@ -394,12 +501,293 @@ export default function BillingPage() {
 
     const paidTransactionsCount = appointments.filter(a => a.status === 'Completed').length;
 
+    const handleExportCSV = () => {
+        if (filteredAppointments.length === 0) {
+            addNotification("No Records to Export", "No billing transactions match the current filter and search query.", "billing");
+            return;
+        }
+
+        const escapeCSV = (value: string | number | null | undefined) => {
+            const str = value === null || value === undefined ? "" : String(value);
+            return `"${str.replace(/"/g, '""')}"`;
+        };
+
+        const headers = [
+            "Customer",
+            "Service",
+            "Amount",
+            "Payment Status",
+            "Transaction Date",
+            "Payment Method"
+        ];
+
+        const rows = filteredAppointments.map((trx) => {
+            const matchedBill = billingRecords.find(
+                (b) => b.appointment_id === trx.id || b.id === trx.id
+            );
+            const isPending = trx.status !== "Completed" && trx.status !== "Cancelled";
+            const customerName = trx.customers?.name || trx.customer_name || "Unknown";
+            const serviceName = trx.service_name || trx.services?.name || "Unknown Service";
+            const amount = trx.price ?? matchedBill?.amount ?? 0;
+            const paymentStatus = isPending ? "Pending Payment" : "Paid";
+            const transactionDate = trx.appointment_date
+                ? `${trx.appointment_date}${trx.appointment_time ? ` ${trx.appointment_time}` : ""}`
+                : matchedBill?.created_at
+                    ? new Date(matchedBill.created_at).toLocaleDateString()
+                    : trx.created_at
+                        ? new Date(trx.created_at).toLocaleDateString()
+                        : "N/A";
+            const paymentMethodValue =
+                trx.payment_method ||
+                matchedBill?.payment_method ||
+                (isPending ? "Pending" : "Cash");
+
+            return [
+                escapeCSV(customerName),
+                escapeCSV(serviceName),
+                escapeCSV(`₱${Number(amount).toLocaleString()}`),
+                escapeCSV(paymentStatus),
+                escapeCSV(transactionDate),
+                escapeCSV(paymentMethodValue),
+            ].join(",");
+        });
+
+        const csvContent = "\uFEFF" + [headers.map(escapeCSV).join(","), ...rows].join("\r\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        const dateStamp = new Date().toISOString().split("T")[0];
+        link.href = url;
+        link.setAttribute("download", `billing-transactions-${statusFilter.toLowerCase()}-${dateStamp}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     const handleOpenPayment = (apt: Appointment) => {
         setSelectedApt(apt);
+        setSelectedAppointmentsBatch([apt]);
+        setSelectedCustomer(apt.customers ? {
+            id: apt.customer_id,
+            name: apt.customers.name,
+            email: apt.customers.email,
+            phone: apt.customers.phone,
+            pendingCount: 1
+        } : {
+            id: apt.customer_id,
+            name: apt.customer_name || "Valued Customer",
+            pendingCount: 1
+        });
         setPaymentAmount(""); 
         setPaymentMethod("Cash");
         setSelectedBilling(null);
         setReceiptModalStep('PAYMENT_SUCCESS');
+    };
+
+    const handleOpenCustomerPayModal = () => {
+        setIsCustomerPayModalOpen(true);
+        setCustomerPayStep('SELECT_CUSTOMER');
+        setCustomerSearchTerm("");
+        setSelectedCustomer(null);
+        setSelectedAppointmentIds([]);
+        setCustomerPendingAppointments([]);
+
+        // Build initial customer list from currently loaded appointments that are pending
+        const pendingAppts = appointments.filter(a => a.status !== 'Completed' && a.status !== 'Cancelled');
+        const custMap = new Map<string, CustomerOption>();
+
+        for (const apt of pendingAppts) {
+            const name = apt.customers?.name || apt.customer_name || "Valued Customer";
+            const id = apt.customer_id;
+            const key = id || name.toLowerCase();
+
+            const existing = custMap.get(key);
+            if (existing) {
+                existing.pendingCount += 1;
+            } else {
+                custMap.set(key, {
+                    id: id,
+                    name: name,
+                    email: apt.customers?.email,
+                    phone: apt.customers?.phone,
+                    pendingCount: 1
+                });
+            }
+        }
+
+        setCustomerSearchResults(Array.from(custMap.values()));
+    };
+
+    const handleCustomerSearch = async (term: string) => {
+        setCustomerSearchTerm(term);
+        const trimmed = term.trim().toLowerCase();
+
+        // If search term is empty, restore initial list of customers with pending bookings
+        if (!trimmed) {
+            const pendingAppts = appointments.filter(a => a.status !== 'Completed' && a.status !== 'Cancelled');
+            const custMap = new Map<string, CustomerOption>();
+            for (const apt of pendingAppts) {
+                const name = apt.customers?.name || apt.customer_name || "Valued Customer";
+                const id = apt.customer_id;
+                const key = id || name.toLowerCase();
+                const existing = custMap.get(key);
+                if (existing) {
+                    existing.pendingCount += 1;
+                } else {
+                    custMap.set(key, {
+                        id: id,
+                        name: name,
+                        email: apt.customers?.email,
+                        phone: apt.customers?.phone,
+                        pendingCount: 1
+                    });
+                }
+            }
+            setCustomerSearchResults(Array.from(custMap.values()));
+            return;
+        }
+
+        // First, filter customers that have pending appointments
+        const pendingAppts = appointments.filter(a => a.status !== 'Completed' && a.status !== 'Cancelled');
+        const matchedPendingMap = new Map<string, CustomerOption>();
+        for (const apt of pendingAppts) {
+            const name = apt.customers?.name || apt.customer_name || "Valued Customer";
+            const email = apt.customers?.email || "";
+            const phone = apt.customers?.phone || "";
+            const id = apt.customer_id;
+
+            if (
+                name.toLowerCase().includes(trimmed) ||
+                email.toLowerCase().includes(trimmed) ||
+                phone.includes(trimmed)
+            ) {
+                const key = id || name.toLowerCase();
+                const existing = matchedPendingMap.get(key);
+                if (existing) {
+                    existing.pendingCount += 1;
+                } else {
+                    matchedPendingMap.set(key, {
+                        id,
+                        name,
+                        email,
+                        phone,
+                        pendingCount: 1
+                    });
+                }
+            }
+        }
+
+        // Also query Supabase customers table to find any registered customers matching the search
+        setSearchingCustomers(true);
+        try {
+            const supabase = createClient();
+            const { data: dbCustomers } = await supabase
+                .from("customers")
+                .select("id, name, email, phone")
+                .or(`name.ilike.%${trimmed}%,email.ilike.%${trimmed}%,phone.ilike.%${trimmed}%`)
+                .limit(10);
+
+            if (dbCustomers) {
+                for (const c of dbCustomers) {
+                    const key = c.id || c.name.toLowerCase();
+                    if (!matchedPendingMap.has(key)) {
+                        // Count how many pending appointments this customer has
+                        const pendingCount = appointments.filter(
+                            a => (a.customer_id === c.id || a.customer_name?.toLowerCase() === c.name.toLowerCase()) &&
+                                 a.status !== 'Completed' && a.status !== 'Cancelled'
+                        ).length;
+
+                        matchedPendingMap.set(key, {
+                            id: c.id,
+                            name: c.name,
+                            email: c.email,
+                            phone: c.phone,
+                            pendingCount
+                        });
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("Error searching customers:", err);
+        } finally {
+            setSearchingCustomers(false);
+            setCustomerSearchResults(Array.from(matchedPendingMap.values()));
+        }
+    };
+
+    const handleSelectCustomer = async (cust: CustomerOption) => {
+        setSelectedCustomer(cust);
+        setLoadingCustomerAppointments(true);
+        try {
+            const supabase = createClient();
+            let query = supabase
+                .from("appointments")
+                .select(`
+                    *,
+                    customers(id, name, email, phone),
+                    staff(name),
+                    services(name, price)
+                `)
+                .not("status", "in", '("Completed","Cancelled")')
+                .order("appointment_date", { ascending: false });
+
+            if (cust.id) {
+                query = query.or(`customer_id.eq.${cust.id},customer_name.ilike.%${cust.name}%`);
+            } else {
+                query = query.ilike("customer_name", cust.name);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            const apts = (data || []) as Appointment[];
+            setCustomerPendingAppointments(apts);
+            // Pre-select all eligible appointments
+            setSelectedAppointmentIds(apts.map(a => a.id!));
+            setCustomerPayStep('SELECT_SERVICES');
+        } catch (err) {
+            console.error("Failed to load customer pending appointments:", err);
+            addNotification("Error", "Failed to retrieve booked services.", "billing");
+        } finally {
+            setLoadingCustomerAppointments(false);
+        }
+    };
+
+    const toggleSelectAllServices = () => {
+        if (selectedAppointmentIds.length === customerPendingAppointments.length) {
+            setSelectedAppointmentIds([]);
+        } else {
+            setSelectedAppointmentIds(customerPendingAppointments.map(a => a.id!));
+        }
+    };
+
+    const toggleSelectService = (id: string) => {
+        setSelectedAppointmentIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const handleProceedToFinalizePayment = () => {
+        const selectedApts = customerPendingAppointments.filter(a => selectedAppointmentIds.includes(a.id!));
+        if (selectedApts.length === 0) return;
+
+        setSelectedAppointmentsBatch(selectedApts);
+        setSelectedApt(selectedApts[0]);
+        setIsCustomerPayModalOpen(false);
+        setPaymentAmount("");
+        setPaymentMethod("Cash");
+        setShowReceipt(false);
+    };
+
+    const handleGoBackFromPayment = () => {
+        setSelectedApt(null);
+        if (customerPendingAppointments.length > 0 && selectedCustomer) {
+            setIsCustomerPayModalOpen(true);
+            setCustomerPayStep('SELECT_SERVICES');
+        } else {
+            setSelectedAppointmentsBatch([]);
+        }
     };
 
     const handleViewReceipt = async (apt: Appointment) => {
@@ -483,7 +871,11 @@ export default function BillingPage() {
         const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement;
         const wantsPrint = submitter?.innerText.toLowerCase().includes('print');
         
-        if (!selectedApt) return;
+        const appointmentsToPay = selectedAppointmentsBatch.length > 0 
+            ? selectedAppointmentsBatch 
+            : (selectedApt ? [selectedApt] : []);
+
+        if (appointmentsToPay.length === 0) return;
         
         const currentTotal = totalWithTax;
 
@@ -501,17 +893,23 @@ export default function BillingPage() {
             const cashRec = paymentMethod.toLowerCase() === 'cash' ? Number(paymentAmount) : totalWithTax;
             const calcChange = Math.max(0, cashRec - billAmount);
 
-            // Fulfill payment success server-side idempotently
-            const res = await fulfillPaymentSuccess({
-                appointmentId: selectedApt.id!,
-                amount: billAmount,
-                cashReceived: cashRec,
-                paymentMethod: paymentMethod,
-                notes: `Payment for ${selectedApt.service_name || 'service'}`
-            });
+            // Fulfill payment for each selected appointment idempotently
+            for (let i = 0; i < appointmentsToPay.length; i++) {
+                const apt = appointmentsToPay[i];
+                const aptPrice = formatPrice(apt.price);
+                const aptCash = i === 0 ? cashRec : aptPrice;
 
-            if (!res.success) {
-                throw new Error(res.error || "Payment fulfillment failed");
+                const res = await fulfillPaymentSuccess({
+                    appointmentId: apt.id!,
+                    amount: aptPrice,
+                    cashReceived: aptCash,
+                    paymentMethod: paymentMethod,
+                    notes: `Payment for ${apt.service_name || apt.services?.name || 'service'}`
+                });
+
+                if (!res.success) {
+                    throw new Error(res.error || `Payment fulfillment failed for ${apt.service_name || 'service'}`);
+                }
             }
 
             addNotification("Success", "Payment confirmed successfully.", "billing");
@@ -521,21 +919,26 @@ export default function BillingPage() {
             }
             
             // Prepare success dashboard data
-            const custName = selectedApt.customers?.name || selectedApt.customer_name || "Valued Customer";
-            const custEmail = selectedApt.customers?.email || null;
+            const primaryApt = appointmentsToPay[0];
+            const custName = selectedCustomer?.name || primaryApt.customers?.name || primaryApt.customer_name || "Valued Customer";
+            const custEmail = selectedCustomer?.email || primaryApt.customers?.email || null;
+            const svcNames = appointmentsToPay.map(a => a.services?.name || a.service_name || "Salon Service").join(", ");
 
             setPaymentSuccessData({
                 customerName: custName,
                 customerEmail: custEmail,
+                serviceName: svcNames,
                 totalPaid: billAmount,
                 paymentMethod: paymentMethod,
                 cashReceived: cashRec,
                 change: calcChange,
-                appointmentId: selectedApt.id!
+                appointmentId: primaryApt.id!
             });
 
             // Transition from payment input modal to Payment Success Dashboard
             setSelectedApt(null);
+            setSelectedAppointmentsBatch([]);
+            setSelectedCustomer(null);
             setShowReceipt(false);
             setPaymentAmount("");
             setReceiptModalStep('PAYMENT_SUCCESS');
@@ -550,8 +953,9 @@ export default function BillingPage() {
     };
 
     const handleTriggerSendReceipt = async () => {
-        if (!paymentSuccessData || receiptModalStep === 'SENDING') return;
+        if (!paymentSuccessData || isSendingReceiptModal) return;
 
+        setIsSendingReceiptModal(true);
         setReceiptModalStep('SENDING');
 
         try {
@@ -583,6 +987,8 @@ export default function BillingPage() {
             console.error("Error sending receipt:", error);
             setReceiptErrorMessage("Something went wrong while sending the receipt. Please try again.");
             setReceiptModalStep('RECEIPT_ERROR');
+        } finally {
+            setIsSendingReceiptModal(false);
         }
     };
 
@@ -590,18 +996,24 @@ export default function BillingPage() {
         setShowSuccessModal(false);
         setReceiptModalStep('PAYMENT_SUCCESS');
         setPaymentSuccessData(null);
+        setIsSendingReceiptModal(false);
     };
-
-
 
     const formatPrice = (p: number | null | undefined) => p || 0;
     
     // Receipt Calculations
-    const apptFee = selectedApt ? formatPrice(selectedApt.price) : 0;
+    const apptFee = selectedAppointmentsBatch.length > 0
+        ? selectedAppointmentsBatch.reduce((sum, a) => sum + formatPrice(a.price), 0)
+        : (selectedApt ? formatPrice(selectedApt.price) : 0);
     const tax = 0; 
     const totalWithTax = apptFee + tax;
     const isAmountReceivedValid = parseInt(paymentAmount) >= totalWithTax;
     const change = Math.max(0, (parseInt(paymentAmount) || 0) - totalWithTax);
+
+    // Subtotal for customer-based payment selection
+    const selectedServicesSubtotal = customerPendingAppointments
+        .filter(a => selectedAppointmentIds.includes(a.id!))
+        .reduce((sum, a) => sum + formatPrice(a.price), 0);
 
     return (
         <div className="flex-1 flex flex-col h-full bg-[#FFFFFF] overflow-y-auto overflow-x-hidden w-full max-w-full">
@@ -692,6 +1104,26 @@ export default function BillingPage() {
                             )}
                         </div>
                     </div>
+
+                    {/* Export & Prominent Upper-Right Pay Buttons */}
+                    <div className="flex items-center justify-end gap-3 w-full md:w-auto">
+                        <button
+                            type="button"
+                            onClick={handleExportCSV}
+                            className="flex-1 md:flex-initial px-6 py-3 bg-white hover:bg-pink-50 border border-pink-200 text-pink-600 rounded-full font-bold shadow-sm hover:shadow active:scale-95 transition-all text-base flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+                        >
+                            <Download className="w-4 h-4 text-pink-500" />
+                            <span>Export</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleOpenCustomerPayModal}
+                            className="flex-1 md:flex-initial px-10 py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-full font-bold shadow-md shadow-pink-500/20 hover:shadow-lg hover:shadow-pink-500/30 active:scale-95 transition-all text-base flex items-center justify-center cursor-pointer whitespace-nowrap"
+                        >
+                            Pay
+                        </button>
+                    </div>
                 </div>
 
                 {loading ? (
@@ -769,44 +1201,353 @@ export default function BillingPage() {
                 )}
             </div>
 
+            {/* Customer-Based Payment Modal */}
+            {isCustomerPayModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200 print:hidden">
+                    <div className={`bg-white rounded-3xl w-full shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col border border-pink-100 overflow-hidden sm:min-h-[600px] max-h-[90vh] transition-all ${
+                        customerPayStep === 'SELECT_CUSTOMER' ? 'max-w-[580px]' : 'max-w-4xl'
+                    }`}>
+                        {/* Modal Header */}
+                        <div className="px-6 py-4.5 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10 shrink-0">
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-900">Select Customer for Payment</h3>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                    {customerPayStep === 'SELECT_CUSTOMER'
+                                        ? "Search for a customer to view and pay for their booked services"
+                                        : `Select services to pay for ${selectedCustomer?.name || 'Customer'}`}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsCustomerPayModalOpen(false)}
+                                className="text-gray-400 hover:text-pink-500 transition-colors p-1 rounded-full hover:bg-pink-50"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        {customerPayStep === 'SELECT_CUSTOMER' ? (
+                            <div className="p-6 sm:p-7 overflow-y-auto flex-1 space-y-4">
+                                <div className="space-y-4">
+                                    {/* Search Bar */}
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <Search className="h-4 w-4 text-gray-400" />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Search customer name..."
+                                            className="w-full pl-11 pr-10 py-3 rounded-2xl bg-gray-50/70 border border-pink-100 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm font-medium transition-all"
+                                            value={customerSearchTerm}
+                                            onChange={(e) => handleCustomerSearch(e.target.value)}
+                                            autoFocus
+                                        />
+                                        {searchingCustomers && (
+                                            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                                                <Loader2 className="w-4 h-4 animate-spin text-pink-500" />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Customers List */}
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center px-1">
+                                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                                {customerSearchTerm ? "Matching Customers" : "Customers with Pending Services"}
+                                            </span>
+                                            <span className="text-xs text-pink-600 font-semibold">
+                                                {customerSearchResults.length} customer{customerSearchResults.length !== 1 ? 's' : ''}
+                                            </span>
+                                        </div>
+
+                                        {customerSearchResults.length === 0 ? (
+                                            <div className="py-12 text-center space-y-2 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                                                <AlertCircle className="w-8 h-8 text-gray-300 mx-auto" />
+                                                <p className="text-sm font-bold text-gray-700">No customers found</p>
+                                                <p className="text-xs text-gray-400 max-w-xs mx-auto">
+                                                    {customerSearchTerm
+                                                        ? `No customer matching "${customerSearchTerm}". Try another name or phone number.`
+                                                        : "No customers currently have pending appointments."}
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-1">
+                                                {customerSearchResults.map((cust, idx) => (
+                                                    <div
+                                                        key={cust.id || `cust-${idx}`}
+                                                        onClick={() => handleSelectCustomer(cust)}
+                                                        className="p-3.5 rounded-2xl border border-gray-200 hover:border-pink-300 bg-white hover:bg-pink-50/30 transition-all cursor-pointer flex items-center justify-between group shadow-xs hover:shadow-md min-h-[66px]"
+                                                    >
+                                                        <div className="min-w-0 flex-1 pr-2.5">
+                                                            <h4 className="text-sm font-bold text-gray-900 truncate group-hover:text-pink-600 transition-colors">
+                                                                {cust.name}
+                                                            </h4>
+                                                            <p className="text-xs text-gray-500 truncate mt-0.5">
+                                                                {cust.phone || cust.email || "Registered Customer"}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right shrink-0">
+                                                            <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap ${
+                                                                cust.pendingCount > 0 
+                                                                    ? 'bg-pink-50 text-pink-600 border border-pink-200' 
+                                                                    : 'bg-gray-100 text-gray-500'
+                                                            }`}>
+                                                                {cust.pendingCount} pending
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            /* STEP 2: SELECT SERVICES (Dynamic Height & Scrollable) */
+                            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                                {/* Selected Customer Header Bar (Sticky) */}
+                                <div className="p-4 sm:px-7 sm:py-4 border-b border-gray-100 bg-pink-50/40 shrink-0 flex justify-between items-center">
+                                    <div className="min-w-0 flex-1 pr-3">
+                                        <h4 className="text-sm font-bold text-gray-900 truncate">{selectedCustomer?.name}</h4>
+                                        <p className="text-xs text-gray-500 truncate mt-1">
+                                            {selectedCustomer?.phone || selectedCustomer?.email || "Customer"}
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCustomerPayStep('SELECT_CUSTOMER')}
+                                        className="px-3.5 py-2 bg-white border border-pink-200 text-pink-600 hover:bg-pink-50 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs shrink-0 cursor-pointer"
+                                    >
+                                        <ArrowLeft className="w-3.5 h-3.5" />
+                                        <span>Change Customer</span>
+                                    </button>
+                                </div>
+
+                                {/* Dynamic & Independently Scrollable Services List Area */}
+                                <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-7 min-h-0 space-y-3.5">
+                                    {loadingCustomerAppointments ? (
+                                        <div className="py-20 text-center">
+                                            <Loader2 className="w-9 h-9 animate-spin text-pink-500 mx-auto" />
+                                            <p className="mt-3 text-xs font-semibold text-gray-500">Loading booked services...</p>
+                                        </div>
+                                    ) : customerPendingAppointments.length === 0 ? (
+                                        <div className="py-16 text-center space-y-3 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                                            <AlertCircle className="w-9 h-9 text-amber-500 mx-auto" />
+                                            <h4 className="text-sm font-bold text-gray-800">No Pending Services Found</h4>
+                                            <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                                                This customer currently has no unpaid or pending bookings. All scheduled services may have already been paid.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setCustomerPayStep('SELECT_CUSTOMER')}
+                                                className="mt-2 px-5 py-2.5 bg-pink-500 text-white rounded-xl text-xs font-bold hover:bg-pink-600 transition-colors shadow-sm cursor-pointer"
+                                            >
+                                                Select Another Customer
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        /* Services Table without Checkboxes */
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center px-1 pb-1">
+                                                <span className="text-xs text-gray-500 font-medium">
+                                                    Click any service row to include or exclude it from payment:
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={toggleSelectAllServices}
+                                                    className="text-xs font-bold text-pink-600 hover:text-pink-700 hover:underline cursor-pointer transition-colors"
+                                                >
+                                                    {selectedAppointmentIds.length === customerPendingAppointments.length ? "Deselect All" : "Select All"}
+                                                </button>
+                                            </div>
+
+                                            <div className="border border-pink-100 rounded-2xl shadow-xs bg-white overflow-hidden">
+                                                <table className="w-full table-fixed text-left text-xs">
+                                                    <colgroup>
+                                                        <col className="w-[27%]" />
+                                                        <col className="w-[21%]" />
+                                                        <col className="w-[18%]" />
+                                                        <col className="w-[16%]" />
+                                                        <col className="w-[18%]" />
+                                                    </colgroup>
+                                                    <thead className="bg-pink-50/60 border-b border-pink-100 text-gray-700">
+                                                        <tr>
+                                                            <th className="py-4 px-3 sm:px-4 font-bold text-pink-600 uppercase tracking-wider text-[11px] sm:text-xs">Service Name</th>
+                                                            <th className="py-4 px-3 sm:px-4 font-bold text-pink-600 uppercase tracking-wider text-[11px] sm:text-xs">Appointment Date</th>
+                                                            <th className="py-4 px-3 sm:px-4 font-bold text-pink-600 uppercase tracking-wider text-[11px] sm:text-xs">Assigned Staff</th>
+                                                            <th className="py-4 px-3 sm:px-4 font-bold text-pink-600 uppercase tracking-wider text-[11px] sm:text-xs text-right">Service Price</th>
+                                                            <th className="py-4 px-3 sm:px-4 font-bold text-pink-600 uppercase tracking-wider text-[11px] sm:text-xs text-center whitespace-nowrap">Payment Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100 bg-white">
+                                                        {customerPendingAppointments.map((apt) => {
+                                                            const isChecked = selectedAppointmentIds.includes(apt.id!);
+                                                            const formattedDate = apt.appointment_date || "Scheduled Date";
+                                                            const staffName = apt.staff?.name || apt.staff_name || "Assigned Staff";
+                                                            const serviceName = apt.services?.name || apt.service_name || "Salon Service";
+                                                            const price = formatPrice(apt.price);
+
+                                                            return (
+                                                                <tr
+                                                                    key={apt.id}
+                                                                    onClick={() => toggleSelectService(apt.id!)}
+                                                                    className={`transition-all cursor-pointer select-none ${
+                                                                        isChecked 
+                                                                            ? 'bg-pink-50/35 hover:bg-pink-50/60' 
+                                                                            : 'bg-white hover:bg-gray-50/80 opacity-50'
+                                                                    }`}
+                                                                >
+                                                                    <td className="py-4 sm:py-4.5 px-3 sm:px-4 font-bold text-gray-900">
+                                                                        <div className="flex items-center gap-2.5 min-w-0">
+                                                                            <span className={`w-2 h-2 rounded-full shrink-0 ${isChecked ? 'bg-pink-500' : 'bg-gray-300'}`} />
+                                                                            <span className="truncate">{serviceName}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="py-4 sm:py-4.5 px-3 sm:px-4 text-gray-600">
+                                                                        <div className="min-w-0">
+                                                                            <span className="font-semibold text-gray-800 text-xs">{formattedDate}</span>
+                                                                            {apt.appointment_time && (
+                                                                                <span className="block text-[11px] text-gray-400 mt-0.5 truncate">{apt.appointment_time}</span>
+                                                                            )}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="py-4 sm:py-4.5 px-3 sm:px-4 text-gray-600 font-medium">
+                                                                        <span className="truncate block">{staffName}</span>
+                                                                    </td>
+                                                                    <td className="py-4 sm:py-4.5 px-3 sm:px-4 font-extrabold text-pink-600 text-xs sm:text-sm text-right whitespace-nowrap">
+                                                                        ₱{price.toLocaleString()}
+                                                                    </td>
+                                                                    <td className="py-4 sm:py-4.5 px-3 sm:px-4 text-center">
+                                                                        <div className="flex justify-center items-center">
+                                                                            {isChecked ? (
+                                                                                <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shadow-xs whitespace-nowrap">
+                                                                                    Pending
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-100 text-gray-400 border border-gray-200 whitespace-nowrap">
+                                                                                    Excluded
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Modal Footer for Step 2 (Always Visible at Bottom) */}
+                                {customerPendingAppointments.length > 0 && (
+                                    <div className="p-5 sm:px-7 sm:py-5 border-t border-gray-100 bg-gray-50/80 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
+                                        <div className="text-left w-full sm:w-auto space-y-0.5">
+                                            <p className="text-xs text-gray-500 font-medium">
+                                                Selected services: <span className="font-bold text-gray-800">{selectedAppointmentIds.length}</span> of {customerPendingAppointments.length}
+                                            </p>
+                                            <p className="text-base sm:text-lg font-black text-pink-600 tracking-tight">
+                                                Total Amount: ₱{selectedServicesSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </p>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsCustomerPayModalOpen(false)}
+                                                className="h-11 px-5 bg-white border border-gray-300 text-gray-700 hover:text-gray-900 hover:bg-gray-50 hover:border-gray-400 rounded-xl font-bold transition-all text-xs sm:text-sm shadow-xs hover:shadow-sm active:scale-95 cursor-pointer whitespace-nowrap flex items-center justify-center"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={selectedAppointmentIds.length === 0}
+                                                onClick={handleProceedToFinalizePayment}
+                                                className={`h-11 px-6 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition-all whitespace-nowrap ${
+                                                    selectedAppointmentIds.length > 0
+                                                        ? 'bg-pink-500 hover:bg-pink-600 text-white shadow-md shadow-pink-500/25 hover:shadow-lg hover:shadow-pink-500/35 active:scale-95'
+                                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none border border-gray-200'
+                                                }`}
+                                            >
+                                                <span>Proceed to Payment</span>
+                                                <ArrowRight className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Payment Modal */}
             {selectedApt && !showReceipt && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200 print:hidden">
-                    <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col border border-pink-100 overflow-hidden">
-                        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                    <div className="bg-white rounded-3xl w-full max-w-[490px] shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col border border-pink-100 overflow-hidden">
+                        <div className="px-6 py-4.5 border-b border-gray-100 flex justify-between items-center">
                             <h3 className="text-xl font-bold text-gray-900">Finalize Payment</h3>
-                            <button onClick={() => setSelectedApt(null)} className="text-gray-400 hover:text-pink-500"><X className="w-5 h-5" /></button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSelectedApt(null);
+                                    setSelectedAppointmentsBatch([]);
+                                }}
+                                className="text-gray-400 hover:text-pink-500 transition-colors p-1"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
 
-                        <form onSubmit={handleConfirmPayment} className="p-6 space-y-6">
-                            <div className="space-y-3">
-                                <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">1. Payment Summary</h4>
-                                <div className="space-y-2 px-1">
-                                    <div className="flex justify-between text-base font-medium text-gray-500">
+                        <form onSubmit={handleConfirmPayment} className="p-6 space-y-4">
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">1. Payment Summary</h4>
+                                    {selectedAppointmentsBatch.length > 1 && (
+                                        <span className="text-[11px] font-semibold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full border border-pink-100">
+                                            {selectedAppointmentsBatch.length} Services Selected
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="bg-pink-50/40 border border-pink-100/80 rounded-2xl p-4 space-y-2">
+                                    {selectedAppointmentsBatch.length > 1 ? (
+                                        <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                                            {selectedAppointmentsBatch.map((apt) => (
+                                                <div key={apt.id} className="flex justify-between items-center text-xs text-gray-600">
+                                                    <span className="truncate max-w-[260px] font-medium">{apt.services?.name || apt.service_name || "Service"}</span>
+                                                    <span className="font-bold text-gray-900">₱{formatPrice(apt.price).toLocaleString()}</span>
+                                                </div>
+                                            ))}
+                                            <div className="h-px bg-pink-100 my-1" />
+                                        </div>
+                                    ) : null}
+                                    <div className="flex justify-between items-center text-sm font-medium text-gray-600">
                                         <span>Service Price:</span>
                                         <span className="text-gray-900 font-bold">₱{apptFee.toLocaleString()}</span>
                                     </div>
-                                    <div className="flex justify-between text-base font-medium text-gray-500">
+                                    <div className="flex justify-between items-center text-sm font-medium text-gray-600">
                                         <span>Tax (0%):</span>
                                         <span className="text-gray-900 font-bold">₱0.00</span>
                                     </div>
-                                    <div className="h-px bg-gray-100 my-2" />
-                                    <div className="flex justify-between text-base font-bold text-gray-900 items-center">
-                                        <div className="flex items-center gap-2">Total Amount:</div>
-                                        <span className="text-xl">₱{totalWithTax.toLocaleString()}</span>
+                                    <div className="h-px bg-pink-100 my-1" />
+                                    <div className="flex justify-between items-center text-sm font-bold text-gray-900">
+                                        <span className="text-gray-800">Total Amount:</span>
+                                        <span className="text-lg text-pink-600 font-extrabold">₱{totalWithTax.toLocaleString()}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-3">
-                                <h4 className="text-sm font-bold text-gray-800">2. Mode of Payment</h4>
+                            <div className="space-y-2.5">
+                                <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">2. Mode of Payment</h4>
                                 <div className="grid grid-cols-2 gap-3">
                                     {paymentMethods.map(m => (
                                         <button
                                             key={m.id}
                                             type="button"
                                             onClick={() => setPaymentMethod(m.name)}
-                                            className={`py-3 rounded-xl border font-bold text-sm transition-all ${paymentMethod === m.name ? 'bg-pink-50 border-pink-500 text-pink-600 shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-500'}`}
+                                            className={`py-2.5 px-4 rounded-xl border font-bold text-sm transition-all ${paymentMethod === m.name ? 'bg-pink-50 border-pink-500 text-pink-600 shadow-sm' : 'bg-gray-50/70 border-gray-200 text-gray-600 hover:bg-gray-100/60'}`}
                                         >
                                             {m.name}
                                         </button>
@@ -817,79 +1558,77 @@ export default function BillingPage() {
                                 </div>
                                 
                                 {paymentMethod.toLowerCase() === 'gcash' ? (
-                                    <div className="mt-4 flex flex-col items-center justify-center p-6 rounded-2xl bg-gray-50/50 border border-pink-100/50 shadow-inner">
-                                        <div className="text-center space-y-2">
-                                            <h4 className="text-sm font-bold text-gray-900">Redirect to PayMongo</h4>
-                                            <p className="text-xs text-gray-500 max-w-[250px] mx-auto leading-relaxed">
-                                                You will be directed to PayMongo's secure hosted payment page. The customer can complete their transaction there.
+                                    <div className="mt-3 flex flex-col items-center justify-center p-4 rounded-2xl bg-gray-50/70 border border-pink-100/60 shadow-inner">
+                                        <div className="text-center space-y-1">
+                                            <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Redirect to PayMongo</h4>
+                                            <p className="text-xs text-gray-500 max-w-[320px] mx-auto leading-relaxed">
+                                                You will be directed to PayMongo&apos;s secure hosted payment page. The customer can complete their transaction there.
                                             </p>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="relative mt-3">
-                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                            <PhilippinePeso className="h-4 w-4 text-gray-400" />
+                                    <div className="relative mt-2.5 space-y-2">
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                                <PhilippinePeso className="h-4 w-4 text-gray-400" />
+                                            </div>
+                                            <input
+                                                type="number"
+                                                required
+                                                placeholder="Amount Received"
+                                                className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border ${!isAmountReceivedValid && paymentAmount !== "" ? 'border-rose-400 focus:ring-rose-500' : 'border-gray-300 focus:ring-pink-500'} text-sm font-bold text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all font-sans`}
+                                                value={paymentAmount}
+                                                onChange={(e) => setPaymentAmount(e.target.value)}
+                                            />
                                         </div>
-                                        <input
-                                            type="number"
-                                            required
-                                            placeholder="Amount Received"
-                                            className={`w-full pl-10 pr-4 py-3 rounded-xl bg-white border ${!isAmountReceivedValid && paymentAmount !== "" ? 'border-rose-400 focus:ring-rose-500' : 'border-gray-400 focus:ring-pink-500'} text-base font-bold text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all font-sans`}
-                                            value={paymentAmount}
-                                            onChange={(e) => setPaymentAmount(e.target.value)}
-                                        />
                                         {!isAmountReceivedValid && paymentAmount !== "" ? (
-                                            <p className="text-[10px] text-rose-500 font-bold mt-1.5 px-1 animate-pulse">Insufficient amount to cover the total bill.</p>
+                                            <p className="text-[11px] text-rose-500 font-bold px-1 animate-pulse">Insufficient amount to cover the total bill.</p>
                                         ) : paymentAmount !== "" && (
-                                            <div className="mt-2 px-1 flex justify-between items-center bg-emerald-50 py-2 rounded-lg border border-emerald-100 animate-in slide-in-from-top-1">
-                                                <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Change Due:</span>
-                                                <span className="text-sm text-emerald-700 font-black">₱{change.toLocaleString()}</span>
+                                            <div className="px-3.5 py-2 flex justify-between items-center bg-emerald-50 rounded-xl border border-emerald-100 animate-in slide-in-from-top-1">
+                                                <span className="text-[11px] text-emerald-700 font-bold uppercase tracking-wider">Change Due:</span>
+                                                <span className="text-sm text-emerald-800 font-black">₱{change.toLocaleString()}</span>
                                             </div>
                                         )}
                                     </div>
                                 )}
                             </div>
 
-                            <div className="pt-4 flex items-center gap-4">
+                            <div className="pt-3 flex justify-between items-center">
+                                <button
+                                    type="button"
+                                    onClick={handleGoBackFromPayment}
+                                    className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-gray-500 hover:text-pink-600 transition-colors p-0 cursor-pointer active:scale-95"
+                                >
+                                    <ArrowLeft className="w-4 h-4" />
+                                    <span>Go Back</span>
+                                </button>
+
                                 {paymentMethod.toLowerCase() === 'gcash' ? (
                                     <button
                                         type="button"
-                                        disabled={!checkoutUrl || generatingQR}
+                                        disabled={!checkoutUrl || generatingQR || isRedirectingToPayMongo}
                                         onClick={() => {
-                                            if (checkoutUrl) window.open(checkoutUrl, '_blank');
+                                            if (checkoutUrl) {
+                                                setIsRedirectingToPayMongo(true);
+                                                window.location.href = checkoutUrl;
+                                            }
                                         }}
-                                        className={`w-full py-3.5 rounded-xl font-bold shadow-lg transition-all text-sm ${(!checkoutUrl || generatingQR) ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none border border-gray-200' : 'bg-pink-500 hover:bg-pink-600 text-white shadow-pink-200'}`}
+                                        className={`py-3 px-6 rounded-xl font-bold shadow-md transition-all text-sm ${(!checkoutUrl || generatingQR || isRedirectingToPayMongo) ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none border border-gray-200' : 'bg-pink-500 hover:bg-pink-600 text-white shadow-pink-200 cursor-pointer'}`}
                                     >
-                                        {generatingQR ? "Preparing Checkout..." : "Proceed to PayMongo"}
+                                        {isRedirectingToPayMongo ? "Redirecting to PayMongo..." : generatingQR ? "Preparing Checkout..." : "Proceed to PayMongo"}
                                     </button>
                                 ) : (
-                                    <>
-                                        <button
-                                            type="submit"
-                                            disabled={!isAmountReceivedValid}
-                                            className={`flex-[2] py-3.5 rounded-xl font-bold shadow-lg active:scale-95 transition-all text-sm ${isAmountReceivedValid ? 'bg-pink-400 hover:bg-pink-500 text-white shadow-pink-100' : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none border border-gray-200'}`}
-                                        >
-                                            Okay
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={!isAmountReceivedValid}
-                                            className={`flex-[3] py-3.5 rounded-xl font-bold shadow-lg active:scale-95 transition-all text-sm border-2 ${isAmountReceivedValid ? 'bg-white border-pink-400 text-pink-500 hover:bg-pink-50' : 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'}`}
-                                        >
-                                            Print Receipt
-                                        </button>
-                                        {(selectedApt as any)?.customers?.email && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSendReceiptEmail(selectedApt)}
-                                                disabled={isSendingEmail === selectedApt.id}
-                                                className="flex-1 p-3.5 rounded-xl font-bold shadow-lg active:scale-95 transition-all bg-gray-900 text-white hover:bg-black flex items-center justify-center"
-                                                title="Send to Gmail"
-                                            >
-                                                {isSendingEmail === selectedApt.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mail className="w-5 h-5" />}
-                                            </button>
-                                        )}
-                                    </>
+                                    <button
+                                        type="submit"
+                                        disabled={!isAmountReceivedValid}
+                                        className={`py-3 px-6 rounded-xl font-bold shadow-md active:scale-95 transition-all text-sm cursor-pointer min-w-[130px] text-center ${
+                                            isAmountReceivedValid 
+                                                ? 'bg-pink-500 hover:bg-pink-600 text-white shadow-pink-500/25 hover:shadow-pink-500/35' 
+                                                : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none border border-gray-200'
+                                        }`}
+                                    >
+                                        Next
+                                    </button>
                                 )}
                             </div>
                         </form>
@@ -901,7 +1640,7 @@ export default function BillingPage() {
             {/* Payment Success & Receipt Modal Workflow */}
             {showSuccessModal && paymentSuccessData && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200 print:hidden">
-                    <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col border border-pink-100 overflow-hidden text-center p-6 sm:p-8">
+                    <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col border border-pink-100 overflow-hidden text-center p-6 sm:p-8">
                         
                         {/* STEP 1: PAYMENT SUCCESSFUL MODAL */}
                         {receiptModalStep === 'PAYMENT_SUCCESS' && (
@@ -912,48 +1651,49 @@ export default function BillingPage() {
 
                                 <h3 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Payment Successful!</h3>
 
-                                <p className="text-gray-600 text-xs sm:text-sm mt-3 leading-relaxed">
-                                    The payment for,<br />
-                                    <span className="font-extrabold text-pink-600 text-base sm:text-lg block my-1">
-                                        &quot;{paymentSuccessData.customerName}&quot;
-                                    </span>
-                                    is successful!
+                                <p className="text-gray-600 text-xs sm:text-sm mt-2 leading-relaxed">
+                                    Your payment has been successfully processed. Would you like to send the receipt to the customer&apos;s registered email address?
                                 </p>
 
-                                <div className="bg-pink-50/50 border border-pink-100/80 rounded-2xl p-3.5 my-4 text-left text-xs space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-500 font-medium">Payment Method:</span>
-                                        <span className="font-bold text-gray-800">{paymentSuccessData.paymentMethod}</span>
+                                <div className="bg-pink-50/40 border border-pink-100 rounded-2xl p-4 my-5 text-left text-xs space-y-2.5">
+                                    <div className="flex justify-between items-center gap-3">
+                                        <span className="text-gray-500 font-medium shrink-0">Customer Name:</span>
+                                        <span className="font-bold text-gray-900 truncate text-right">{paymentSuccessData.customerName}</span>
                                     </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-500 font-medium">Total Paid:</span>
+                                    <div className="flex justify-between items-center gap-3">
+                                        <span className="text-gray-500 font-medium shrink-0">Service Name:</span>
+                                        <span className="font-semibold text-gray-800 truncate text-right">{paymentSuccessData.serviceName}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center gap-3">
+                                        <span className="text-gray-500 font-medium shrink-0">Total Amount:</span>
                                         <span className="font-extrabold text-pink-600 text-sm">₱{paymentSuccessData.totalPaid.toLocaleString()}</span>
                                     </div>
-                                    {paymentSuccessData.paymentMethod.toLowerCase() === 'cash' && (
-                                        <div className="flex justify-between items-center pt-1 border-t border-pink-100/50">
-                                            <span className="text-gray-500 font-medium">Change:</span>
-                                            <span className="font-bold text-emerald-600">₱{paymentSuccessData.change.toLocaleString()}</span>
-                                        </div>
-                                    )}
+                                    <div className="flex justify-between items-center gap-3">
+                                        <span className="text-gray-500 font-medium shrink-0">Payment Method:</span>
+                                        <span className="font-bold text-gray-800">{paymentSuccessData.paymentMethod}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center gap-3 pt-2 border-t border-pink-100/70">
+                                        <span className="text-gray-500 font-medium shrink-0">Customer Email:</span>
+                                        <span className="font-medium text-gray-700 truncate text-right max-w-[200px]" title={paymentSuccessData.customerEmail || "No registered email"}>
+                                            {paymentSuccessData.customerEmail || <span className="text-gray-400 italic">No registered email</span>}
+                                        </span>
+                                    </div>
                                 </div>
 
-                                <p className="text-gray-500 text-xs font-medium italic mb-5">
-                                    Thank you for booking with us!<br />Come again!
-                                </p>
-
-                                <div className="flex items-center gap-3 pt-2">
+                                <div className="flex items-center gap-3 pt-1">
                                     <button
                                         type="button"
                                         onClick={handleCloseSuccessModal}
-                                        className="flex-1 py-3 px-3 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-bold transition-all text-xs sm:text-sm shadow-sm active:scale-95"
+                                        className="flex-1 py-3 px-4 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-bold transition-all text-xs sm:text-sm shadow-sm active:scale-95"
                                     >
-                                        Cancel
+                                        Close
                                     </button>
 
                                     <button
                                         type="button"
+                                        disabled={isSendingReceiptModal}
                                         onClick={handleTriggerSendReceipt}
-                                        className="flex-1 py-3 px-3 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold transition-all text-xs sm:text-sm shadow-lg shadow-pink-500/20 flex items-center justify-center gap-1.5 active:scale-95"
+                                        className="flex-1 py-3 px-4 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white rounded-xl font-bold transition-all text-xs sm:text-sm shadow-lg shadow-pink-500/20 flex items-center justify-center gap-1.5 active:scale-95"
                                     >
                                         <Mail className="w-4 h-4" />
                                         <span>Send Receipt</span>
@@ -993,7 +1733,7 @@ export default function BillingPage() {
                                     onClick={handleCloseSuccessModal}
                                     className="w-full py-3.5 px-4 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold transition-all text-sm shadow-lg shadow-pink-500/20 active:scale-95"
                                 >
-                                    OK
+                                    Close
                                 </button>
                             </div>
                         )}
@@ -1006,19 +1746,28 @@ export default function BillingPage() {
                                 </div>
 
                                 <h3 className="text-xl font-bold text-gray-900 tracking-tight mb-3">Unable to Send Receipt</h3>
-                                <p className="text-gray-600 text-xs sm:text-sm leading-relaxed mb-4 max-w-[270px] mx-auto">
+                                <p className="text-gray-600 text-xs sm:text-sm leading-relaxed mb-5 max-w-[270px] mx-auto">
                                     {receiptErrorMessage || (
                                         <>Something went wrong while sending the receipt.<br />Please try again.</>
                                     )}
                                 </p>
 
-                                <button
-                                    type="button"
-                                    onClick={() => setReceiptModalStep('PAYMENT_SUCCESS')}
-                                    className="w-full py-3.5 px-4 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold transition-all text-sm shadow-lg shadow-pink-500/20 active:scale-95"
-                                >
-                                    OK
-                                </button>
+                                <div className="flex items-center gap-3 w-full">
+                                    <button
+                                        type="button"
+                                        onClick={handleCloseSuccessModal}
+                                        className="flex-1 py-3 px-3 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl font-bold transition-all text-xs sm:text-sm shadow-sm active:scale-95"
+                                    >
+                                        Close
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setReceiptModalStep('PAYMENT_SUCCESS')}
+                                        className="flex-1 py-3 px-3 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold transition-all text-xs sm:text-sm shadow-lg shadow-pink-500/20 active:scale-95"
+                                    >
+                                        Back
+                                    </button>
+                                </div>
                             </div>
                         )}
 
@@ -1036,13 +1785,104 @@ export default function BillingPage() {
 
                                 <button
                                     type="button"
-                                    onClick={() => setReceiptModalStep('PAYMENT_SUCCESS')}
+                                    onClick={handleCloseSuccessModal}
                                     className="w-full py-3.5 px-4 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold transition-all text-sm shadow-lg shadow-pink-500/20 active:scale-95"
                                 >
-                                    OK
+                                    Close
                                 </button>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* PayMongo Return Verification Loader */}
+            {isVerifyingGcashPayment && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-xs animate-in fade-in duration-200 print:hidden">
+                    <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col border border-pink-100 overflow-hidden text-center p-6 sm:p-8">
+                        <div className="w-16 h-16 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-pink-100 shadow-inner">
+                            <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 tracking-tight">Verifying Payment...</h3>
+                        <p className="text-gray-500 text-xs mt-1 leading-relaxed">
+                            Please wait while we confirm your GCash transaction with PayMongo.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* Redesigned GCash Payment Success Modal */}
+            {showGcashSuccessModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-xs animate-in fade-in duration-200 print:hidden">
+                    <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-200 flex flex-col border border-pink-100 overflow-hidden text-center p-6 sm:p-8">
+                        {/* Upper-right Close Button */}
+                        <button
+                            type="button"
+                            onClick={handleCloseGcashSuccessModal}
+                            aria-label="Close modal"
+                            className="absolute right-4 top-4 text-gray-400 hover:text-pink-500 transition-colors p-1.5 rounded-full hover:bg-pink-50 cursor-pointer"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        {/* Pink Circular Success Icon with Checkmark */}
+                        <div className="w-16 h-16 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-pink-100 shadow-sm">
+                            <CheckCircle2 className="w-9 h-9 text-pink-500" />
+                        </div>
+
+                        {/* Heading */}
+                        <h3 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                            Payment Successful!
+                        </h3>
+
+                        {/* Supporting Text */}
+                        <p className="text-gray-600 text-xs sm:text-sm mt-2 leading-relaxed">
+                            Your GCash payment has been authorized successfully.
+                        </p>
+
+                        {/* Additional Message */}
+                        <p className="text-pink-600 font-semibold text-xs sm:text-sm mt-1">
+                            Thank you for your payment!
+                        </p>
+
+                        {/* Transaction Details (if available) */}
+                        {gcashSuccessData && (
+                            <div className="bg-pink-50/40 border border-pink-100 rounded-2xl p-4 my-5 text-left text-xs space-y-2">
+                                <div className="flex justify-between items-center gap-3">
+                                    <span className="text-gray-500 font-medium">Customer:</span>
+                                    <span className="font-bold text-gray-900 truncate text-right">
+                                        {gcashSuccessData.customerName}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center gap-3">
+                                    <span className="text-gray-500 font-medium">Service:</span>
+                                    <span className="font-semibold text-gray-800 truncate text-right">
+                                        {gcashSuccessData.serviceName}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center gap-3">
+                                    <span className="text-gray-500 font-medium">Payment Method:</span>
+                                    <span className="font-bold text-gray-800">GCash (PayMongo)</span>
+                                </div>
+                                <div className="flex justify-between items-center gap-3 pt-2 border-t border-pink-100/70">
+                                    <span className="text-gray-500 font-medium">Total Paid:</span>
+                                    <span className="font-extrabold text-pink-600 text-sm">
+                                        ₱{Number(gcashSuccessData.amount || 0).toLocaleString()}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Prominent Pink Button labeled "Back to Billing" */}
+                        <div className="pt-2">
+                            <button
+                                type="button"
+                                onClick={handleCloseGcashSuccessModal}
+                                className="w-full py-3.5 px-6 bg-pink-500 hover:bg-pink-600 text-white rounded-full font-bold shadow-md shadow-pink-500/25 hover:shadow-lg hover:shadow-pink-500/35 active:scale-95 transition-all text-sm sm:text-base cursor-pointer"
+                            >
+                                Back to Billing
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

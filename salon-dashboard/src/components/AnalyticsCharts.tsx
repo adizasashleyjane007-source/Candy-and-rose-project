@@ -353,9 +353,16 @@ export function TopStaffChart({ selectedMonth: globalSelectedMonth }: { selected
     const [loading, setLoading] = useState(true);
     const [isMounted, setIsMounted] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
         setIsMounted(true);
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 640);
+        };
+        handleResize();
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
     }, []);
 
     useEffect(() => {
@@ -384,8 +391,9 @@ export function TopStaffChart({ selectedMonth: globalSelectedMonth }: { selected
                 const revenueMap: Record<string, number> = {};
                 filteredApps.forEach((apt) => {
                     const stfName = apt.staff?.name || apt.staff_name;
-                    if (stfName) {
-                        revenueMap[stfName] = (revenueMap[stfName] || 0) + (apt.price || 0);
+                    if (stfName && stfName.trim()) {
+                        const cleanName = stfName.trim();
+                        revenueMap[cleanName] = (revenueMap[cleanName] || 0) + (apt.price || 0);
                     }
                 });
 
@@ -405,6 +413,12 @@ export function TopStaffChart({ selectedMonth: globalSelectedMonth }: { selected
 
         loadData();
     }, [currentMonthIdx]);
+
+    // Calculate dynamic width for YAxis to ensure complete visibility of staff names
+    const maxNameLength = staffDataList.reduce((max, item) => Math.max(max, (item.name || "").length), 0);
+    const dynamicYAxisWidth = isMobile
+        ? Math.max(90, Math.min(130, maxNameLength * 7.5 + 15))
+        : Math.max(115, Math.min(170, maxNameLength * 8.5 + 20));
 
     return (
         <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full min-h-[400px] min-w-0">
@@ -431,15 +445,66 @@ export function TopStaffChart({ selectedMonth: globalSelectedMonth }: { selected
                     <div className="w-full h-full min-h-[300px] flex items-center justify-center">
                         <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
                     </div>
+                ) : staffDataList.length === 0 ? (
+                    <div className="w-full h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6">
+                        <p className="text-sm font-semibold text-gray-500">No staff revenue recorded for this period</p>
+                        <p className="text-xs text-gray-400 mt-1">Completed appointments with assigned staff will appear here.</p>
+                    </div>
                 ) : (
                     <div className="w-full h-full min-h-[300px] min-w-0">
                         <ResponsiveContainer width="100%" height={300} minWidth={0}>
-                            <BarChart data={staffDataList} layout="vertical" margin={{ top: 0, right: 30, left: -40, bottom: 0 }}>
-                                <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" stroke="#111827" fontSize={13} fontWeight={600} tickLine={false} axisLine={false} width={120} />
-                                <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "12px", border: "1px solid #f1f5f9" }} formatter={(value: any) => [`₱${Number(value).toLocaleString()}`, 'Revenue']} />
-                                <Bar dataKey="revenue" fill="#ec4899" radius={[0, 6, 6, 0]} barSize={24}>
-                                    <LabelList dataKey="revenue" position="right" fill="#111827" fontSize={13} fontWeight={700} formatter={(value: any) => `₱${Number(value).toLocaleString()}`} />
+                            <BarChart
+                                data={staffDataList}
+                                layout="vertical"
+                                margin={{
+                                    top: 10,
+                                    right: isMobile ? 85 : 110,
+                                    left: isMobile ? 5 : 15,
+                                    bottom: 10,
+                                }}
+                            >
+                                <XAxis
+                                    type="number"
+                                    hide
+                                    domain={[0, (dataMax: number) => (dataMax > 0 ? Math.ceil(dataMax * 1.25) : 100)]}
+                                />
+                                <YAxis
+                                    dataKey="name"
+                                    type="category"
+                                    stroke="#111827"
+                                    fontSize={isMobile ? 11 : 13}
+                                    fontWeight={600}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    width={dynamicYAxisWidth}
+                                    tick={{ fill: "#111827" }}
+                                />
+                                <Tooltip
+                                    cursor={{ fill: "#f8fafc" }}
+                                    contentStyle={{ borderRadius: "12px", border: "1px solid #f1f5f9" }}
+                                    formatter={(value: any) => [
+                                        `₱${Number(value || 0).toLocaleString(undefined, {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                        })}`,
+                                        'Revenue',
+                                    ]}
+                                />
+                                <Bar dataKey="revenue" fill="#ec4899" radius={[0, 6, 6, 0]} barSize={isMobile ? 20 : 24}>
+                                    <LabelList
+                                        dataKey="revenue"
+                                        position="right"
+                                        fill="#111827"
+                                        fontSize={isMobile ? 11 : 12}
+                                        fontWeight={700}
+                                        offset={10}
+                                        formatter={(value: any) =>
+                                            `₱${Number(value || 0).toLocaleString(undefined, {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2,
+                                            })}`
+                                        }
+                                    />
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>

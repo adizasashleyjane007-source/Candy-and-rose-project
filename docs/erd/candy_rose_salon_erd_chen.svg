@@ -1,0 +1,1354 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5600 4200" width="5600" height="4200" font-family="'Segoe UI', Inter, Arial, sans-serif">
+    <defs>
+        <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.10" />
+        </filter>
+        <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.07" />
+        </filter>
+    </defs>
+
+    <!-- Background -->
+    <rect x="0" y="0" width="5600" height="4200" fill="#FFFFFF" />
+
+    <!-- Header Banner -->
+    <rect x="80" y="30" width="5440" height="96" rx="18" fill="#FDF2F8" stroke="#F472B6" stroke-width="2.5" />
+    <text x="2800" y="72" text-anchor="middle" font-size="30" font-weight="800" fill="#831843" letter-spacing="1">
+        CANDY AND ROSE SALON MANAGEMENT INFORMATION SYSTEM — COMPLETE CHEN NOTATION ERD
+    </text>
+    <text x="2800" y="105" text-anchor="middle" font-size="16" font-weight="600" fill="#9D174D">
+        Verified Supabase PostgreSQL Schema (21 Entities • 15 Foreign Key Relationships • Traditional Chen Notation: Rectangles = Entities, Ovals = Attributes, Diamonds = Relationships)
+    </text>
+
+    <g>
+        <rect x="80" y="150" width="5440" height="720" rx="22" fill="#FDF2F8" stroke="#FBCFE8" stroke-width="2.5" stroke-dasharray="10,6" />
+        <rect x="104" y="166" width="571.5" height="34" rx="8" fill="#FFFFFF" stroke="#FBCFE8" stroke-width="1.5" />
+        <text x="122" y="189" font-size="15" font-weight="800" fill="#334155" letter-spacing="0.8">1. USER, AUTHENTICATION &amp; ACCOUNT MANAGEMENT MODULE</text>
+    </g>
+    <g>
+        <rect x="80" y="910" width="3560" height="980" rx="22" fill="#FFFDF9" stroke="#FDE68A" stroke-width="2.5" stroke-dasharray="10,6" />
+        <rect x="104" y="926" width="529.5" height="34" rx="8" fill="#FFFFFF" stroke="#FDE68A" stroke-width="1.5" />
+        <text x="122" y="949" font-size="15" font-weight="800" fill="#334155" letter-spacing="0.8">2. CUSTOMER, EMPLOYEE &amp; STAFF MANAGEMENT MODULE</text>
+    </g>
+    <g>
+        <rect x="3680" y="910" width="1840" height="1960" rx="22" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="2.5" stroke-dasharray="10,6" />
+        <rect x="3704" y="926" width="603" height="34" rx="8" fill="#FFFFFF" stroke="#DDD6FE" stroke-width="1.5" />
+        <text x="3722" y="949" font-size="15" font-weight="800" fill="#334155" letter-spacing="0.8">3. AI-INTEGRATED NAIL CUSTOMIZATION &amp; 3D STUDIO MODULE</text>
+    </g>
+    <g>
+        <rect x="80" y="1930" width="3560" height="940" rx="22" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="2.5" stroke-dasharray="10,6" />
+        <rect x="104" y="1946" width="592.5" height="34" rx="8" fill="#FFFFFF" stroke="#BBF7D0" stroke-width="1.5" />
+        <text x="122" y="1969" font-size="15" font-weight="800" fill="#334155" letter-spacing="0.8">4. APPOINTMENT, SCHEDULING, SERVICES &amp; REVIEWS MODULE</text>
+    </g>
+    <g>
+        <rect x="80" y="2910" width="2300" height="1180" rx="22" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="2.5" stroke-dasharray="10,6" />
+        <rect x="104" y="2926" width="456" height="34" rx="8" fill="#FFFFFF" stroke="#BFDBFE" stroke-width="1.5" />
+        <text x="122" y="2949" font-size="15" font-weight="800" fill="#334155" letter-spacing="0.8">5. BILLING &amp; PAYMENT TRANSACTIONS MODULE</text>
+    </g>
+    <g>
+        <rect x="2420" y="2910" width="3100" height="1180" rx="22" fill="#FFF1F2" stroke="#FECDD3" stroke-width="2.5" stroke-dasharray="10,6" />
+        <rect x="2444" y="2926" width="708" height="34" rx="8" fill="#FFFFFF" stroke="#FECDD3" stroke-width="1.5" />
+        <text x="2462" y="2949" font-size="15" font-weight="800" fill="#334155" letter-spacing="0.8">6. INVENTORY, PROMOTIONS, NOTIFICATIONS &amp; SYSTEM SETTINGS MODULE</text>
+    </g>
+    <line x1="2200" y1="510" x2="1120" y2="580" stroke="#BE185D" stroke-width="3" />
+    <line x1="1120" y1="580" x2="620" y2="510" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="1573.6" cy="550.5999999999999" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="1573.6" y="555.5999999999999" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="909.9999999999999" cy="550.5999999999999" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="909.9999999999999" y="555.5999999999999" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+    </g>
+    <line x1="2200" y1="510" x2="1790" y2="440" stroke="#BE185D" stroke-width="3" />
+    <line x1="1790" y1="440" x2="1380" y2="380" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="1962.1999999999998" cy="469.4" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="1962.1999999999998" y="474.4" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="1617.7999999999997" cy="414.79999999999995" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="1617.7999999999997" y="419.79999999999995" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">N</text>
+    </g>
+    <line x1="2200" y1="510" x2="2690" y2="440" stroke="#BE185D" stroke-width="3" />
+    <line x1="2690" y1="440" x2="3180" y2="380" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="2484.2" cy="469.4" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="2484.2" y="474.4" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="2895.7999999999997" cy="414.79999999999995" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="2895.7999999999997" y="419.79999999999995" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">N</text>
+    </g>
+    <line x1="2200" y1="510" x2="3650" y2="550" stroke="#BE185D" stroke-width="3" />
+    <line x1="3650" y1="550" x2="4550" y2="510" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="3041" cy="533.2" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="3041" y="538.2" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="4028" cy="533.2" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="4028" y="538.2" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">N</text>
+    </g>
+    <line x1="2200" y1="510" x2="3750" y2="830" stroke="#BE185D" stroke-width="3" />
+    <line x1="3750" y1="830" x2="4650" y2="1220" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="3099" cy="695.5999999999999" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="3099" y="700.5999999999999" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="4128" cy="993.8" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="4128" y="998.8" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">N</text>
+    </g>
+    <line x1="2200" y1="510" x2="2020" y2="940" stroke="#BE185D" stroke-width="3" />
+    <line x1="2020" y1="940" x2="1850" y2="1380" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="2095.6" cy="759.3999999999999" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="2095.6" y="764.3999999999999" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="1948.6" cy="1124.8" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="1948.6" y="1129.8" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+    </g>
+    <line x1="1850" y1="1380" x2="1200" y2="1300" stroke="#BE185D" stroke-width="3" />
+    <line x1="1200" y1="1300" x2="580" y2="1220" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="1473" cy="1333.6" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="1473" y="1338.6" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="939.6" cy="1266.4" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="939.6" y="1271.4" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">N</text>
+    </g>
+    <line x1="1850" y1="1380" x2="1140" y2="1780" stroke="#BE185D" stroke-width="3" />
+    <line x1="1140" y1="1780" x2="560" y2="2150" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="1438.1999999999998" cy="1612" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="1438.1999999999998" y="1617" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="896.3999999999999" cy="1935.3999999999999" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="896.3999999999999" y="1940.3999999999999" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">N</text>
+    </g>
+    <line x1="1850" y1="1380" x2="3500" y2="1760" stroke="#BE185D" stroke-width="3" />
+    <line x1="3500" y1="1760" x2="4650" y2="2150" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="2807" cy="1600.4" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="2807" y="1605.4" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="3983" cy="1923.8" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="3983" y="1928.8" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">N</text>
+    </g>
+    <line x1="1850" y1="1380" x2="1850" y2="1860" stroke="#BE185D" stroke-width="3" />
+    <line x1="1850" y1="1860" x2="1850" y2="2380" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="1850" cy="1658.4" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="1850" y="1663.4" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="1850" cy="2078.3999999999996" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="1850" y="2083.3999999999996" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">N</text>
+    </g>
+    <line x1="1850" y1="1380" x2="1020" y2="2560" stroke="#BE185D" stroke-width="3" />
+    <line x1="1020" y1="2560" x2="1180" y2="3480" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="1368.6" cy="2064.4" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="1368.6" y="2069.4" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="1087.1999999999998" cy="2946.3999999999996" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="1087.1999999999998" y="2951.3999999999996" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">N</text>
+    </g>
+    <line x1="3050" y1="1250" x2="2520" y2="1840" stroke="#BE185D" stroke-width="3" />
+    <line x1="2520" y1="1840" x2="1850" y2="2380" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="2742.6" cy="1592.1999999999998" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="2742.6" y="1597.1999999999998" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="2238.6" cy="2066.7999999999997" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="2238.6" y="2071.7999999999997" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">N</text>
+    </g>
+    <line x1="3050" y1="1250" x2="3135" y2="1470" stroke="#BE185D" stroke-width="3" />
+    <line x1="3135" y1="1470" x2="3220" y2="1690" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="3099.3" cy="1377.6" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="3099.3" y="1382.6" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="3170.7" cy="1562.3999999999999" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="3170.7" y="1567.3999999999999" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">N</text>
+    </g>
+    <line x1="3180" y1="2450" x2="2560" y2="2415" stroke="#BE185D" stroke-width="3" />
+    <line x1="2560" y1="2415" x2="1850" y2="2380" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="2820.3999999999996" cy="2429.7" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="2820.3999999999996" y="2434.7" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="2261.8" cy="2400.2999999999997" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="2261.8" y="2405.2999999999997" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">N</text>
+    </g>
+    <line x1="1850" y1="2380" x2="1510" y2="2980" stroke="#BE185D" stroke-width="3" />
+    <line x1="1510" y1="2980" x2="1180" y2="3480" stroke="#BE185D" stroke-width="3" />
+    <g filter="url(#softShadow)">
+        <circle cx="1652.8" cy="2728" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="1652.8" y="2733" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">1</text>
+        <circle cx="1371.3999999999999" cy="3190" r="18" fill="#831843" stroke="#FFFFFF" stroke-width="2.5" />
+        <text x="1371.3999999999999" y="3195" text-anchor="middle" font-size="15" font-weight="800" fill="#FFFFFF">N</text>
+    </g>
+    <line x1="2200" y1="510" x2="2009.6753647223036" y2="433.67514192962966" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2200" y1="510" x2="2073.81318400277" y2="355.0164332205227" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2200" y1="510" x2="2181.6972940229916" y2="330.0872375246307" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2200" y1="510" x2="2288.749834965547" y2="346.32081366118103" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2200" y1="510" x2="2407.8460969082653" y2="406.8" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2200" y1="510" x2="2417.513868888796" y2="597.2284092232803" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2200" y1="510" x2="2011.595029813532" y2="623.453419110237" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2200" y1="510" x2="2109.13707372575" y2="677.5763098230766" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2200" y1="510" x2="2218.3027059770084" y2="689.9127624753693" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="620" y1="510" x2="429.47441116742345" y2="415.40000000000003" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="620" y1="510" x2="533.3632563431566" y2="350.21793714543855" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="620" y1="510" x2="654.729635533386" y2="340.6130664819002" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="620" y1="510" x2="764.9568901432423" y2="385.33707447681167" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="620" y1="510" x2="410" y2="510" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="620" y1="510" x2="443.8823104778668" y2="616.0542830813085" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="620" y1="510" x2="553.3060720514945" y2="667.5864525057968" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="620" y1="510" x2="673.0579042460167" y2="680.2927231747627" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="620" y1="510" x2="784.6995552705803" y2="628.8514290310411" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1380" y1="380" x2="1203.2699815278534" y2="309.1269175060847" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1380" y1="380" x2="1295.4763476518601" y2="224.1150606296962" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1380" y1="380" x2="1429.175618569479" y2="222.16771998436624" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1380" y1="380" x2="1543.8304088577984" y2="281.3448529476201" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1380" y1="380" x2="1181.985205610741" y2="425.62979765157445" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1380" y1="380" x2="1268.152594911546" y2="517.3717978272639" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1380" y1="380" x2="1396.9953698357933" y2="547.0618508699857" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="380" x2="3030.621333591799" y2="272.20451785556736" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="380" x2="3163.0046301642064" y2="212.9381491300143" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="380" x2="3311.7714599857404" y2="244.94636467812416" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="380" x2="3394.1818600897254" y2="363.884903165958" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="380" x2="3324.956890143242" y2="504.66292552318833" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="380" x2="3163.0046301642064" y2="547.0618508699857" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4324.473771011382" y2="439.4070424175819" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4382.8752214814995" y2="338.7124625185965" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4511.797400913275" y2="323.67437313009026" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4625.244431531647" y2="332.2101561473062" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4737.680888564149" y2="374.5646506390462" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4776.505783192808" y2="475.6523904574812" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4770.827765884688" y2="579.1222709661176" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4707.482964373202" y2="671.4055641651687" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4588.202599086725" y2="696.3256268699097" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4349.307749149197" y2="630.8525551391655" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4467.5865494485" y2="685.4231852840362" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4297.4816424709" y2="540.5206610405423" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4313.64613927707" y2="545.8409838704545" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="510" x2="4324.473771011382" y2="439.407042417582" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="1632.486131111204" y2="1292.7715907767197" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="1706.6058909122385" y2="1203.8823104778667" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="1819.3819177887856" y2="1192.641281394095" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="2016.1700935788388" y2="1237.0937195221989" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="2083.008846492313" y2="1314.8901192851986" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="2082.712996154269" y2="1408.1268837040293" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="2049.29130259676" y2="1487.0966833015307" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="1971.881430773637" y2="1547.7439134197411" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="1720.1697802628648" y2="1558.683733860159" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="1654.9489378840221" y2="1484.8180304653279" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="1610" y2="1380" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="1627.475874903971" y2="1302.6811991189556" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="1597.2053337707373" y2="1197.57687637096" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="1380" x2="2000.2309000914852" y2="1137.0128224452233" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="580" y1="1220" x2="395.6907900349769" y2="1109.0129595660726" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="580" y1="1220" x2="561.6972940229917" y2="1040.0872375246308" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="580" y1="1220" x2="739.0990257669732" y2="1083.1748378404031" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="580" y1="1220" x2="345.8942459484398" y2="1237.6141756093018" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="580" y1="1220" x2="459.54894836628034" y2="1367.938859198592" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="580" y1="1220" x2="634.3519994715293" y2="1394.4462042278058" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3050" y1="1250" x2="2864.2069036574867" y2="1175.4924004551146" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3050" y1="1250" x2="2952.5" y2="1104.7675397853495" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3050" y1="1250" x2="3066.559591122055" y2="1087.2217863318087" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3050" y1="1250" x2="3175.3435838888754" y2="1121.5343468889473" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3050" y1="1250" x2="3248.014794389259" y2="1204.3702023484257" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3050" y1="1250" x2="3242.6369872611112" y2="1310.2981512683155" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3050" y1="1250" x2="2847.1555764792956" y2="1296.7427195455152" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3050" y1="1250" x2="2921.4424780626923" y2="1381.7596442164643" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3050" y1="1250" x2="3167.5831694519643" y2="1394.4165054081493" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3220" y1="1690" x2="3364.956890143242" y2="1565.3370744768117" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3220" y1="1690" x2="3039.786550256422" y2="1581.479338242382" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3220" y1="1690" x2="3435" y2="1690" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3220" y1="1690" x2="3368.492424049175" y2="1817.7034846822905" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3220" y1="1690" x2="3203.4404088779447" y2="1852.7782136681913" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3220" y1="1690" x2="3052.073830920757" y2="1791.1215257286894" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="1220" x2="4490.900974233027" y2="1083.1748378404031" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="1220" x2="4667.86692726327" y2="1044.3708747264252" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="1220" x2="4834.309209965023" y2="1109.0129595660726" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="1220" x2="4862.982329953613" y2="1305.4111506977954" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="1220" x2="4667.86692726327" y2="1395.6291252735748" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="1220" x2="4477.64000029823" y2="1344.3794024743454" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4423.423053240837" y2="2059.13707372575" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4486.089159529933" y2="1982.0064536240081" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4590.47161962642" y2="1958.9398715600223" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4689.939080863394" y2="1955.2050264541854" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4784.790462542496" y2="1984.4493718491947" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4866.50635094611" y2="2042.5" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4909.010621503854" y2="2130.5119759216236" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4889.621618300406" y2="2225.005017431319" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4819.705627484771" y2="2295.9468396369034" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4730.374733681532" y2="2339.911878660832" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4629.9541791680385" y2="2347.047311282547" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4532.5" y2="2325.023734104835" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4445.211988927752" y2="2273.318933815475" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4398.874022981887" y2="2188.0810453623576" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4311.293802648806" y2="2124.515660820585" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4332.7922745371725" y2="2277.2080967839506" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4650" y1="2150" x2="4359.201024277408" y2="1974.8871139820255" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="560" y1="2150" x2="382.4647922241901" y2="2061.85" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="560" y1="2150" x2="506.9420957539832" y2="1979.7072768252372" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="560" y1="2150" x2="683.3189338154749" y2="1998.5387870109655" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="560" y1="2150" x2="345" y2="2150" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="560" y1="2150" x2="402.96088916060955" y2="2263.323455587737" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="560" y1="2150" x2="542.5688514504684" y2="2321.3454880717804" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="560" y1="2150" x2="688.5575219373079" y2="2281.759644216464" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="560" y1="2150" x2="774.1818600897253" y2="2166.115096834042" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1633.677839749563" y2="2281.0823417210127" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1712.997738649667" y2="2205.3217834626525" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="2062.0120240391066" y2="2493.932641810139" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="2054.788011072248" y2="2256.681066184525" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1949.3152915090643" y2="2196.835196239893" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1960.3258172546844" y2="2558.4437085167892" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="2092.615676841685" y2="2350.676227627714" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1734.9794671174568" y2="2566.037057815376" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1638.5954189984643" y2="2502.6310037311346" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1610.913272457981" y2="2397.988945303117" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1595.1553391101306" y2="2372.3465403731416" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1850" y2="2646.6" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1578.0542226927628" y2="2183.7569427626995" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1720.7607252715104" y2="2104.9045503500342" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1908.1721395184218" y2="2096.276886357183" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="2074.975663390289" y2="2149.4206226211877" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="2183.5908803789976" y2="2275.5812502426734" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="2192.351660256832" y2="2442.5814189361454" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="2101.0229073212245" y2="2595.879700296253" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1609.112981710811" y2="2610.0776379678014" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1511.5778930831225" y2="2497.5890096732546" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1482.9481860101541" y2="2295.4179360604962" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1850" y1="2380" x2="1492.9761257321609" y2="2314.7365202523056" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="2450" x2="3019.1306669450146" y2="2333.912557690611" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="2450" x2="3146.1386053549486" y2="2284.847739819853" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="2450" x2="3282.5" y2="2297.3197213128033" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="2450" x2="3372.6369872611112" y2="2389.7018487316845" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="2450" x2="3372.6369872611112" y2="2510.2981512683155" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="2450" x2="3287.5" y2="2610.1280971597425" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="2450" x2="3145.270364466614" y2="2619.3869335181" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="2450" x2="3022.9608891606094" y2="2563.323455587737" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3180" y1="2450" x2="2955" y2="2450" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1180" y1="3480" x2="985.1438257871202" y2="3401.8578834041446" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1180" y1="3480" x2="1089.1370737257496" y2="3312.4236901769236" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1180" y1="3480" x2="1342.6345596729059" y2="3340.134278681301" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1180" y1="3480" x2="1395" y2="3480" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1180" y1="3480" x2="1348.5297774861751" y2="3601.615415752693" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1180" y1="3480" x2="1216.4661173100553" y2="3657.8562801940047" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1180" y1="3480" x2="1077.5" y2="3632.6802786871967" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1180" y1="3480" x2="989.6753647223036" y2="3556.3248580703703" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1180" y1="3480" x2="965.8181399102747" y2="3496.115096834042" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1980" y1="3520" x2="1819.1306669450146" y2="3403.912557690611" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1980" y1="3520" x2="1996.9953698357933" y2="3352.938149130014" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1980" y1="3520" x2="2157.53520777581" y2="3431.85" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1980" y1="3520" x2="2157.53520777581" y2="3608.15" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1980" y1="3520" x2="1980" y2="3687.7" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="1980" y1="3520" x2="1803.882310477867" y2="3626.0542830813083" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2880" y1="3250" x2="2702.46479222419" y2="3161.85" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2880" y1="3250" x2="2829.5302862050085" y2="3088.0142389313232" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2880" y1="3250" x2="2980" y2="3101.0436305490766" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2880" y1="3250" x2="3078.014794389259" y2="3204.3702023484257" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2880" y1="3250" x2="3057.53520777581" y2="3338.15" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2880" y1="3250" x2="2931.763809020504" y2="3416.1392421217197" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2880" y1="3250" x2="2762.4168305480357" y2="3394.4165054081495" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="2880" y1="3250" x2="2673.190371867436" y2="3281.3608608866475" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3820" y1="3250" x2="3634.2069036574867" y2="3175.492400455115" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3820" y1="3250" x2="3737.5894389605637" y2="3098.012184113954" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3820" y1="3250" x2="3870.4697137949915" y2="3088.0142389313232" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3820" y1="3250" x2="3987.926169079243" y2="3148.8784742713106" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3820" y1="3250" x2="4024.2199131088078" y2="3265.365557446412" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3820" y1="3250" x2="3972.027957955108" y2="3380.744043841393" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3820" y1="3250" x2="3820" y2="3417.7" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3820" y1="3250" x2="3675.043109856758" y2="3374.6629255231883" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3820" y1="3250" x2="3610.7991134007334" y2="3265.7403271402272" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4850" y1="3250" x2="4692.960889160609" y2="3136.676544412263" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4850" y1="3250" x2="4866.559591122055" y2="3087.2217863318087" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4850" y1="3250" x2="5027.53520777581" y2="3161.85" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4850" y1="3250" x2="5027.53520777581" y2="3338.15" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4850" y1="3250" x2="4850" y2="3413.4" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4850" y1="3250" x2="4677.9780706993115" y2="3353.587904404999" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3250" y1="3820" x2="3096.7911113762043" y2="3709.440531133915" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3250" y1="3820" x2="3266.559591122055" y2="3657.2217863318087" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3250" y1="3820" x2="3423.2050807568876" y2="3734" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3250" y1="3820" x2="3423.2050807568876" y2="3906" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3250" y1="3820" x2="3250" y2="3983.4" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="3250" y1="3820" x2="3082.073830920757" y2="3921.1215257286894" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="3820" x2="4338.569160323171" y2="3753.8191022664832" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="3820" x2="4417.632782804983" y2="3674.296811658117" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="3820" x2="4532.13307273673" y2="3644.3708747264254" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="3820" x2="4657.5" y2="3659.8719028402575" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="3820" x2="4749.387713148063" y2="3740.04062487866" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="3820" x2="4766.657705662686" y2="3852.8542352145832" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="3820" x2="4702.027957955108" y2="3950.744043841393" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="3820" x2="4585.597876421721" y2="3993.6216068560525" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="3820" x2="4461.250165034453" y2="3983.679186338819" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="3820" x2="4359.474411167424" y2="3914.6" stroke="#94A3B8" stroke-width="1.6" />
+    <line x1="4550" y1="3820" x2="4332.666689084959" y2="3870.081485227338" stroke="#94A3B8" stroke-width="1.6" />
+    <g filter="url(#softShadow)">
+        <ellipse cx="2009.6753647223036" cy="433.67514192962966" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="2009.6753647223036" y="438.17514192962966" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2073.81318400277" cy="355.0164332205227" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2073.81318400277" y="359.5164332205227" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">email</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2181.6972940229916" cy="330.0872375246307" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2181.6972940229916" y="334.5872375246307" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">phone</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2288.749834965547" cy="346.32081366118103" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2288.749834965547" y="350.82081366118103" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">role</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2407.8460969082653" cy="406.8" rx="97.2" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2407.8460969082653" y="411.3" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">encrypted_password</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2417.513868888796" cy="597.2284092232803" rx="97.2" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2417.513868888796" y="601.7284092232803" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">email_confirmed_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2011.595029813532" cy="623.453419110237" rx="84" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2011.595029813532" y="627.953419110237" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">last_sign_in_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2109.13707372575" cy="677.5763098230766" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2109.13707372575" y="682.0763098230766" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2218.3027059770084" cy="689.9127624753693" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2218.3027059770084" y="694.4127624753693" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">updated_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="429.47441116742345" cy="415.40000000000003" rx="66.4" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="429.47441116742345" y="419.90000000000003" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id (PK, FK)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="533.3632563431566" cy="350.21793714543855" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="533.3632563431566" y="354.71793714543855" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="654.729635533386" cy="340.6130664819002" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="654.729635533386" y="345.1130664819002" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">email</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="764.9568901432423" cy="385.33707447681167" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="764.9568901432423" y="389.83707447681167" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">phone</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="410" cy="510" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="410" y="514.5" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">role</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="443.8823104778668" cy="616.0542830813085" rx="57.6" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="443.8823104778668" y="620.5542830813085" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">image_url</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="553.3060720514945" cy="667.5864525057968" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="553.3060720514945" y="672.0864525057968" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">bio</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="673.0579042460167" cy="680.2927231747627" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="673.0579042460167" y="684.7927231747627" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="784.6995552705803" cy="628.8514290310411" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="784.6995552705803" y="633.3514290310411" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">updated_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1203.2699815278534" cy="309.1269175060847" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="1203.2699815278534" y="313.6269175060847" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1295.4763476518601" cy="224.1150606296962" rx="70.80000000000001" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="1295.4763476518601" y="228.6150606296962" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">user_id (FK)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1429.175618569479" cy="222.16771998436624" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1429.175618569479" y="226.66771998436624" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">email</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1543.8304088577984" cy="281.3448529476201" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1543.8304088577984" y="285.8448529476201" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">otp_code</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1181.985205610741" cy="425.62979765157445" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1181.985205610741" y="430.12979765157445" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">expires_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1268.152594911546" cy="517.3717978272639" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1268.152594911546" y="521.8717978272639" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">is_used</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1396.9953698357933" cy="547.0618508699857" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1396.9953698357933" y="551.5618508699857" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3030.621333591799" cy="272.20451785556736" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="3030.621333591799" y="276.70451785556736" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3163.0046301642064" cy="212.9381491300143" rx="70.80000000000001" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="3163.0046301642064" y="217.4381491300143" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">user_id (FK)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3311.7714599857404" cy="244.94636467812416" rx="57.6" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3311.7714599857404" y="249.44636467812416" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">user_name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3394.1818600897254" cy="363.884903165958" rx="75.2" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3394.1818600897254" y="368.384903165958" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">rating (1..5)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3324.956890143242" cy="504.66292552318833" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3324.956890143242" y="509.16292552318833" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">comment</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3163.0046301642064" cy="547.0618508699857" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3163.0046301642064" y="551.5618508699857" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4324.473771011382" cy="439.4070424175819" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="4324.473771011382" y="443.9070424175819" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4382.8752214814995" cy="338.7124625185965" rx="106" ry="20" fill="#E0F2FE" stroke="#0284C7" stroke-width="2.0"  />
+        <text x="4382.8752214814995" y="343.2124625185965" text-anchor="middle" font-size="12.5" fill="#075985" font-weight="700">idempotency_key (UQ)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4511.797400913275" cy="323.67437313009026" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4511.797400913275" y="328.17437313009026" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">event_type</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4625.244431531647" cy="332.2101561473062" rx="70.80000000000001" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4625.244431531647" y="336.7101561473062" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">reference_id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4737.680888564149" cy="374.5646506390462" rx="84" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4737.680888564149" y="379.0646506390462" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">recipient_email</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4776.505783192808" cy="475.6523904574812" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4776.505783192808" y="480.1523904574812" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">status</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4770.827765884688" cy="579.1222709661176" rx="66.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4770.827765884688" y="583.6222709661176" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">retry_count</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4707.482964373202" cy="671.4055641651687" rx="75.2" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4707.482964373202" y="675.9055641651687" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">error_message</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4588.202599086725" cy="696.3256268699097" rx="70.80000000000001" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4588.202599086725" y="700.8256268699097" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">locked_until</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4349.307749149197" cy="630.8525551391655" rx="88.4" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="4349.307749149197" y="635.3525551391655" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">resolved_by (FK)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4467.5865494485" cy="685.4231852840362" rx="66.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4467.5865494485" y="689.9231852840362" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">resolved_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4297.4816424709" cy="540.5206610405423" rx="88.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4297.4816424709" y="545.0206610405423" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">resolution_notes</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4313.64613927707" cy="545.8409838704545" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4313.64613927707" y="550.3409838704545" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4324.473771011382" cy="439.407042417582" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4324.473771011382" y="443.907042417582" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">sent_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1632.486131111204" cy="1292.7715907767197" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="1632.486131111204" y="1297.2715907767197" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1706.6058909122385" cy="1203.8823104778667" rx="88.4" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="1706.6058909122385" y="1208.3823104778667" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">user_id (FK, UQ)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1819.3819177887856" cy="1192.641281394095" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1819.3819177887856" y="1197.141281394095" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2016.1700935788388" cy="1237.0937195221989" rx="57.6" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2016.1700935788388" y="1241.5937195221989" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">full_name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2083.008846492313" cy="1314.8901192851986" rx="62" ry="20" fill="#E0F2FE" stroke="#0284C7" stroke-width="2.0"  />
+        <text x="2083.008846492313" y="1319.3901192851986" text-anchor="middle" font-size="12.5" fill="#075985" font-weight="700">email (UQ)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2082.712996154269" cy="1408.1268837040293" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2082.712996154269" y="1412.6268837040293" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">phone</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2049.29130259676" cy="1487.0966833015307" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2049.29130259676" y="1491.5966833015307" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">address</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1971.881430773637" cy="1547.7439134197411" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1971.881430773637" y="1552.2439134197411" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">password</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1720.1697802628648" cy="1558.683733860159" rx="84" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1720.1697802628648" y="1563.183733860159" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">membership_type</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1654.9489378840221" cy="1484.8180304653279" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1654.9489378840221" y="1489.3180304653279" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">visits</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1610" cy="1380" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1610" y="1384.5" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">last_visit</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1627.475874903971" cy="1302.6811991189556" rx="66.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1627.475874903971" y="1307.1811991189556" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">total_spent</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1597.2053337707373" cy="1197.57687637096" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1597.2053337707373" y="1202.07687637096" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">status</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2000.2309000914852" cy="1137.0128224452233" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2000.2309000914852" y="1141.5128224452233" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="395.6907900349769" cy="1109.0129595660726" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="395.6907900349769" y="1113.5129595660726" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="561.6972940229917" cy="1040.0872375246308" rx="88.4" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="561.6972940229917" y="1044.5872375246308" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">customer_id (FK)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="739.0990257669732" cy="1083.1748378404031" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="739.0990257669732" y="1087.6748378404031" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">token_hash</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="345.8942459484398" cy="1237.6141756093018" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="345.8942459484398" y="1242.1141756093018" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">expires_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="459.54894836628034" cy="1367.938859198592" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="459.54894836628034" y="1372.438859198592" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">used_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="634.3519994715293" cy="1394.4462042278058" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="634.3519994715293" y="1398.9462042278058" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2864.2069036574867" cy="1175.4924004551146" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="2864.2069036574867" y="1179.9924004551146" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2952.5" cy="1104.7675397853495" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2952.5" y="1109.2675397853495" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3066.559591122055" cy="1087.2217863318087" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3066.559591122055" y="1091.7217863318087" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">role</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3175.3435838888754" cy="1121.5343468889473" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3175.3435838888754" y="1126.0343468889473" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">email</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3248.014794389259" cy="1204.3702023484257" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3248.014794389259" y="1208.8702023484257" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">phone</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3242.6369872611112" cy="1310.2981512683155" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3242.6369872611112" y="1314.7981512683155" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">rating</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2847.1555764792956" cy="1296.7427195455152" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2847.1555764792956" y="1301.2427195455152" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">schedule</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2921.4424780626923" cy="1381.7596442164643" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2921.4424780626923" y="1386.2596442164643" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">status</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3167.5831694519643" cy="1394.4165054081493" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3167.5831694519643" y="1398.9165054081493" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3364.956890143242" cy="1565.3370744768117" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="3364.956890143242" y="1569.8370744768117" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3039.786550256422" cy="1581.479338242382" rx="92.80000000000001" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="3039.786550256422" y="1585.979338242382" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">staff_id (FK, UQ)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3435" cy="1690" rx="57.6" ry="20" fill="#E0F2FE" stroke="#0284C7" stroke-width="2.0"  />
+        <text x="3435" y="1694.5" text-anchor="middle" font-size="12.5" fill="#075985" font-weight="700">date (UQ)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3368.492424049175" cy="1817.7034846822905" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3368.492424049175" y="1822.2034846822905" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">staff_name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3203.4404088779447" cy="1852.7782136681913" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3203.4404088779447" y="1857.2782136681913" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">status</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3052.073830920757" cy="1791.1215257286894" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3052.073830920757" y="1795.6215257286894" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4490.900974233027" cy="1083.1748378404031" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="4490.900974233027" y="1087.6748378404031" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4667.86692726327" cy="1044.3708747264252" rx="70.80000000000001" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="4667.86692726327" y="1048.8708747264252" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">user_id (FK)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4834.309209965023" cy="1109.0129595660726" rx="66.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4834.309209965023" y="1113.5129595660726" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">config_name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4862.982329953613" cy="1305.4111506977954" rx="88.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4862.982329953613" y="1309.9111506977954" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">settings (jsonb)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4667.86692726327" cy="1395.6291252735748" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4667.86692726327" y="1400.1291252735748" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4477.64000029823" cy="1344.3794024743454" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4477.64000029823" y="1348.8794024743454" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">updated_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4423.423053240837" cy="2059.13707372575" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="4423.423053240837" y="2063.63707372575" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4486.089159529933" cy="1982.0064536240081" rx="88.4" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="4486.089159529933" y="1986.5064536240081" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">customer_id (FK)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4590.47161962642" cy="1958.9398715600223" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4590.47161962642" y="1963.4398715600223" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4689.939080863394" cy="1955.2050264541854" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4689.939080863394" y="1959.7050264541854" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">category</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4784.790462542496" cy="1984.4493718491947" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4784.790462542496" y="1988.9493718491947" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">shape</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4866.50635094611" cy="2042.5" rx="75.2" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4866.50635094611" y="2047" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">primary_color</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4909.010621503854" cy="2130.5119759216236" rx="84" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4909.010621503854" y="2135.0119759216236" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">secondary_color</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4889.621618300406" cy="2225.005017431319" rx="66.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4889.621618300406" y="2229.505017431319" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">is_gradient</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4819.705627484771" cy="2295.9468396369034" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4819.705627484771" y="2300.4468396369034" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">texture</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4730.374733681532" cy="2339.911878660832" rx="88.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4730.374733681532" y="2344.411878660832" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">art_data (jsonb)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4629.9541791680385" cy="2347.047311282547" rx="66.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4629.9541791680385" y="2351.547311282547" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">preview_url</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4532.5" cy="2325.023734104835" rx="57.6" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4532.5" y="2329.523734104835" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">image_url</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4445.211988927752" cy="2273.318933815475" rx="66.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4445.211988927752" y="2277.818933815475" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">is_trending</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4398.874022981887" cy="2188.0810453623576" rx="66.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4398.874022981887" y="2192.5810453623576" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">description</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4311.293802648806" cy="2124.515660820585" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4311.293802648806" y="2129.015660820585" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">price</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4332.7922745371725" cy="2277.2080967839506" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4332.7922745371725" y="2281.7080967839506" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">inclusions</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4359.201024277408" cy="1974.8871139820255" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4359.201024277408" y="1979.3871139820255" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="382.4647922241901" cy="2061.85" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="382.4647922241901" y="2066.35" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="506.9420957539832" cy="1979.7072768252372" rx="88.4" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="506.9420957539832" y="1984.2072768252372" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">customer_id (FK)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="683.3189338154749" cy="1998.5387870109655" rx="75.2" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="683.3189338154749" y="2003.0387870109655" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">customer_name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="345" cy="2150" rx="75.2" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="345" y="2154.5" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">rating (1..5)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="402.96088916060955" cy="2263.323455587737" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="402.96088916060955" y="2267.823455587737" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">review</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="542.5688514504684" cy="2321.3454880717804" rx="70.80000000000001" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="542.5688514504684" y="2325.8454880717804" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">review_image</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="688.5575219373079" cy="2281.759644216464" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="688.5575219373079" y="2286.259644216464" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">status</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="774.1818600897253" cy="2166.115096834042" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="774.1818600897253" y="2170.615096834042" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1633.677839749563" cy="2281.0823417210127" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="1633.677839749563" y="2285.5823417210127" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1712.997738649667" cy="2205.3217834626525" rx="88.4" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="1712.997738649667" y="2209.8217834626525" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">customer_id (FK)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2062.0120240391066" cy="2493.932641810139" rx="84" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="2062.0120240391066" y="2498.432641810139" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">service_id (FK)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2054.788011072248" cy="2256.681066184525" rx="75.2" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="2054.788011072248" y="2261.181066184525" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">staff_id (FK)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1949.3152915090643" cy="2196.835196239893" rx="75.2" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1949.3152915090643" y="2201.335196239893" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">customer_name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1960.3258172546844" cy="2558.4437085167892" rx="70.80000000000001" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1960.3258172546844" y="2562.9437085167892" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">service_name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2092.615676841685" cy="2350.676227627714" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2092.615676841685" y="2355.176227627714" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">staff_name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1734.9794671174568" cy="2566.037057815376" rx="88.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1734.9794671174568" y="2570.537057815376" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">appointment_date</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1638.5954189984643" cy="2502.6310037311346" rx="88.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1638.5954189984643" y="2507.1310037311346" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">appointment_time</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1610.913272457981" cy="2397.988945303117" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1610.913272457981" y="2402.488945303117" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">status</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1595.1553391101306" cy="2372.3465403731416" rx="79.60000000000001" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1595.1553391101306" y="2376.8465403731416" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">payment_status</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1850" cy="2646.6" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1850" y="2651.1" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">price</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1578.0542226927628" cy="2183.7569427626995" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1578.0542226927628" y="2188.2569427626995" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">date</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1720.7607252715104" cy="2104.9045503500342" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1720.7607252715104" y="2109.4045503500342" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">time</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1908.1721395184218" cy="2096.276886357183" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1908.1721395184218" y="2100.776886357183" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">duration</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2074.975663390289" cy="2149.4206226211877" rx="79.60000000000001" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2074.975663390289" y="2153.9206226211877" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">payment_method</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2183.5908803789976" cy="2275.5812502426734" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2183.5908803789976" y="2280.0812502426734" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">source</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2192.351660256832" cy="2442.5814189361454" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2192.351660256832" y="2447.0814189361454" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">notes</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2101.0229073212245" cy="2595.879700296253" rx="57.6" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2101.0229073212245" y="2600.379700296253" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">design_id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1609.112981710811" cy="2610.0776379678014" rx="66.4" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1609.112981710811" y="2614.5776379678014" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">design_name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1511.5778930831225" cy="2497.5890096732546" rx="70.80000000000001" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1511.5778930831225" y="2502.0890096732546" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">design_image</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1482.9481860101541" cy="2295.4179360604962" rx="101.60000000000001" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1482.9481860101541" y="2299.9179360604962" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">cancellation_reason</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1492.9761257321609" cy="2314.7365202523056" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1492.9761257321609" y="2319.2365202523056" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3019.1306669450146" cy="2333.912557690611" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="3019.1306669450146" y="2338.412557690611" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3146.1386053549486" cy="2284.847739819853" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3146.1386053549486" y="2289.347739819853" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3282.5" cy="2297.3197213128033" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3282.5" y="2301.8197213128033" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">category</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3372.6369872611112" cy="2389.7018487316845" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3372.6369872611112" y="2394.2018487316845" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">price</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3372.6369872611112" cy="2510.2981512683155" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3372.6369872611112" y="2514.7981512683155" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">duration</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3287.5" cy="2610.1280971597425" rx="75.2" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3287.5" y="2614.6280971597425" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">required_role</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3145.270364466614" cy="2619.3869335181" rx="57.6" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3145.270364466614" y="2623.8869335181" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">image_url</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3022.9608891606094" cy="2563.323455587737" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3022.9608891606094" y="2567.823455587737" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">status</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2955" cy="2450" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2955" y="2454.5" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="985.1438257871202" cy="3401.8578834041446" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="985.1438257871202" y="3406.3578834041446" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1089.1370737257496" cy="3312.4236901769236" rx="88.4" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="1089.1370737257496" y="3316.9236901769236" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">customer_id (FK)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1342.6345596729059" cy="3340.134278681301" rx="101.60000000000001" ry="20" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="1342.6345596729059" y="3344.634278681301" text-anchor="middle" font-size="12.5" fill="#9D174D" font-weight="700">appointment_id (FK)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1395" cy="3480" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1395" y="3484.5" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">amount</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1348.5297774861751" cy="3601.615415752693" rx="75.2" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1348.5297774861751" y="3606.115415752693" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">cash_received</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1216.4661173100553" cy="3657.8562801940047" rx="79.60000000000001" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1216.4661173100553" y="3662.3562801940047" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">payment_method</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1077.5" cy="3632.6802786871967" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1077.5" y="3637.1802786871967" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">status</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="989.6753647223036" cy="3556.3248580703703" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="989.6753647223036" y="3560.8248580703703" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">notes</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="965.8181399102747" cy="3496.115096834042" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="965.8181399102747" y="3500.615096834042" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1819.1306669450146" cy="3403.912557690611" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="1819.1306669450146" y="3408.412557690611" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1996.9953698357933" cy="3352.938149130014" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1996.9953698357933" y="3357.438149130014" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2157.53520777581" cy="3431.85" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2157.53520777581" y="3436.35" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">type</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2157.53520777581" cy="3608.15" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2157.53520777581" y="3612.65" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">status</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1980" cy="3687.7" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1980" y="3692.2" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">icon</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="1803.882310477867" cy="3626.0542830813083" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="1803.882310477867" y="3630.5542830813083" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2702.46479222419" cy="3161.85" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="2702.46479222419" y="3166.35" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2829.5302862050085" cy="3088.0142389313232" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2829.5302862050085" y="3092.5142389313232" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2980" cy="3101.0436305490766" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2980" y="3105.5436305490766" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">status</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3078.014794389259" cy="3204.3702023484257" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3078.014794389259" y="3208.8702023484257" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">price</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3057.53520777581" cy="3338.15" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3057.53520777581" y="3342.65" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">date</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2931.763809020504" cy="3416.1392421217197" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2931.763809020504" y="3420.6392421217197" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">inclusions</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2762.4168305480357" cy="3394.4165054081495" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2762.4168305480357" y="3398.9165054081495" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">start_date</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="2673.190371867436" cy="3281.3608608866475" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="2673.190371867436" y="3285.8608608866475" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">end_date</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3634.2069036574867" cy="3175.492400455115" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="3634.2069036574867" y="3179.992400455115" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3737.5894389605637" cy="3098.012184113954" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3737.5894389605637" y="3102.512184113954" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3870.4697137949915" cy="3088.0142389313232" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3870.4697137949915" y="3092.5142389313232" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">category</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3987.926169079243" cy="3148.8784742713106" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3987.926169079243" y="3153.3784742713106" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">quantity</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4024.2199131088078" cy="3265.365557446412" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4024.2199131088078" y="3269.865557446412" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">unit</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3972.027957955108" cy="3380.744043841393" rx="75.2" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3972.027957955108" y="3385.244043841393" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">reorder_level</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3820" cy="3417.7" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3820" y="3422.2" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">cost_price</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3675.043109856758" cy="3374.6629255231883" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3675.043109856758" y="3379.1629255231883" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">status</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3610.7991134007334" cy="3265.7403271402272" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3610.7991134007334" y="3270.2403271402272" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4692.960889160609" cy="3136.676544412263" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="4692.960889160609" y="3141.176544412263" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4866.559591122055" cy="3087.2217863318087" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4866.559591122055" y="3091.7217863318087" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">title</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="5027.53520777581" cy="3161.85" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="5027.53520777581" y="3166.35" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">message</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="5027.53520777581" cy="3338.15" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="5027.53520777581" y="3342.65" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">type</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4850" cy="3413.4" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4850" y="3417.9" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">is_read</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4677.9780706993115" cy="3353.587904404999" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4677.9780706993115" y="3358.087904404999" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3096.7911113762043" cy="3709.440531133915" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="3096.7911113762043" y="3713.940531133915" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3266.559591122055" cy="3657.2217863318087" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3266.559591122055" y="3661.7217863318087" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3423.2050807568876" cy="3734" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3423.2050807568876" y="3738.5" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">email</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3423.2050807568876" cy="3906" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3423.2050807568876" y="3910.5" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">subject</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3250" cy="3983.4" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3250" y="3987.9" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">message</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="3082.073830920757" cy="3921.1215257286894" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="3082.073830920757" y="3925.6215257286894" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4338.569160323171" cy="3753.8191022664832" rx="54" ry="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2.4"  />
+        <text x="4338.569160323171" y="3758.3191022664832" text-anchor="middle" font-size="12.5" fill="#92400E" text-decoration="underline" font-weight="800">id</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4417.632782804983" cy="3674.296811658117" rx="54" ry="20" fill="#E0F2FE" stroke="#0284C7" stroke-width="2.0"  />
+        <text x="4417.632782804983" y="3678.796811658117" text-anchor="middle" font-size="12.5" fill="#075985" font-weight="700">key (UQ)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4532.13307273673" cy="3644.3708747264254" rx="75.2" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4532.13307273673" y="3648.8708747264254" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">value (jsonb)</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4657.5" cy="3659.8719028402575" rx="75.2" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4657.5" y="3664.3719028402575" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">setting_label</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4749.387713148063" cy="3740.04062487866" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4749.387713148063" y="3744.54062487866" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">name</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4766.657705662686" cy="3852.8542352145832" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4766.657705662686" y="3857.3542352145832" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">phone</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4702.027957955108" cy="3950.744043841393" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4702.027957955108" y="3955.244043841393" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">email</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4585.597876421721" cy="3993.6216068560525" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4585.597876421721" y="3998.1216068560525" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">address</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4461.250165034453" cy="3983.679186338819" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4461.250165034453" y="3988.179186338819" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">logo_url</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4359.474411167424" cy="3914.6" rx="54" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4359.474411167424" y="3919.1" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">tagline</text>
+    </g>
+    <g filter="url(#softShadow)">
+        <ellipse cx="4332.666689084959" cy="3870.081485227338" rx="62" ry="20" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8"  />
+        <text x="4332.666689084959" y="3874.581485227338" text-anchor="middle" font-size="12.5" fill="#1E293B" font-weight="600">created_at</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="1120,534 1216.2,580 1120,626 1023.8,580" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <polygon points="1120,539 1207.2,580 1120,621 1032.8,580" fill="none" stroke="#BE185D" stroke-width="1.8" />
+        <text x="1120" y="585" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">HAS_PROFILE</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="1790,394 1898.6,440 1790,486 1681.4,440" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <text x="1790" y="445" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">GENERATES_OTP</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="2690,394 2817.2,440 2690,486 2562.8,440" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <text x="2690" y="445" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">SUBMITS_FEEDBACK</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="3650,504 3764.8,550 3650,596 3535.2,550" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <text x="3650" y="555" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">RESOLVES_EMAIL</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="3750,784 3852.4,830 3750,876 3647.6,830" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <text x="3750" y="835" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">SAVES_CONFIG</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="2020,894 2128.6,940 2020,986 1911.4,940" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <text x="2020" y="945" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">LINKS_ACCOUNT</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="1200,1254 1314.8,1300 1200,1346 1085.2,1300" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <text x="1200" y="1305" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">REQUESTS_RESET</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="1140,1734 1235,1780 1140,1826 1045,1780" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <text x="1140" y="1785" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">WRITES</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="3500,1714 3595,1760 3500,1806 3405,1760" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <text x="3500" y="1765" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">CUSTOMIZES</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="1850,1814 1945,1860 1850,1906 1755,1860" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <text x="1850" y="1865" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">BOOKS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="1020,2514 1115,2560 1020,2606 925,2560" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <text x="1020" y="2565" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">PAYS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="2520,1794 2616.2,1840 2520,1886 2423.8,1840" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <text x="2520" y="1845" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">ASSIGNED_TO</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="3135,1424 3256,1470 3135,1516 3014,1470" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <polygon points="3135,1429 3247,1470 3135,1511 3023,1470" fill="none" stroke="#BE185D" stroke-width="1.8" />
+        <text x="3135" y="1475" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">LOGS_ATTENDANCE</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="2560,2369 2687.2,2415 2560,2461 2432.8,2415" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <text x="2560" y="2420" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">INCLUDES_SERVICE</text>
+    </g>
+    <g filter="url(#shadow)">
+        <polygon points="1510,2934 1624.8,2980 1510,3026 1395.2,2980" fill="#FDF2F8" stroke="#BE185D" stroke-width="3" />
+        <text x="1510" y="2985" text-anchor="middle" font-size="13.5" font-weight="800" fill="#831843" letter-spacing="0.5">GENERATES_BILL</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="2095" y="480" width="210" height="60" rx="4" fill="#1E293B" stroke="#0F172A" stroke-width="3" />
+        <text x="2200" y="507" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">AUTH.USERS</text>
+        <text x="2200" y="525" text-anchor="middle" font-size="11" font-weight="600" fill="#FBCFE8">(Supabase Auth Schema)</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="525" y="482" width="190" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <rect x="531" y="488" width="178" height="44" rx="2" fill="none" stroke="#FFFFFF" stroke-width="2" />
+        <text x="620" y="516" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">PROFILES</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="1285" y="352" width="190" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="1380" y="386" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">ADMIN_OTPS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="3085" y="352" width="190" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="3180" y="386" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">FEEDBACK</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="4435" y="482" width="230" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="4550" y="516" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">EMAIL_NOTIFICATIONS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="1745" y="1350" width="210" height="60" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="1850" y="1386" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">CUSTOMERS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="455" y="1192" width="250" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="580" y="1226" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">PASSWORD_RESET_TOKENS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="2955" y="1222" width="190" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="3050" y="1256" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">STAFF</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="3122.5" y="1662" width="195" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <rect x="3128.5" y="1668" width="183" height="44" rx="2" fill="none" stroke="#FFFFFF" stroke-width="2" />
+        <text x="3220" y="1696" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">ATTENDANCE</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="4525" y="1192" width="250" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="4650" y="1226" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">STUDIO_CONFIGURATIONS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="4545" y="2120" width="210" height="60" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="4650" y="2156" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">NAIL_DESIGNS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="465" y="2122" width="190" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="560" y="2156" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">REVIEWS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="1740" y="2348" width="220" height="64" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="1850" y="2386" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">APPOINTMENTS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="3082.5" y="2422" width="195" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="3180" y="2456" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">SERVICES</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="1082.5" y="3452" width="195" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="1180" y="3486" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">BILLING</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="1870" y="3492" width="220" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="1980" y="3526" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">PAYMENT_METHODS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="2780" y="3222" width="200" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="2880" y="3256" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">PROMOTIONS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="3722.5" y="3222" width="195" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="3820" y="3256" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">INVENTORY</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="4747.5" y="3222" width="205" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="4850" y="3256" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">NOTIFICATIONS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="3152.5" y="3792" width="195" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="3250" y="3826" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">MESSAGES</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="4442.5" y="3792" width="215" height="56" rx="4" fill="#EC4899" stroke="#831843" stroke-width="3" />
+        <text x="4550" y="3826" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="0.8">SALON_SETTINGS</text>
+    </g>
+    <g filter="url(#shadow)">
+        <rect x="120" y="3740" width="840" height="310" rx="16" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2.5" />
+        <text x="148" y="3780" font-size="18" font-weight="800" fill="#0F172A">TRADITIONAL CHEN NOTATION LEGEND</text>
+
+        <!-- Strong Entity -->
+        <rect x="150" y="3805" width="120" height="38" rx="3" fill="#EC4899" stroke="#831843" stroke-width="2.5" />
+        <text x="210" y="3829" text-anchor="middle" font-size="12" font-weight="800" fill="#FFFFFF">ENTITY</text>
+        <text x="290" y="3829" font-size="14" font-weight="600" fill="#334155">Strong Application Entity (Rectangle)</text>
+
+        <!-- Weak / Dependent Entity -->
+        <rect x="150" y="3860" width="120" height="38" rx="3" fill="#EC4899" stroke="#831843" stroke-width="2.5" />
+        <rect x="155" y="3865" width="110" height="28" rx="2" fill="none" stroke="#FFFFFF" stroke-width="1.8" />
+        <text x="210" y="3884" text-anchor="middle" font-size="11" font-weight="800" fill="#FFFFFF">DEPENDENT</text>
+        <text x="290" y="3884" font-size="14" font-weight="600" fill="#334155">Dependent / Identifying Entity (Double Rectangle)</text>
+
+        <!-- Auth Entity -->
+        <rect x="150" y="3915" width="120" height="38" rx="3" fill="#1E293B" stroke="#0F172A" stroke-width="2.5" />
+        <text x="210" y="3939" text-anchor="middle" font-size="11" font-weight="800" fill="#FFFFFF">AUTH.USERS</text>
+        <text x="290" y="3939" font-size="14" font-weight="600" fill="#334155">Supabase Auth-Managed Entity (auth schema)</text>
+
+        <!-- Relationship Diamond -->
+        <polygon points="210,3965 270,3992 210,4019 150,3992" fill="#FDF2F8" stroke="#BE185D" stroke-width="2.5" />
+        <text x="210" y="3996" text-anchor="middle" font-size="11" font-weight="800" fill="#831843">RELATES</text>
+        <text x="290" y="3996" font-size="14" font-weight="600" fill="#334155">Relationship (Diamond) with 1:1 / 1:N Cardinality</text>
+
+        <!-- Right column of Legend: Ovals -->
+        <ellipse cx="640" cy="3824" rx="65" ry="18" fill="#FEF3C7" stroke="#D97706" stroke-width="2.2" />
+        <text x="640" y="3829" text-anchor="middle" font-size="12" font-weight="800" fill="#92400E" text-decoration="underline">id (PK)</text>
+        <text x="725" y="3829" font-size="14" font-weight="600" fill="#334155">Primary Key Attribute (Underlined)</text>
+
+        <ellipse cx="640" cy="3879" rx="65" ry="18" fill="#FCE7F3" stroke="#DB2777" stroke-width="2.0" stroke-dasharray="5,3" />
+        <text x="640" y="3884" text-anchor="middle" font-size="12" font-weight="700" fill="#9D174D">col_id (FK)</text>
+        <text x="725" y="3884" font-size="14" font-weight="600" fill="#334155">Foreign Key Attribute (Dashed Oval)</text>
+
+        <ellipse cx="640" cy="3934" rx="65" ry="18" fill="#E0F2FE" stroke="#0284C7" stroke-width="2.0" />
+        <text x="640" y="3939" text-anchor="middle" font-size="12" font-weight="700" fill="#075985">key (UQ)</text>
+        <text x="725" y="3939" font-size="14" font-weight="600" fill="#334155">Unique Constraint Attribute</text>
+
+        <ellipse cx="640" cy="3989" rx="65" ry="18" fill="#FFFFFF" stroke="#64748B" stroke-width="1.8" />
+        <text x="640" y="3994" text-anchor="middle" font-size="12" font-weight="600" fill="#1E293B">attribute</text>
+        <text x="725" y="3994" font-size="14" font-weight="600" fill="#334155">Standard Entity Attribute (Oval)</text>
+    </g>
+</svg>

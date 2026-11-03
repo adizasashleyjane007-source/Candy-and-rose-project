@@ -23,7 +23,13 @@ import {
     ChevronRight,
     Calendar,
     Check,
+    UploadCloud,
+    Download,
+    FileSpreadsheet,
+    AlertCircle,
+    CheckCircle2,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 
 // --- Toast ---
 const Toast = ({ message, onDone }: { message: string; onDone: () => void }) => {
@@ -58,6 +64,7 @@ export default function PromotionsPage() {
     const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
     const [isPromoDeleteModalOpen, setIsPromoDeleteModalOpen] = useState(false);
     const [isSaveSuccessModalOpen, setIsSaveSuccessModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
     const [promoToDelete, setPromoToDelete] = useState<string | null>(null);
     const [promoFormData, setPromoFormData] = useState<Partial<Promotion>>({
@@ -67,6 +74,25 @@ export default function PromotionsPage() {
         date: manilaToday.monthStr,
         status: "Available"
     });
+
+    // Import Preview State
+    interface ParsedPromotionRow {
+        rowNum: number;
+        name: string;
+        inclusions: string;
+        price: number;
+        monthStr: string;
+        startDate: string;
+        endDate: string;
+        status: "Available" | "Not Available";
+        isValid: boolean;
+        isDuplicate: boolean;
+        error?: string;
+    }
+    const [importRows, setImportRows] = useState<ParsedPromotionRow[]>([]);
+    const [importFileName, setImportFileName] = useState<string>("");
+    const [isImporting, setIsImporting] = useState<boolean>(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const showToast = (msg: string) => setToast(msg);
 
@@ -176,6 +202,250 @@ export default function PromotionsPage() {
         } finally {
             setSaving(false);
         }
+    };
+
+    // Helper: Normalize month string from various inputs ("November 2026", "2026-11", "2026-11-01", Date object, etc.)
+    const parseMonthToStandard = (rawVal: any): { monthStr: string; startDate: string; endDate: string } | null => {
+        if (!rawVal) {
+            const cur = getManilaToday();
+            const y = cur.year;
+            const m = cur.month;
+            const lastDay = new Date(y, m, 0).getDate();
+            return {
+                monthStr: cur.monthStr,
+                startDate: `${cur.monthStr}-01`,
+                endDate: `${cur.monthStr}-${String(lastDay).padStart(2, '0')}`
+            };
+        }
+
+        const str = String(rawVal).trim();
+        // Check "YYYY-MM" or "YYYY-MM-DD"
+        const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})/);
+        if (isoMatch) {
+            const y = parseInt(isoMatch[1], 10);
+            const m = parseInt(isoMatch[2], 10);
+            if (m >= 1 && m <= 12) {
+                const monthStr = `${y}-${String(m).padStart(2, '0')}`;
+                const lastDay = new Date(y, m, 0).getDate();
+                return {
+                    monthStr,
+                    startDate: `${monthStr}-01`,
+                    endDate: `${monthStr}-${String(lastDay).padStart(2, '0')}`
+                };
+            }
+        }
+
+        // Check text month names like "November 2026" or "Nov 2026"
+        const monthNames = [
+            'january', 'february', 'march', 'april', 'may', 'june',
+            'july', 'august', 'september', 'october', 'november', 'december'
+        ];
+        const lower = str.toLowerCase();
+        for (let i = 0; i < monthNames.length; i++) {
+            const name = monthNames[i];
+            const shortName = name.substring(0, 3);
+            if (lower.includes(name) || lower.includes(shortName)) {
+                const yearMatch = str.match(/\b(20\d{2})\b/);
+                const y = yearMatch ? parseInt(yearMatch[1], 10) : getManilaToday().year;
+                const m = i + 1;
+                const monthStr = `${y}-${String(m).padStart(2, '0')}`;
+                const lastDay = new Date(y, m, 0).getDate();
+                return {
+                    monthStr,
+                    startDate: `${monthStr}-01`,
+                    endDate: `${monthStr}-${String(lastDay).padStart(2, '0')}`
+                };
+            }
+        }
+
+        return null;
+    };
+
+    // Handler: Upload and Extract Excel File
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Reset the input value so the same file can be re-uploaded if desired
+        e.target.value = "";
+
+        const validExtensions = [".xlsx", ".xls", ".csv"];
+        const fileName = file.name.toLowerCase();
+        const isValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+        if (!isValidExtension) {
+            showToast("Please upload a valid Excel file (.xlsx or .xls).");
+            return;
+        }
+
+        setImportFileName(file.name);
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: "binary" });
+                const firstSheetName = wb.SheetNames[0];
+                if (!firstSheetName) {
+                    showToast("The Excel file has no worksheets.");
+                    return;
+                }
+                const ws = wb.Sheets[firstSheetName];
+                const rawRows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+                if (rawRows.length === 0) {
+                    showToast("The uploaded Excel sheet contains no data rows.");
+                    return;
+                }
+
+                // Parse and map columns dynamically (case-insensitive & whitespace-tolerant)
+                const parsed: ParsedPromotionRow[] = rawRows.map((row, index) => {
+                    const rowNum = index + 2; // header is row 1
+                    const keys = Object.keys(row);
+
+                    const findVal = (patterns: string[]) => {
+                        const matchedKey = keys.find(k => {
+                            const clean = k.toLowerCase().replace(/[^a-z0-9]/g, "");
+                            return patterns.some(p => clean.includes(p));
+                        });
+                        return matchedKey ? String(row[matchedKey]).trim() : "";
+                    };
+
+                    const name = findVal(["promotionname", "promoname", "name", "package"]);
+                    const inclusions = findVal(["inclusion", "description", "details"]);
+                    const rawPrice = findVal(["price", "amount", "cost", "fee"]);
+                    const rawMonth = findVal(["availablemonth", "month", "startdate", "date"]);
+                    const rawStatus = findVal(["status", "availability"]);
+
+                    const priceNum = parseFloat(rawPrice.replace(/[^0-9.]/g, ""));
+                    const dateParsed = parseMonthToStandard(rawMonth);
+
+                    let status: "Available" | "Not Available" = "Available";
+                    if (rawStatus.toLowerCase().includes("not") || rawStatus.toLowerCase().includes("inactive")) {
+                        status = "Not Available";
+                    }
+
+                    // Validation checks
+                    let error = "";
+                    if (!name) {
+                        error = "Missing Promotion Name.";
+                    } else if (isNaN(priceNum) || priceNum < 0) {
+                        error = "Invalid or missing Price.";
+                    } else if (!dateParsed) {
+                        error = `Unrecognized Available Month format ("${rawMonth}"). Expected e.g. "November 2026" or "2026-11".`;
+                    }
+
+                    // Check duplicates against current promotions list in state
+                    const isDup = Boolean(
+                        name && dateParsed && promotions.some(existing => {
+                            const existingRange = getPromotionDateRange(existing);
+                            return existing.name?.trim().toLowerCase() === name.toLowerCase() &&
+                                   existingRange.monthStr === dateParsed.monthStr;
+                        })
+                    );
+
+                    return {
+                        rowNum,
+                        name,
+                        inclusions,
+                        price: isNaN(priceNum) ? 0 : priceNum,
+                        monthStr: dateParsed ? dateParsed.monthStr : "",
+                        startDate: dateParsed ? dateParsed.startDate : "",
+                        endDate: dateParsed ? dateParsed.endDate : "",
+                        status,
+                        isValid: !error,
+                        isDuplicate: isDup,
+                        error: error || (isDup ? "Duplicate: A promotion with this name and month already exists." : undefined)
+                    };
+                });
+
+                setImportRows(parsed);
+                setIsImportModalOpen(true);
+            } catch (err: any) {
+                console.error("Excel parse error:", err);
+                showToast("Failed to read the Excel file. Please ensure it is not corrupted.");
+            }
+        };
+        reader.readAsBinaryString(file);
+    };
+
+    // Handler: Confirm Bulk Import
+    const handleConfirmImport = async () => {
+        const validRows = importRows.filter(r => r.isValid && !r.isDuplicate);
+        if (validRows.length === 0) {
+            showToast("No valid non-duplicate records to import.");
+            return;
+        }
+
+        try {
+            setIsImporting(true);
+            let importedCount = 0;
+
+            for (const item of validRows) {
+                await PromotionsDB.create({
+                    name: item.name,
+                    inclusions: item.inclusions || undefined,
+                    price: item.price,
+                    date: item.startDate,
+                    start_date: item.startDate,
+                    end_date: item.endDate,
+                    status: item.status
+                });
+                importedCount++;
+            }
+
+            const fresh = await PromotionsDB.list();
+            setPromotions(fresh);
+            setIsImportModalOpen(false);
+            setImportRows([]);
+            showToast(`Successfully imported ${importedCount} promotion${importedCount === 1 ? '' : 's'}!`);
+            addNotification("Bulk Import Successful", `${importedCount} promotions imported from "${importFileName}".`, "system");
+        } catch (err: any) {
+            console.error("Import error:", err);
+            showToast(err.message || "Failed to complete bulk import.");
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
+    // Handler: Generate and Download Excel Template
+    const handleDownloadTemplate = () => {
+        const templateData = [
+            {
+                "Promotion Name": "Rebond & Collagen Glow",
+                "Inclusion": "Hair Rebond, Collagen Treatment, Detox, Haircut",
+                "Price": 1499.00,
+                "Available Month": "November 2026",
+                "Status": "Available"
+            },
+            {
+                "Promotion Name": "Brazilian Keratin Blowout Package",
+                "Inclusion": "Full Brazilian Keratin, Hair Gloss, Blowdry",
+                "Price": 1200.00,
+                "Available Month": "November 2026",
+                "Status": "Available"
+            },
+            {
+                "Promotion Name": "Holiday Deluxe Manicure & Spa",
+                "Inclusion": "Gel Manicure, Hand Spa, Paraffin Dip, Arm Massage",
+                "Price": 650.00,
+                "Available Month": "December 2026",
+                "Status": "Available"
+            }
+        ];
+
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        // Column widths
+        ws['!cols'] = [
+            { wch: 35 },
+            { wch: 55 },
+            { wch: 15 },
+            { wch: 20 },
+            { wch: 15 }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Promotions Template");
+        XLSX.writeFile(wb, "Candy_and_Rose_Promotions_Template.xlsx");
+        showToast("Excel template downloaded.");
     };
 
     // Filter promotions: when selectedMonthFilter is "ALL", all historical and current promotions are preserved
@@ -390,22 +660,56 @@ export default function PromotionsPage() {
                         </div>
                     </div>
 
-                    <button
-                        onClick={() => {
-                            setEditingPromoId(null);
-                            setPromoFormData({
-                                name: "",
-                                inclusions: "",
-                                price: 0,
-                                date: selectedMonthFilter !== "ALL" && selectedMonthFilter !== "UNASSIGNED" ? selectedMonthFilter : manilaToday.monthStr,
-                                status: "Available"
-                            });
-                            setIsPromoModalOpen(true);
-                        }}
-                        className="px-6 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2 w-full md:w-auto whitespace-nowrap cursor-pointer"
-                    >
-                        <Plus className="w-4 h-4" /> Add Promotion
-                    </button>
+                    {/* Hidden File Input for Excel Import */}
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        accept=".xlsx, .xls, .csv"
+                        className="hidden"
+                    />
+
+                    <div className="flex items-center gap-2.5 w-full md:w-auto">
+                        {/* Export Template Button */}
+                        <button
+                            type="button"
+                            onClick={handleDownloadTemplate}
+                            title="Export formatted Excel template for bulk promotions"
+                            className="px-4 py-2.5 bg-white border border-pink-200 text-pink-600 hover:bg-pink-50 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+                        >
+                            <Download className="w-4 h-4 text-pink-500" />
+                            <span className="hidden sm:inline">Export</span>
+                        </button>
+
+                        {/* Import Excel Button */}
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-5 py-2.5 bg-white border border-pink-300 text-pink-700 hover:bg-pink-50/80 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+                        >
+                            <UploadCloud className="w-4 h-4 text-pink-500" />
+                            Import Excel
+                        </button>
+
+                        {/* Add Promotion Button */}
+                        <button
+                            onClick={() => {
+                                setEditingPromoId(null);
+                                const currentManila = getManilaToday();
+                                setPromoFormData({
+                                    name: "",
+                                    inclusions: "",
+                                    price: 0,
+                                    date: currentManila.monthStr,
+                                    status: "Available"
+                                });
+                                setIsPromoModalOpen(true);
+                            }}
+                            className="px-6 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
+                        >
+                            <Plus className="w-4 h-4" /> Add Promotion
+                        </button>
+                    </div>
                 </div>
 
                 <div className="bg-white rounded-3xl p-8 shadow-sm border border-pink-100 relative min-h-[400px]">
@@ -564,7 +868,13 @@ export default function PromotionsPage() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Date the Promo Is Available <span className="text-pink-500">*</span></label>
-                                    <input required type="month" value={promoFormData.date || ""} onChange={e => setPromoFormData({ ...promoFormData, date: e.target.value })} className="w-full px-4 py-3 rounded-xl border bg-gray-50 border-pink-100 focus:outline-none focus:ring-2 focus:ring-pink-400 transition-all" />
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        disabled
+                                        value={formatMonthYear(promoFormData.date) || formatMonthYear(getManilaToday().monthStr)}
+                                        className="w-full px-4 py-3 rounded-xl border bg-gray-100/80 border-pink-100 text-gray-700 font-medium cursor-not-allowed select-none focus:outline-none transition-all"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Status <span className="text-pink-500">*</span></label>
@@ -583,6 +893,169 @@ export default function PromotionsPage() {
                             <button type="submit" form="promoForm" disabled={saving} className="px-6 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-xl font-bold shadow-sm shadow-pink-200 transition-all flex items-center justify-center min-w-[100px] disabled:opacity-50 cursor-pointer">
                                 {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Save'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Import Excel Preview & Validation Modal */}
+            {isImportModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+                        {/* Header */}
+                        <div className="p-6 border-b border-pink-100 flex items-center justify-between bg-gradient-to-r from-pink-50/50 to-white">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center">
+                                    <FileSpreadsheet className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900">Import Promotions Preview</h3>
+                                    <p className="text-xs text-gray-500 font-medium mt-0.5">
+                                        File: <span className="font-semibold text-gray-700">{importFileName}</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => { setIsImportModalOpen(false); setImportRows([]); }}
+                                disabled={isImporting}
+                                className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Summary Metrics Bar */}
+                        <div className="p-4 bg-gray-50 border-b border-pink-50 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                            <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs">
+                                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Total Rows</p>
+                                <p className="text-2xl font-black text-gray-900 mt-1">{importRows.length}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded-2xl border border-emerald-100 shadow-xs">
+                                <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Valid Ready</p>
+                                <p className="text-2xl font-black text-emerald-600 mt-1">
+                                    {importRows.filter(r => r.isValid && !r.isDuplicate).length}
+                                </p>
+                            </div>
+                            <div className="bg-white p-3 rounded-2xl border border-amber-100 shadow-xs">
+                                <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">Duplicates</p>
+                                <p className="text-2xl font-black text-amber-600 mt-1">
+                                    {importRows.filter(r => r.isDuplicate).length}
+                                </p>
+                            </div>
+                            <div className="bg-white p-3 rounded-2xl border border-rose-100 shadow-xs">
+                                <p className="text-[11px] font-bold text-rose-600 uppercase tracking-wider">Invalid Rows</p>
+                                <p className="text-2xl font-black text-rose-600 mt-1">
+                                    {importRows.filter(r => !r.isValid).length}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Table of Parsed Records */}
+                        <div className="overflow-y-auto p-6 flex-1">
+                            <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr className="border-b border-pink-100 text-pink-600 uppercase tracking-wider font-bold">
+                                        <th className="pb-2.5 pl-2">#</th>
+                                        <th className="pb-2.5">Promotion Name</th>
+                                        <th className="pb-2.5">Inclusion</th>
+                                        <th className="pb-2.5">Price</th>
+                                        <th className="pb-2.5">Available Month</th>
+                                        <th className="pb-2.5">Status</th>
+                                        <th className="pb-2.5 pr-2 text-right">Validation</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {importRows.map((row) => (
+                                        <tr
+                                            key={row.rowNum}
+                                            className={`${
+                                                !row.isValid
+                                                    ? 'bg-rose-50/50 hover:bg-rose-50'
+                                                    : row.isDuplicate
+                                                    ? 'bg-amber-50/40 hover:bg-amber-50/60'
+                                                    : 'hover:bg-pink-50/30'
+                                            } transition-colors`}
+                                        >
+                                            <td className="py-3 pl-2 font-mono text-gray-400">{row.rowNum}</td>
+                                            <td className="py-3 font-bold text-gray-900 max-w-[180px] truncate" title={row.name}>
+                                                {row.name || <span className="text-rose-500 italic">Empty Name</span>}
+                                            </td>
+                                            <td className="py-3 text-gray-600 max-w-[200px] truncate" title={row.inclusions}>
+                                                {row.inclusions || <span className="text-gray-400 italic">None</span>}
+                                            </td>
+                                            <td className="py-3 font-semibold text-gray-800">
+                                                ₱{row.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="py-3 font-medium text-gray-700">
+                                                {formatMonthYear(row.monthStr) || row.monthStr || "-"}
+                                            </td>
+                                            <td className="py-3">
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                                    row.status === 'Available' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                    {row.status}
+                                                </span>
+                                            </td>
+                                            <td className="py-3 pr-2 text-right">
+                                                {row.isValid && !row.isDuplicate ? (
+                                                    <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-[11px]">
+                                                        <CheckCircle2 className="w-3.5 h-3.5" /> Ready
+                                                    </span>
+                                                ) : (
+                                                    <span
+                                                        className={`inline-flex items-center gap-1 font-bold text-[11px] ${
+                                                            row.isDuplicate ? 'text-amber-600' : 'text-rose-600'
+                                                        }`}
+                                                        title={row.error}
+                                                    >
+                                                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                                        <span className="max-w-[140px] truncate">{row.error}</span>
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Footer Controls */}
+                        <div className="p-6 border-t border-pink-100 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <p className="text-xs text-gray-500 font-medium">
+                                {importRows.filter(r => r.isValid && !r.isDuplicate).length > 0
+                                    ? `Ready to import ${importRows.filter(r => r.isValid && !r.isDuplicate).length} promotion(s) directly into Supabase.`
+                                    : "No valid records detected. Please fix the file and re-upload."}
+                            </p>
+                            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => { setIsImportModalOpen(false); setImportRows([]); }}
+                                    disabled={isImporting}
+                                    className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl text-sm font-bold transition-all disabled:opacity-50 cursor-pointer"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleConfirmImport}
+                                    disabled={isImporting || importRows.filter(r => r.isValid && !r.isDuplicate).length === 0}
+                                    className="px-6 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-xl text-sm font-bold shadow-sm shadow-pink-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                                >
+                                    {isImporting ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <span>Importing...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <UploadCloud className="w-4 h-4" />
+                                            <span>
+                                                Import ({importRows.filter(r => r.isValid && !r.isDuplicate).length}) Records
+                                            </span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

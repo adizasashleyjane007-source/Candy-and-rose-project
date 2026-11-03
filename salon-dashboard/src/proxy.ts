@@ -76,7 +76,12 @@ export async function proxy(request: NextRequest) {
     error: authError,
   } = await supabase.auth.getUser();
 
-  if (authError && process.env.NODE_ENV === "development") {
+  if (
+    authError &&
+    authError.name !== "AuthSessionMissingError" &&
+    authError.message !== "Auth session missing!" &&
+    process.env.NODE_ENV === "development"
+  ) {
     console.warn("[Middleware] getUser error:", authError.message);
   }
 

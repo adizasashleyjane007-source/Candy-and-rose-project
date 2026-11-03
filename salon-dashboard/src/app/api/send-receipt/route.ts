@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateReceiptPDFBuffer } from "@/lib/receipt-pdf";
-import { Resend } from "resend";
+import { sendTrackedEmail, getSMTPConfig } from "@/lib/mailer";
+
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { appointmentId } = body;
+    const { appointmentId, requestId } = body;
 
     if (!appointmentId) {
       return NextResponse.json(
@@ -27,12 +29,24 @@ export async function POST(request: Request) {
         services(name, price)
       `)
       .eq("id", appointmentId)
-      .single();
+      .maybeSingle();
 
-    if (aptError || !appointment) {
-      console.error("❌ Appointment not found for receipt:", aptError);
+    // Database/query failure is reported separately from a missing appointment
+    if (aptError) {
+      console.error("❌ Appointment lookup query failed for receipt:", aptError.message);
       return NextResponse.json(
-        { success: false, message: "Appointment record not found.", error: aptError?.message },
+        {
+          success: false,
+          code: "APPOINTMENT_LOOKUP_FAILED",
+          message: "Unable to retrieve the appointment record. Please try again.",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!appointment) {
+      return NextResponse.json(
+        { success: false, code: "APPOINTMENT_NOT_FOUND", message: "Appointment record not found." },
         { status: 404 }
       );
     }
@@ -44,11 +58,24 @@ export async function POST(request: Request) {
 
     // If relation embed was null or email missing, query customers table strictly by appointment.customer_id
     if ((!customerEmail || customerEmail.trim() === "") && appointment.customer_id) {
-      const { data: customerRecord } = await supabase
+      const { data: customerRecord, error: customerError } = await supabase
         .from("customers")
         .select("id, name, email")
         .eq("id", appointment.customer_id)
         .maybeSingle();
+
+      // Database/query failure is reported separately from a missing customer record
+      if (customerError) {
+        console.error("❌ Customer lookup query failed for receipt:", customerError.message);
+        return NextResponse.json(
+          {
+            success: false,
+            code: "CUSTOMER_LOOKUP_FAILED",
+            message: "Unable to retrieve the customer record. Please try again.",
+          },
+          { status: 500 }
+        );
+      }
 
       if (customerRecord) {
         if (customerRecord.email) customerEmail = customerRecord.email;
@@ -57,15 +84,20 @@ export async function POST(request: Request) {
       }
     }
 
-    // Server-side logging verifying exact customer email recipient
+    // Normalize the recipient email retrieved from the customer record
+    const normalizedEmail =
+      typeof customerEmail === "string" ? customerEmail.trim().toLowerCase() : "";
+
+    // Server-side logging (recipient masked)
+    const maskedEmail = normalizedEmail
+      ? normalizedEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2")
+      : "NONE";
     console.log(`[RECEIPT] Appointment ID: ${appointmentId}`);
     console.log(`[RECEIPT] Customer ID: ${customerId}`);
-    console.log(`[RECEIPT] Customer Name: ${customerName}`);
-    console.log(`[RECEIPT] Customer Email: ${customerEmail || "NONE"}`);
-    console.log(`[RECEIPT] Starting receipt request`);
+    console.log(`[RECEIPT] Customer Email: ${maskedEmail}`);
 
-    // Customer email validation
-    if (!customerEmail || typeof customerEmail !== "string" || !customerEmail.includes("@")) {
+    // Missing recipient: stop before any SMTP connection or tracking record is created
+    if (!normalizedEmail) {
       return NextResponse.json(
         {
           success: false,
@@ -76,7 +108,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // 5. Fetch billing record if available
+    // Invalid recipient format: stop before any SMTP connection or tracking record is created
+    const EMAIL_FORMAT = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+    if (normalizedEmail.length > 254 || !EMAIL_FORMAT.test(normalizedEmail)) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "CUSTOMER_EMAIL_INVALID",
+          message: "This customer's registered email address is invalid. Please update the customer record.",
+        },
+        { status: 400 }
+      );
+    }
+
+    customerEmail = normalizedEmail;
+
+    // 3. Fetch billing record if available
     const { data: billingRecord } = await supabase
       .from("billing")
       .select("*")
@@ -85,7 +132,7 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle();
 
-    // 6. Gather receipt metrics
+    // 4. Gather receipt metrics
     const serviceName = appointment.service_name || appointment.services?.name || "Salon Service";
     const staffName = appointment.staff?.name || appointment.staff_name || "Candy & Rose Specialist";
 
@@ -101,14 +148,11 @@ export async function POST(request: Request) {
 
     const paymentMethod = billingRecord?.payment_method || appointment.payment_method || "Cash";
     const servicePrice = Number(appointment.price || appointment.services?.price || 0);
-    const taxAmount = 0;
     const totalPaid = Number(billingRecord?.amount || servicePrice);
     const cashReceived = Number(billingRecord?.cash_received || totalPaid);
     const changeAmount = Math.max(0, cashReceived - totalPaid);
 
-    const isCash = paymentMethod.toLowerCase() === "cash";
-
-    // Build HTML Email
+    // Build authoritative HTML Email
     const htmlEmail = `
       <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 32px; border: 1px solid #fbcfe8; border-radius: 24px; background-color: #ffffff; color: #1f2937;">
         <!-- Brand Header -->
@@ -161,35 +205,33 @@ export async function POST(request: Request) {
           <table style="width: 100%; font-size: 14px; color: #374151; border-collapse: collapse;">
             <tr>
               <td style="padding: 6px 0; color: #6b7280;">Payment Method:</td>
-              <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${paymentMethod}</td>
+              <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827; text-transform: uppercase;">${paymentMethod}</td>
             </tr>
             <tr>
-              <td style="padding: 6px 0; color: #6b7280;">Service Price:</td>
-              <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">₱${servicePrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            </tr>
-            <tr>
-              <td style="padding: 6px 0; color: #6b7280;">Tax:</td>
-              <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">₱${taxAmount.toFixed(2)}</td>
-            </tr>
-            <tr style="border-top: 1px solid #f3f4f6; border-bottom: 1px solid #f3f4f6;">
-              <td style="padding: 10px 0; color: #111827; font-weight: 700; font-size: 16px;">Total Paid:</td>
-              <td style="padding: 10px 0; text-align: right; font-weight: 800; font-size: 18px; color: #db2777;">₱${totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+              <td style="padding: 6px 0; color: #6b7280;">Total Paid:</td>
+              <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #db2777; font-size: 16px;">PHP ${totalPaid.toFixed(2)}</td>
             </tr>
             ${
-              isCash
+              paymentMethod.toLowerCase() === "cash" && cashReceived > 0
                 ? `
-              <tr>
-                <td style="padding: 6px 0; color: #6b7280;">Amount Received:</td>
-                <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">₱${cashReceived.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-              <tr>
-                <td style="padding: 6px 0; color: #6b7280;">Change:</td>
-                <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #059669;">₱${changeAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-              `
+            <tr>
+              <td style="padding: 6px 0; color: #6b7280;">Cash Received:</td>
+              <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">PHP ${cashReceived.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #6b7280;">Change:</td>
+              <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">PHP ${changeAmount.toFixed(2)}</td>
+            </tr>`
                 : ""
             }
           </table>
+        </div>
+
+        <!-- Note on Attachment -->
+        <div style="background-color: #fdf2f8; padding: 14px; border-radius: 12px; border: 1px dashed #f472b6; margin-bottom: 24px; text-align: center;">
+          <p style="margin: 0; font-size: 13px; color: #9d174d; font-weight: 500;">
+            📎 An official copy of your Sales Invoice (PDF) is attached to this email.
+          </p>
         </div>
 
         <!-- Footer -->
@@ -203,17 +245,26 @@ export async function POST(request: Request) {
       </div>
     `;
 
-    console.log(`[RECEIPT] Preparing email for target TO: ${customerEmail}`);
-    console.log(`[RECEIPT] Generating PDF receipt attachment...`);
+    console.log(`[RECEIPT] Preparing email for target TO: ${maskedEmail}`);
+    console.log(`[RECEIPT] Generating authoritative PDF receipt attachment via existing receipt-pdf.ts...`);
+
+    // Fetch salon metadata if available in settings, or use standard defaults
+    const { data: salonSettings } = await supabase
+      .from("salon_settings")
+      .select("value")
+      .eq("key", "salon_info")
+      .maybeSingle();
+
+    const salonInfo = salonSettings?.value || {
+      name: "Candy And Rose Salon",
+      address: "Blk and Lot, Dasmarinas Cavite",
+      phone: "032-123-4567",
+      email: "candyandroses@gmail.com",
+    };
 
     // Generate authoritative PDF receipt matching dashboard layout
     const pdfBuffer = generateReceiptPDFBuffer({
-      salonInfo: {
-        name: "Candy And Rose Salon",
-        address: "Blk and Lot, Dasmarinas Cavite",
-        phone: "032-123-4567",
-        email: "candyandroses@gmail.com",
-      },
+      salonInfo,
       customerName,
       staffName,
       dateStr: formattedDate,
@@ -225,48 +276,58 @@ export async function POST(request: Request) {
       change: changeAmount,
     });
 
-    // Verify Resend configuration
-    if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_your_api_key_here") {
-      console.error("❌ ERROR: RESEND_API_KEY is not configured.");
+    // Check SMTP configuration
+    const smtpConfig = getSMTPConfig();
+    if (!smtpConfig.isConfigured) {
+      console.error("❌ ERROR: Google Gmail SMTP credentials are not configured in environment variables.");
       return NextResponse.json(
         {
           success: false,
-          code: "RESEND_KEY_MISSING",
-          message: "Email service is not configured on the server. Please set RESEND_API_KEY.",
+          code: "SMTP_NOT_CONFIGURED",
+          message: "Email service is not configured on the server. Please set SMTP_USER and SMTP_PASS (Gmail App Password).",
         },
         { status: 500 }
       );
     }
 
-    console.log(`[RECEIPT] Sending email copy via Resend to ${customerEmail}...`);
-    const resend = new Resend(process.env.RESEND_API_KEY);
+    // Deterministic action key / request key for idempotency
+    const billingId = billingRecord?.id || appointmentId;
+    const actionKey = requestId || `${billingId}_${Date.now()}`;
+    const idempotencyKey = `billing_receipt:${billingId}:${actionKey}`;
 
-    const { data: resendData, error: sendError } = await resend.emails.send({
-      from: "Candy & Rose <onboarding@resend.dev>",
-      to: [customerEmail],
+    console.log(`[RECEIPT] Sending email copy via Gmail SMTP to ${maskedEmail} (Key: ${idempotencyKey})...`);
+
+    // Send tracked email with PDF attachment via Gmail SMTP
+    const dispatchResult = await sendTrackedEmail({
+      supabase,
+      to: customerEmail,
       subject: "Candy & Rose - Payment Receipt",
       html: htmlEmail,
+      eventType: "billing_receipt",
+      referenceId: billingId,
+      idempotencyKey,
       attachments: [
         {
           filename: "Candy_and_Rose_Receipt.pdf",
           content: pdfBuffer,
+          contentType: "application/pdf",
         },
       ],
     });
 
-    if (sendError) {
-      console.error(`❌ Resend API Error sending receipt to ${customerEmail}:`, sendError);
+    if (!dispatchResult.success && !dispatchResult.skipped) {
+      console.error(`❌ Gmail SMTP Error sending receipt to ${maskedEmail}:`, dispatchResult.error);
       return NextResponse.json(
         {
           success: false,
-          message: "Unable to send receipt.",
-          error: sendError.message,
+          message: dispatchResult.error || "Unable to send receipt.",
+          error: dispatchResult.error,
         },
         { status: 500 }
       );
     }
 
-    console.log(`[RECEIPT] Resend accepted message (ID: ${resendData?.id})`);
+    console.log(`[RECEIPT] Gmail SMTP dispatch succeeded (MessageId: ${dispatchResult.messageId || "N/A"})`);
 
     // Log receipt dispatch in billing record without modifying appointment statuses
     if (billingRecord?.id) {
@@ -274,7 +335,7 @@ export async function POST(request: Request) {
         await supabase
           .from("billing")
           .update({
-            notes: `${billingRecord.notes || "Payment"} | Receipt sent to ${customerEmail} via Resend at ${new Date().toISOString()}`,
+            notes: `${billingRecord.notes || "Payment"} | Receipt sent to ${customerEmail} via Gmail SMTP at ${new Date().toISOString()}`,
           })
           .eq("id", billingRecord.id);
       } catch (tErr) {
@@ -284,9 +345,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Receipt sent successfully.",
-      messageId: resendData?.id,
+      message: dispatchResult.skipped
+        ? "Receipt was already sent for this transaction."
+        : "Receipt sent successfully.",
+      messageId: dispatchResult.messageId,
       email: customerEmail,
+      skipped: dispatchResult.skipped,
     });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : "Internal server error";
@@ -301,5 +365,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
-

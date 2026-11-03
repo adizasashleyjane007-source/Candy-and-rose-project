@@ -1,0 +1,326 @@
+flowchart TD
+    %% ============================================================================
+    %% CANDY AND ROSE SALON MANAGEMENT INFORMATION SYSTEM
+    %% Traditional Chen Notation ERD (Mermaid Flowchart Representation)
+    %% Conventions:
+    %%   [ENTITY]     = Strong Entity (Rectangle)
+    %%   [[ENTITY]]   = Dependent / Identifying Entity (Double Rectangle)
+    %%   {REL}        = Relationship (Diamond)
+    %%   ([attr])     = Attribute (Oval)
+    %%   <u>id</u>    = Primary Key Attribute (Underlined)
+    %% ============================================================================
+
+    classDef entity fill:#EC4899,stroke:#831843,stroke-width:2.5px,color:#FFFFFF,font-weight:bold;
+    classDef authEntity fill:#1E293B,stroke:#0F172A,stroke-width:2.5px,color:#FFFFFF,font-weight:bold;
+    classDef rel fill:#FDF2F8,stroke:#BE185D,stroke-width:2px,color:#831843,font-weight:bold;
+    classDef pkAttr fill:#FEF3C7,stroke:#D97706,stroke-width:2px,color:#92400E,font-weight:bold;
+    classDef fkAttr fill:#FCE7F3,stroke:#DB2777,stroke-width:1.5px,stroke-dasharray: 4 2,color:#9D174D;
+    classDef uqAttr fill:#E0F2FE,stroke:#0284C7,stroke-width:1.5px,color:#075985;
+    classDef attr fill:#FFFFFF,stroke:#64748B,stroke-width:1.2px,color:#1E293B;
+
+    %% ============================================================================
+    %% 1. USER, AUTHENTICATION & ACCOUNT MANAGEMENT
+    %% ============================================================================
+    AUTH_USERS["AUTH.USERS"]:::authEntity
+    AU_id(["<u>id (PK)</u>"]):::pkAttr --- AUTH_USERS
+    AU_email(["email"]):::attr --- AUTH_USERS
+    AU_phone(["phone"]):::attr --- AUTH_USERS
+    AU_role(["role"]):::attr --- AUTH_USERS
+    AU_pass(["encrypted_password"]):::attr --- AUTH_USERS
+    AU_conf(["email_confirmed_at"]):::attr --- AUTH_USERS
+    AU_sign(["last_sign_in_at"]):::attr --- AUTH_USERS
+    AU_created(["created_at"]):::attr --- AUTH_USERS
+    AU_updated(["updated_at"]):::attr --- AUTH_USERS
+
+    PROFILES[["PROFILES"]]:::entity
+    PR_id(["<u>id (PK, FK)</u>"]):::pkAttr --- PROFILES
+    PR_name(["name"]):::attr --- PROFILES
+    PR_email(["email"]):::attr --- PROFILES
+    PR_phone(["phone"]):::attr --- PROFILES
+    PR_role(["role"]):::attr --- PROFILES
+    PR_img(["image_url"]):::attr --- PROFILES
+    PR_bio(["bio"]):::attr --- PROFILES
+    PR_created(["created_at"]):::attr --- PROFILES
+    PR_updated(["updated_at"]):::attr --- PROFILES
+
+    ADMIN_OTPS["ADMIN_OTPS"]:::entity
+    AO_id(["<u>id (PK)</u>"]):::pkAttr --- ADMIN_OTPS
+    AO_uid(["user_id (FK)"]):::fkAttr --- ADMIN_OTPS
+    AO_email(["email"]):::attr --- ADMIN_OTPS
+    AO_code(["otp_code"]):::attr --- ADMIN_OTPS
+    AO_exp(["expires_at"]):::attr --- ADMIN_OTPS
+    AO_used(["is_used"]):::attr --- ADMIN_OTPS
+    AO_created(["created_at"]):::attr --- ADMIN_OTPS
+
+    FEEDBACK["FEEDBACK"]:::entity
+    FB_id(["<u>id (PK)</u>"]):::pkAttr --- FEEDBACK
+    FB_uid(["user_id (FK)"]):::fkAttr --- FEEDBACK
+    FB_uname(["user_name"]):::attr --- FEEDBACK
+    FB_rating(["rating (1..5)"]):::attr --- FEEDBACK
+    FB_comment(["comment"]):::attr --- FEEDBACK
+    FB_created(["created_at"]):::attr --- FEEDBACK
+
+    EMAIL_NOTIFICATIONS["EMAIL_NOTIFICATIONS"]:::entity
+    EN_id(["<u>id (PK)</u>"]):::pkAttr --- EMAIL_NOTIFICATIONS
+    EN_idem(["idempotency_key (UQ)"]):::uqAttr --- EMAIL_NOTIFICATIONS
+    EN_event(["event_type"]):::attr --- EMAIL_NOTIFICATIONS
+    EN_ref(["reference_id"]):::attr --- EMAIL_NOTIFICATIONS
+    EN_recip(["recipient_email"]):::attr --- EMAIL_NOTIFICATIONS
+    EN_status(["status"]):::attr --- EMAIL_NOTIFICATIONS
+    EN_err(["error_message"]):::attr --- EMAIL_NOTIFICATIONS
+    EN_retry(["retry_count"]):::attr --- EMAIL_NOTIFICATIONS
+    EN_lock(["locked_until"]):::attr --- EMAIL_NOTIFICATIONS
+    EN_resby(["resolved_by (FK)"]):::fkAttr --- EMAIL_NOTIFICATIONS
+    EN_resat(["resolved_at"]):::attr --- EMAIL_NOTIFICATIONS
+    EN_resnotes(["resolution_notes"]):::attr --- EMAIL_NOTIFICATIONS
+    EN_created(["created_at"]):::attr --- EMAIL_NOTIFICATIONS
+    EN_sent(["sent_at"]):::attr --- EMAIL_NOTIFICATIONS
+
+    %% ============================================================================
+    %% 2. CUSTOMER, EMPLOYEE & STAFF MANAGEMENT
+    %% ============================================================================
+    CUSTOMERS["CUSTOMERS"]:::entity
+    CU_id(["<u>id (PK)</u>"]):::pkAttr --- CUSTOMERS
+    CU_uid(["user_id (FK, UQ)"]):::fkAttr --- CUSTOMERS
+    CU_name(["name"]):::attr --- CUSTOMERS
+    CU_fname(["full_name"]):::attr --- CUSTOMERS
+    CU_email(["email (UQ)"]):::uqAttr --- CUSTOMERS
+    CU_phone(["phone"]):::attr --- CUSTOMERS
+    CU_addr(["address"]):::attr --- CUSTOMERS
+    CU_pass(["password"]):::attr --- CUSTOMERS
+    CU_mem(["membership_type"]):::attr --- CUSTOMERS
+    CU_visits(["visits"]):::attr --- CUSTOMERS
+    CU_last(["last_visit"]):::attr --- CUSTOMERS
+    CU_spent(["total_spent"]):::attr --- CUSTOMERS
+    CU_status(["status"]):::attr --- CUSTOMERS
+    CU_created(["created_at"]):::attr --- CUSTOMERS
+
+    PASSWORD_RESET_TOKENS["PASSWORD_RESET_TOKENS"]:::entity
+    PRT_id(["<u>id (PK)</u>"]):::pkAttr --- PASSWORD_RESET_TOKENS
+    PRT_cid(["customer_id (FK)"]):::fkAttr --- PASSWORD_RESET_TOKENS
+    PRT_hash(["token_hash"]):::attr --- PASSWORD_RESET_TOKENS
+    PRT_exp(["expires_at"]):::attr --- PASSWORD_RESET_TOKENS
+    PRT_used(["used_at"]):::attr --- PASSWORD_RESET_TOKENS
+    PRT_created(["created_at"]):::attr --- PASSWORD_RESET_TOKENS
+
+    STAFF["STAFF"]:::entity
+    ST_id(["<u>id (PK)</u>"]):::pkAttr --- STAFF
+    ST_name(["name"]):::attr --- STAFF
+    ST_role(["role"]):::attr --- STAFF
+    ST_email(["email"]):::attr --- STAFF
+    ST_phone(["phone"]):::attr --- STAFF
+    ST_rating(["rating"]):::attr --- STAFF
+    ST_sched(["schedule"]):::attr --- STAFF
+    ST_status(["status"]):::attr --- STAFF
+    ST_created(["created_at"]):::attr --- STAFF
+
+    ATTENDANCE[["ATTENDANCE"]]:::entity
+    AT_id(["<u>id (PK)</u>"]):::pkAttr --- ATTENDANCE
+    AT_sid(["staff_id (FK, UQ)"]):::fkAttr --- ATTENDANCE
+    AT_date(["date (UQ)"]):::uqAttr --- ATTENDANCE
+    AT_sname(["staff_name"]):::attr --- ATTENDANCE
+    AT_status(["status"]):::attr --- ATTENDANCE
+    AT_created(["created_at"]):::attr --- ATTENDANCE
+
+    %% ============================================================================
+    %% 3. AI-INTEGRATED NAIL CUSTOMIZATION & 3D STUDIO
+    %% ============================================================================
+    STUDIO_CONFIGURATIONS["STUDIO_CONFIGURATIONS"]:::entity
+    SC_id(["<u>id (PK)</u>"]):::pkAttr --- STUDIO_CONFIGURATIONS
+    SC_uid(["user_id (FK)"]):::fkAttr --- STUDIO_CONFIGURATIONS
+    SC_name(["config_name"]):::attr --- STUDIO_CONFIGURATIONS
+    SC_set(["settings (jsonb)"]):::attr --- STUDIO_CONFIGURATIONS
+    SC_created(["created_at"]):::attr --- STUDIO_CONFIGURATIONS
+    SC_updated(["updated_at"]):::attr --- STUDIO_CONFIGURATIONS
+
+    NAIL_DESIGNS["NAIL_DESIGNS"]:::entity
+    ND_id(["<u>id (PK)</u>"]):::pkAttr --- NAIL_DESIGNS
+    ND_cid(["customer_id (FK)"]):::fkAttr --- NAIL_DESIGNS
+    ND_name(["name"]):::attr --- NAIL_DESIGNS
+    ND_cat(["category"]):::attr --- NAIL_DESIGNS
+    ND_shape(["shape"]):::attr --- NAIL_DESIGNS
+    ND_pcol(["primary_color"]):::attr --- NAIL_DESIGNS
+    ND_scol(["secondary_color"]):::attr --- NAIL_DESIGNS
+    ND_grad(["is_gradient"]):::attr --- NAIL_DESIGNS
+    ND_tex(["texture"]):::attr --- NAIL_DESIGNS
+    ND_art(["art_data (jsonb)"]):::attr --- NAIL_DESIGNS
+    ND_prev(["preview_url"]):::attr --- NAIL_DESIGNS
+    ND_img(["image_url"]):::attr --- NAIL_DESIGNS
+    ND_trend(["is_trending"]):::attr --- NAIL_DESIGNS
+    ND_desc(["description"]):::attr --- NAIL_DESIGNS
+    ND_price(["price"]):::attr --- NAIL_DESIGNS
+    ND_inc(["inclusions"]):::attr --- NAIL_DESIGNS
+    ND_created(["created_at"]):::attr --- NAIL_DESIGNS
+
+    %% ============================================================================
+    %% 4. APPOINTMENT, SCHEDULING, SERVICES & REVIEWS
+    %% ============================================================================
+    SERVICES["SERVICES"]:::entity
+    SV_id(["<u>id (PK)</u>"]):::pkAttr --- SERVICES
+    SV_name(["name"]):::attr --- SERVICES
+    SV_cat(["category"]):::attr --- SERVICES
+    SV_price(["price"]):::attr --- SERVICES
+    SV_dur(["duration"]):::attr --- SERVICES
+    SV_role(["required_role"]):::attr --- SERVICES
+    SV_img(["image_url"]):::attr --- SERVICES
+    SV_status(["status"]):::attr --- SERVICES
+    SV_created(["created_at"]):::attr --- SERVICES
+
+    APPOINTMENTS["APPOINTMENTS"]:::entity
+    AP_id(["<u>id (PK)</u>"]):::pkAttr --- APPOINTMENTS
+    AP_cid(["customer_id (FK)"]):::fkAttr --- APPOINTMENTS
+    AP_svid(["service_id (FK)"]):::fkAttr --- APPOINTMENTS
+    AP_stid(["staff_id (FK)"]):::fkAttr --- APPOINTMENTS
+    AP_cname(["customer_name"]):::attr --- APPOINTMENTS
+    AP_svname(["service_name"]):::attr --- APPOINTMENTS
+    AP_stname(["staff_name"]):::attr --- APPOINTMENTS
+    AP_adate(["appointment_date"]):::attr --- APPOINTMENTS
+    AP_atime(["appointment_time"]):::attr --- APPOINTMENTS
+    AP_date(["date"]):::attr --- APPOINTMENTS
+    AP_time(["time"]):::attr --- APPOINTMENTS
+    AP_dur(["duration"]):::attr --- APPOINTMENTS
+    AP_price(["price"]):::attr --- APPOINTMENTS
+    AP_status(["status"]):::attr --- APPOINTMENTS
+    AP_pmeth(["payment_method"]):::attr --- APPOINTMENTS
+    AP_pstat(["payment_status"]):::attr --- APPOINTMENTS
+    AP_src(["source"]):::attr --- APPOINTMENTS
+    AP_notes(["notes"]):::attr --- APPOINTMENTS
+    AP_did(["design_id"]):::attr --- APPOINTMENTS
+    AP_dname(["design_name"]):::attr --- APPOINTMENTS
+    AP_dimg(["design_image"]):::attr --- APPOINTMENTS
+    AP_cancel(["cancellation_reason"]):::attr --- APPOINTMENTS
+    AP_created(["created_at"]):::attr --- APPOINTMENTS
+
+    REVIEWS["REVIEWS"]:::entity
+    RV_id(["<u>id (PK)</u>"]):::pkAttr --- REVIEWS
+    RV_cid(["customer_id (FK)"]):::fkAttr --- REVIEWS
+    RV_cname(["customer_name"]):::attr --- REVIEWS
+    RV_rating(["rating (1..5)"]):::attr --- REVIEWS
+    RV_rev(["review"]):::attr --- REVIEWS
+    RV_img(["review_image"]):::attr --- REVIEWS
+    RV_status(["status"]):::attr --- REVIEWS
+    RV_created(["created_at"]):::attr --- REVIEWS
+
+    %% ============================================================================
+    %% 5. BILLING & PAYMENT TRANSACTIONS
+    %% ============================================================================
+    BILLING["BILLING"]:::entity
+    BL_id(["<u>id (PK)</u>"]):::pkAttr --- BILLING
+    BL_cid(["customer_id (FK)"]):::fkAttr --- BILLING
+    BL_aid(["appointment_id (FK)"]):::fkAttr --- BILLING
+    BL_amt(["amount"]):::attr --- BILLING
+    BL_cash(["cash_received"]):::attr --- BILLING
+    BL_pmeth(["payment_method"]):::attr --- BILLING
+    BL_status(["status"]):::attr --- BILLING
+    BL_notes(["notes"]):::attr --- BILLING
+    BL_created(["created_at"]):::attr --- BILLING
+
+    PAYMENT_METHODS["PAYMENT_METHODS"]:::entity
+    PM_id(["<u>id (PK)</u>"]):::pkAttr --- PAYMENT_METHODS
+    PM_name(["name"]):::attr --- PAYMENT_METHODS
+    PM_type(["type"]):::attr --- PAYMENT_METHODS
+    PM_status(["status"]):::attr --- PAYMENT_METHODS
+    PM_icon(["icon"]):::attr --- PAYMENT_METHODS
+    PM_created(["created_at"]):::attr --- PAYMENT_METHODS
+
+    %% ============================================================================
+    %% 6. INVENTORY, PROMOTIONS, NOTIFICATIONS, MESSAGES & SETTINGS
+    %% ============================================================================
+    PROMOTIONS["PROMOTIONS"]:::entity
+    PR_pid(["<u>id (PK)</u>"]):::pkAttr --- PROMOTIONS
+    PR_pname(["name"]):::attr --- PROMOTIONS
+    PR_pstat(["status"]):::attr --- PROMOTIONS
+    PR_pprice(["price"]):::attr --- PROMOTIONS
+    PR_pdate(["date"]):::attr --- PROMOTIONS
+    PR_pinc(["inclusions"]):::attr --- PROMOTIONS
+    PR_pstart(["start_date"]):::attr --- PROMOTIONS
+    PR_pend(["end_date"]):::attr --- PROMOTIONS
+
+    INVENTORY["INVENTORY"]:::entity
+    IN_id(["<u>id (PK)</u>"]):::pkAttr --- INVENTORY
+    IN_name(["name"]):::attr --- INVENTORY
+    IN_cat(["category"]):::attr --- INVENTORY
+    IN_qty(["quantity"]):::attr --- INVENTORY
+    IN_unit(["unit"]):::attr --- INVENTORY
+    IN_reord(["reorder_level"]):::attr --- INVENTORY
+    IN_cost(["cost_price"]):::attr --- INVENTORY
+    IN_stat(["status"]):::attr --- INVENTORY
+    IN_created(["created_at"]):::attr --- INVENTORY
+
+    NOTIFICATIONS["NOTIFICATIONS"]:::entity
+    NT_id(["<u>id (PK)</u>"]):::pkAttr --- NOTIFICATIONS
+    NT_title(["title"]):::attr --- NOTIFICATIONS
+    NT_msg(["message"]):::attr --- NOTIFICATIONS
+    NT_type(["type"]):::attr --- NOTIFICATIONS
+    NT_read(["is_read"]):::attr --- NOTIFICATIONS
+    NT_created(["created_at"]):::attr --- NOTIFICATIONS
+
+    MESSAGES["MESSAGES"]:::entity
+    MS_id(["<u>id (PK)</u>"]):::pkAttr --- MESSAGES
+    MS_name(["name"]):::attr --- MESSAGES
+    MS_email(["email"]):::attr --- MESSAGES
+    MS_subj(["subject"]):::attr --- MESSAGES
+    MS_msg(["message"]):::attr --- MESSAGES
+    MS_created(["created_at"]):::attr --- MESSAGES
+
+    SALON_SETTINGS["SALON_SETTINGS"]:::entity
+    SS_id(["<u>id (PK)</u>"]):::pkAttr --- SALON_SETTINGS
+    SS_key(["key (UQ)"]):::uqAttr --- SALON_SETTINGS
+    SS_val(["value (jsonb)"]):::attr --- SALON_SETTINGS
+    SS_lbl(["setting_label"]):::attr --- SALON_SETTINGS
+    SS_name(["name"]):::attr --- SALON_SETTINGS
+    SS_phone(["phone"]):::attr --- SALON_SETTINGS
+    SS_email(["email"]):::attr --- SALON_SETTINGS
+    SS_addr(["address"]):::attr --- SALON_SETTINGS
+    SS_logo(["logo_url"]):::attr --- SALON_SETTINGS
+    SS_tag(["tagline"]):::attr --- SALON_SETTINGS
+    SS_created(["created_at"]):::attr --- SALON_SETTINGS
+
+    %% ============================================================================
+    %% CHEN NOTATION RELATIONSHIPS (DIAMONDS) & CARDINALITIES
+    %% ============================================================================
+    REL_HAS_PROFILE{"HAS_PROFILE"}:::rel
+    AUTH_USERS ---|"1"| REL_HAS_PROFILE ---|"1"| PROFILES
+
+    REL_GEN_OTP{"GENERATES_OTP"}:::rel
+    AUTH_USERS ---|"1"| REL_GEN_OTP ---|"N"| ADMIN_OTPS
+
+    REL_SUB_FB{"SUBMITS_FEEDBACK"}:::rel
+    AUTH_USERS ---|"1"| REL_SUB_FB ---|"N"| FEEDBACK
+
+    REL_RES_EMAIL{"RESOLVES_EMAIL"}:::rel
+    AUTH_USERS ---|"1"| REL_RES_EMAIL ---|"N"| EMAIL_NOTIFICATIONS
+
+    REL_SAVE_CFG{"SAVES_CONFIG"}:::rel
+    AUTH_USERS ---|"1"| REL_SAVE_CFG ---|"N"| STUDIO_CONFIGURATIONS
+
+    REL_LINK_ACCT{"LINKS_ACCOUNT"}:::rel
+    AUTH_USERS ---|"1"| REL_LINK_ACCT ---|"1"| CUSTOMERS
+
+    REL_REQ_RESET{"REQUESTS_RESET"}:::rel
+    CUSTOMERS ---|"1"| REL_REQ_RESET ---|"N"| PASSWORD_RESET_TOKENS
+
+    REL_WRITES{"WRITES"}:::rel
+    CUSTOMERS ---|"1"| REL_WRITES ---|"N"| REVIEWS
+
+    REL_CUSTOMIZES{"CUSTOMIZES"}:::rel
+    CUSTOMERS ---|"1"| REL_CUSTOMIZES ---|"N"| NAIL_DESIGNS
+
+    REL_BOOKS{"BOOKS"}:::rel
+    CUSTOMERS ---|"1"| REL_BOOKS ---|"N"| APPOINTMENTS
+
+    REL_PAYS{"PAYS"}:::rel
+    CUSTOMERS ---|"1"| REL_PAYS ---|"N"| BILLING
+
+    REL_ASSIGNED{"ASSIGNED_TO"}:::rel
+    STAFF ---|"1"| REL_ASSIGNED ---|"N"| APPOINTMENTS
+
+    REL_LOGS_ATT{"LOGS_ATTENDANCE"}:::rel
+    STAFF ---|"1"| REL_LOGS_ATT ---|"N"| ATTENDANCE
+
+    REL_INC_SVC{"INCLUDES_SERVICE"}:::rel
+    SERVICES ---|"1"| REL_INC_SVC ---|"N"| APPOINTMENTS
+
+    REL_GEN_BILL{"GENERATES_BILL"}:::rel
+    APPOINTMENTS ---|"1"| REL_GEN_BILL ---|"N"| BILLING
+

@@ -7,7 +7,7 @@ import SalonLayout from '@/components/salon-layout';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, type Service } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
-import { formatMonthYear, isPromotionForCurrentMonth } from '@/lib/promotions-utils';
+import { formatMonthYear, isPromotionForCurrentMonth, getManilaToday } from '@/lib/promotions-utils';
 
 export default function PackagesPage() {
   const { user } = useAuth();
@@ -17,15 +17,26 @@ export default function PackagesPage() {
   useEffect(() => {
     const fetchPromotions = async () => {
       try {
+        const manilaNow = getManilaToday();
+        const firstDayOfMonth = `${manilaNow.monthStr}-01`;
+        const lastDayOfMonth = new Date(manilaNow.year, manilaNow.month, 0).getDate();
+        const endDayOfMonth = `${manilaNow.monthStr}-${String(lastDayOfMonth).padStart(2, '0')}`;
+
+        // Backend query filtering directly at the database level:
+        // 1. Must be Available or Active
+        // 2. Either start_date falls within the current month, or date falls within the current month.
+        //    (Supports both modern start_date/end_date and legacy date columns)
         const { data, error } = await supabase
           .from('promotions')
           .select('*')
+          .in('status', ['Available', 'active', 'available', 'Active'])
+          .or(`and(start_date.gte.${firstDayOfMonth},start_date.lte.${endDayOfMonth}),and(date.gte.${firstDayOfMonth},date.lte.${endDayOfMonth})`)
           .order('name', { ascending: true });
           
         if (error) throw error;
 
-        // Filter promotions assigned to current month and year in Asia/Manila
-        const validPromotions = (data || []).filter(promo => isPromotionForCurrentMonth(promo));
+        // Verify exact month and year in Asia/Manila timezone
+        const validPromotions = (data || []).filter(promo => isPromotionForCurrentMonth(promo, manilaNow));
         setPromotions(validPromotions);
       } catch (err) {
         console.error('Error fetching promotions:', err);
