@@ -31,6 +31,7 @@ export interface Staff {
   phone?: string;
   status?: string;
   schedule?: string;
+  employment_status?: "Active" | "Inactive";
 }
 
 export interface Service {
@@ -122,11 +123,17 @@ export interface NailDesign {
   created_at?: string;
   name: string;
   image_url: string;
+  preview_url?: string;
   category?: string;
   description?: string;
   inclusions?: string;
   is_trending?: boolean;
   price?: number;
+  shape?: string;
+  primary_color?: string;
+  secondary_color?: string;
+  texture?: string;
+  art_data?: any;
 }
 
 export interface Message {

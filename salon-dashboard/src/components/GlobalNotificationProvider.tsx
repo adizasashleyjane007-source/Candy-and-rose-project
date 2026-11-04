@@ -43,10 +43,17 @@ export default function GlobalNotificationProvider() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const isAuthPage = AUTH_ROUTES.some((route) => pathname?.startsWith(route));
+  const isNailsCustomizationPage = pathname === "/nails" || pathname?.startsWith("/nails");
 
   // --- Notification State (Alerts/Messages) ---
   const [activeNotification, setActiveNotification] = useState<any>(null);
   const [detailedAppointment, setDetailedAppointment] = useState<Appointment | null>(null);
+
+  const isNoShowNotification = Boolean(
+    activeNotification &&
+      (activeNotification.title?.toLowerCase().includes("no-show") ||
+        activeNotification.message?.toLowerCase().includes("no-show"))
+  );
 
   // Modal Control State
   const [showDetails, setShowDetails] = useState(false);
@@ -346,15 +353,9 @@ export default function GlobalNotificationProvider() {
               newNotif.title === 'Appointment Deleted'
             ) {
               showStatus('success', newNotif.title, newNotif.message || 'Action completed successfully');
-              
-              if (typeof window !== "undefined") {
-                window.dispatchEvent(new Event("notificationsUpdated"));
-              }
-              return;
             }
 
-            setActiveNotification(newNotif);
-
+            // Silently dispatch notification update to refresh bell count and Notifications page
             if (typeof window !== "undefined") {
               window.dispatchEvent(new Event("notificationsUpdated"));
             }
@@ -370,31 +371,18 @@ export default function GlobalNotificationProvider() {
         }
       });
 
-    const fetchUnread = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('notifications')
-          .select('*')
-          .eq('is_read', false)
-          .eq('type', 'appointment')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (data) {
-          setActiveNotification(data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch unread notifications on mount", err);
-      }
-    };
-    fetchUnread();
-
     return () => {
       console.log("Cleaning up Global Notification Subscription...");
       supabase.removeChannel(channel);
     };
-  }, [isAuthPage]);
+  }, [isAuthPage, isNailsCustomizationPage]);
+
+  // Prevent and clear Customer No-Show notification modal on the Nail Customization page
+  useEffect(() => {
+    if (isNailsCustomizationPage && isNoShowNotification) {
+      setActiveNotification(null);
+    }
+  }, [isNailsCustomizationPage, isNoShowNotification]);
 
   // --- Background Reminder Check ---
   const checkReminders = useCallback(async () => {
@@ -735,7 +723,7 @@ export default function GlobalNotificationProvider() {
   return (
     <>
       {/* --- 1. CUSTOMER NO-SHOW MODAL --- */}
-      {activeNoShowAppt && (
+      {activeNoShowAppt && !isNailsCustomizationPage && (
         <div className="fixed inset-0 z-[12000] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl border border-pink-100 overflow-hidden relative z-10 animate-in zoom-in-95 duration-200">
             <div className="h-1.5 w-full bg-gradient-to-r from-pink-400 via-pink-500 to-pink-600" />
@@ -841,7 +829,7 @@ export default function GlobalNotificationProvider() {
       )}
 
       {/* --- 1B. APPOINTMENT CANCELLED CONFIRMATION MODAL --- */}
-      {cancelledConfirmAppt && (
+      {cancelledConfirmAppt && !isNailsCustomizationPage && (
         <div className="fixed inset-0 z-[13000] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[2rem] w-full max-w-sm shadow-2xl border border-pink-100 overflow-hidden relative z-10 animate-in zoom-in-95 duration-200 p-6 sm:p-7 text-center">
             <div className="w-14 h-14 rounded-2xl bg-pink-50 border border-pink-100 flex items-center justify-center mx-auto mb-4 text-pink-500 shadow-sm">
@@ -1110,58 +1098,6 @@ export default function GlobalNotificationProvider() {
                 >
                   View Schedule
                 </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 6. New Appointment Alert / Message Alert */}
-      {activeNotification && !activeNoShowAppt && !activeLateAppt && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="relative p-[1px] overflow-hidden rounded-3xl shadow-2xl group">
-            <div className="absolute inset-[-150%] bg-[conic-gradient(from_0deg,transparent_0%,transparent_25%,#FF3399_50%,transparent_75%,transparent_100%)] animate-[spin_6s_linear_infinite] opacity-40" />
-
-            <div className="bg-white rounded-[1.4rem] w-[440px] overflow-hidden relative z-10 animate-in zoom-in-95 duration-500">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#FF3399]/40 to-transparent" />
-
-              <button aria-label="Close modal" onClick={() => setActiveNotification(null)} className="absolute top-6 right-8 text-gray-300 hover:text-gray-900 transition-colors z-20">
-                <X className="w-6 h-6 stroke-[1.5]" />
-              </button>
-
-              <div className="p-10">
-                <div className="flex items-center gap-5 mb-10">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-inner ${activeNotification.type === 'appointment' ? 'bg-rose-50 border-rose-100' : 'bg-pink-50 border-pink-100'}`}>
-                    {activeNotification.type === 'appointment' ? <Calendar className="w-8 h-8 text-rose-500" /> : <Mail className="w-8 h-8 text-pink-500" />}
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-normal text-gray-900 tracking-tight">
-                      {activeNotification.title || (activeNotification.type === 'appointment' ? 'New Appointment' : 'Client Message')}
-                    </h3>
-                    <p className="text-[10px] font-bold text-brand-pink uppercase tracking-[0.2em] mb-0.5">Notification Alert</p>
-                  </div>
-                </div>
-
-                <div className="text-center">
-                  <h4 className="text-xl font-normal text-brand-pink mb-4 px-4 leading-tight">
-                    {activeNotification.type === 'appointment' ? getCustomerName() : (activeNotification.title?.split(' from ')[1] || 'Guest Client')}
-                  </h4>
-
-                  <p className="text-gray-400 font-normal mb-10 px-8 leading-relaxed text-sm">
-                    {activeNotification.message && !activeNotification.message.startsWith('ID:') 
-                      ? activeNotification.message 
-                      : (activeNotification.type === 'appointment' 
-                          ? "A new booking request requires your attention and confirmation."
-                          : (activeNotification.title?.replace('New Message: ', '').split(' from ')[0] || "You have a new direct inquiry from a client."))}
-                  </p>
-
-                  <button
-                    onClick={activeNotification.type === 'appointment' ? handleViewAppointmentDetails : () => { router.push('/notifications'); setActiveNotification(null); }}
-                    className="w-full py-4 rounded-full bg-brand-pink text-white font-medium text-sm transition-all shadow-xl hover:opacity-90 active:scale-[0.98]"
-                  >
-                    {activeNotification.type === 'appointment' ? "View booking details" : "Read Inquiry"}
-                  </button>
-                </div>
               </div>
             </div>
           </div>

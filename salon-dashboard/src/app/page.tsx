@@ -7,8 +7,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/components/Header";
 import OverviewCards from "@/components/OverviewCards";
-import { WeeklyRevenueChart, ServiceDistributionChart } from "@/components/Charts";
-import AppointmentsTable from "@/components/AppointmentsTable";
+import { WeeklyRevenueChart } from "@/components/Charts";
+import PendingPaymentsCard from "@/components/PendingPaymentsCard";
 import DashboardCalendar from "@/components/DashboardCalendar";
 import { CheckCircle2, X } from "lucide-react";
 
@@ -37,23 +37,18 @@ function DashboardContent() {
 
         <OverviewCards />
 
-        {/* Row 1: Weekly Revenue (Left) + Calendar (Right) */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-          <div className="xl:col-span-2 min-h-full min-w-0">
-            <WeeklyRevenueChart />
-          </div>
-          <div className="xl:col-span-1 min-h-full min-w-0">
-            <DashboardCalendar />
-          </div>
+        {/* Row 1: Weekly Revenue (Full Width) */}
+        <div className="mb-6 w-full min-w-0">
+          <WeeklyRevenueChart />
         </div>
 
-        {/* Row 2: Today's Appointments (Left) + Service Distribution (Right) */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <div className="xl:col-span-2 min-h-full overflow-hidden min-w-0">
-            <AppointmentsTable />
+        {/* Row 2: Booking Schedule Calendar (Left) + Pending Payments (Right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+          <div className="lg:col-span-8 min-w-0">
+            <DashboardCalendar />
           </div>
-          <div className="xl:col-span-1 min-h-full min-w-0">
-            <ServiceDistributionChart />
+          <div className="lg:col-span-4 min-w-0">
+            <PendingPaymentsCard />
           </div>
         </div>
       </div>

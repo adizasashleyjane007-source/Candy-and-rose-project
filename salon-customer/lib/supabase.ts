@@ -37,6 +37,7 @@ export type Staff = {
   rating?: number | null;
   schedule?: string | null;
   status?: string;
+  employment_status?: string;
   created_at?: string;
 };
 

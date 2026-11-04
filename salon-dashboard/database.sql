@@ -43,8 +43,11 @@ CREATE TABLE IF NOT EXISTS public.staff (
     rating numeric,
     schedule text,
     status text DEFAULT 'Present',
+    employment_status text NOT NULL DEFAULT 'Active' CHECK (employment_status IN ('Active','Inactive')),
     created_at timestamptz DEFAULT now()
 );
+
+ALTER TABLE public.staff ADD COLUMN IF NOT EXISTS employment_status text NOT NULL DEFAULT 'Active';
 
 CREATE TABLE IF NOT EXISTS public.appointments (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

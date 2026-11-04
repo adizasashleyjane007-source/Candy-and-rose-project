@@ -1,11 +1,14 @@
 "use client";
 
-import { Calendar, X, Clock, User, Scissors, XCircle, Info, ExternalLink } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calendar, X, Clock, User, Scissors, ExternalLink, Eye, ZoomIn, CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
+import { Appointments } from "@/lib/db";
 
 interface AppointmentDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   appointment: any;
+  onStatusChange?: (updatedAppointment: any) => void;
 }
 
 function formatAMPM(timeStr: string) {
@@ -21,163 +24,354 @@ function formatAMPM(timeStr: string) {
   return `${hours}:${minutes} ${ampm}`;
 }
 
-export default function AppointmentDetailsModal({ isOpen, onClose, appointment }: AppointmentDetailsModalProps) {
+export function extractActualCustomerNote(rawNotes?: string | null): string {
+  if (!rawNotes || typeof rawNotes !== "string") return "";
+
+  // Split on pipe (|) or newline (\n)
+  const segments = rawNotes.split(/\||\n/);
+  const cleanSegments: string[] = [];
+
+  for (const rawSeg of segments) {
+    let seg = rawSeg.trim();
+    if (!seg) continue;
+
+    // Filter out automatically generated "Selected Design: ..." pattern
+    if (/^Selected Design:/i.test(seg)) {
+      continue;
+    }
+
+    // Filter out payment/screenshot technical system notes
+    if (/^GCash Screenshot:/i.test(seg) || /^Payment Status:/i.test(seg) || /^Uploaded:/i.test(seg)) {
+      continue;
+    }
+
+    // Strip inline "Selected Design: ..." if embedded in a sentence
+    if (/Selected Design:/i.test(seg)) {
+      seg = seg.replace(/Selected Design:\s*[^()]*(\([^)]*\))?/gi, "").trim();
+    }
+
+    if (seg) {
+      cleanSegments.push(seg);
+    }
+  }
+
+  return cleanSegments.join(" • ").trim();
+}
+
+export default function AppointmentDetailsModal({ isOpen, onClose, appointment, onStatusChange }: AppointmentDetailsModalProps) {
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
+  const [status, setStatus] = useState(appointment?.status || "Scheduled");
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusSuccessMsg, setStatusSuccessMsg] = useState("");
+
+  useEffect(() => {
+    if (appointment?.status) {
+      setStatus(appointment.status);
+    }
+  }, [appointment]);
+
   if (!isOpen || !appointment) return null;
 
+  const actualCustomerNote = extractActualCustomerNote(appointment.notes);
+
+  const handleStatusUpdate = async (newStatus: string) => {
+    if (!appointment?.id || newStatus === status) return;
+    try {
+      setIsUpdatingStatus(true);
+      await Appointments.update(appointment.id, { status: newStatus as any });
+      setStatus(newStatus);
+      setStatusSuccessMsg("Status updated!");
+      setTimeout(() => setStatusSuccessMsg(""), 2500);
+      onStatusChange?.({ ...appointment, status: newStatus });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent('appointment-updated', { detail: { id: appointment.id, status: newStatus } }));
+      }
+    } catch (err: any) {
+      console.error("Failed to update status:", err);
+      alert(err.message || "Failed to update appointment status");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="relative p-[1.5px] overflow-hidden rounded-[20px] shadow-[0_32px_128px_rgba(0,0,0,0.15),0_0_60px_rgba(255,51,153,0.1)]">
-        {/* Magic Border Animation */}
-        <div className="absolute inset-[-150%] bg-[conic-gradient(from_0deg,transparent_0%,transparent_25%,#FF3399_50%,transparent_75%,transparent_100%)] animate-[spin_4s_linear_infinite] opacity-60" />
+    <>
+      {/* ─── Main Appointment Details Modal ───────────────────────── */}
+      <div
+        className="fixed inset-0 z-[10000] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+        onClick={(e) => e.target === e.currentTarget && onClose()}
+      >
+        <div className="relative p-[1.5px] overflow-hidden rounded-[24px] shadow-[0_24px_80px_rgba(0,0,0,0.18),0_0_50px_rgba(255,51,153,0.12)] w-full max-w-lg max-h-[90vh] flex flex-col">
+          {/* Magic Animated Gradient Border */}
+          <div className="absolute inset-[-150%] bg-[conic-gradient(from_0deg,transparent_0%,transparent_25%,#FF3399_50%,transparent_75%,transparent_100%)] animate-[spin_4s_linear_infinite] opacity-60" />
 
-        <div className="bg-white rounded-[19px] w-[95vw] sm:w-[520px] h-auto min-h-[460px] overflow-hidden relative z-10 animate-in zoom-in-95 duration-500">
-          {/* Soft pink top glow */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#FF3399]/40 to-transparent" />
+          <div className="bg-white rounded-[23px] w-full max-h-[90vh] overflow-hidden relative z-10 flex flex-col">
+            {/* Soft pink top highlight line */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#FF3399]/40 to-transparent" />
 
-          <div className="px-6 sm:px-10 py-8 sm:py-10 flex flex-col h-full">
-            {/* Header: Name & Status */}
-            <div className="flex justify-between items-start mb-8 sm:mb-10">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.3em] mb-3">Appointment Details</span>
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+            {/* Header: Customer Name & Status (Fixed Top) */}
+            <div className="px-5 py-4 sm:px-8 sm:py-5 flex justify-between items-center border-b border-pink-50/80 bg-white/80 shrink-0">
+              <div className="flex flex-col min-w-0 pr-3">
+                <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-[0.25em]">
+                  Appointment Details
+                </span>
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight truncate mt-0.5">
                   {appointment.customer_name || appointment.customers?.name || "N/A"}
                 </h2>
               </div>
-              <div className="flex items-center gap-3 sm:gap-4">
-                <span className={`px-3 sm:px-4 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase border shadow-[0_4px_10px_rgba(255,51,153,0.1)] ${
-                  appointment.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                  appointment.status === 'Cancelled' ? 'bg-red-50 text-red-600 border-red-100' :
-                  appointment.status === 'In Progress' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                  appointment.status === 'no_show' || appointment.status === 'No-Show' ? 'bg-red-100 text-red-700 border-red-200' :
+              <div className="flex items-center gap-3 shrink-0">
+                <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase border shadow-[0_2px_8px_rgba(255,51,153,0.08)] ${
+                  status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                  status === 'Cancelled' ? 'bg-red-50 text-red-600 border-red-100' :
+                  status === 'In Progress' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                  status === 'no_show' || status === 'No-Show' ? 'bg-red-100 text-red-700 border-red-200' :
                   'bg-pink-50 text-[#FF3399] border-pink-100'
                 }`}>
-                  {appointment.status === 'no_show' ? 'No-Show' : appointment.status}
+                  {status === 'no_show' ? 'No-Show' : status}
                 </span>
                 <button
                   onClick={onClose}
-                  className="text-slate-400 hover:text-slate-900 transition-colors"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="Close modal"
                 >
-                  <X className="w-6 h-6 stroke-[1.5]" />
+                  <X className="w-5 h-5 stroke-[1.5]" />
                 </button>
               </div>
             </div>
 
-            {/* Grid: 2 Columns */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6 sm:gap-y-8 mb-8 sm:mb-10">
-              {/* Column 1: Date & Time */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100">
-                    <Calendar className="w-5 h-5 text-pink-500 stroke-[1.5]" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-[9px] font-medium text-slate-400 uppercase tracking-[0.2em] mb-1">Date</span>
-                    <span className="text-sm font-bold text-slate-800 leading-none">{appointment.appointment_date || appointment.date}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100">
-                    <Clock className="w-5 h-5 text-pink-500 stroke-[1.5]" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-[9px] font-medium text-slate-400 uppercase tracking-[0.2em] mb-1">Time</span>
-                    <span className="text-sm font-bold text-slate-800 leading-none">{formatAMPM(appointment.appointment_time || appointment.time)}</span>
-                  </div>
-                </div>
+            {/* Status Update Bar for Admins */}
+            <div className="px-5 py-2.5 sm:px-8 bg-pink-50/50 border-b border-pink-100 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  Update Status:
+                </span>
+                {statusSuccessMsg && (
+                  <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 animate-in fade-in">
+                    <CheckCircle2 className="w-3 h-3" /> {statusSuccessMsg}
+                  </span>
+                )}
               </div>
-
-              {/* Column 2: Service & Price */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100">
-                    <Scissors className="w-5 h-5 text-pink-500 stroke-[1.5]" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-[9px] font-medium text-slate-400 uppercase tracking-[0.2em] mb-1">Service</span>
-                    <span className="text-sm font-bold text-slate-800 leading-relaxed block">{appointment.service_name || appointment.services?.name || "N/A"}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100">
-                    <div className="text-xs font-bold text-pink-500">₱</div>
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-[9px] font-medium text-slate-400 uppercase tracking-[0.2em] mb-1">Total Price</span>
-                    <span className="text-sm font-bold text-slate-800 leading-none">₱{Number(appointment.price || 0).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Additional Info Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100">
-                  <User className="w-5 h-5 text-pink-500 stroke-[1.5]" />
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-[9px] font-medium text-slate-400 uppercase tracking-[0.2em] mb-1">Staff Member</span>
-                  <span className="text-sm font-bold text-slate-800 leading-none">{appointment.staff_name || appointment.staff?.name || "N/A"}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100">
-                  <ExternalLink className="w-5 h-5 text-pink-500 stroke-[1.5]" />
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-[9px] font-medium text-slate-400 uppercase tracking-[0.2em] mb-1">Source</span>
-                  <span className="text-sm font-bold text-slate-800 leading-none">{appointment.source || "Walk-in"}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Selected Nail Design Section (if present) */}
-            {(appointment.design_name || appointment.design_id || appointment.design_image) && (
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-pink-50 to-pink-100/50 border border-pink-200/80 mb-6 flex items-center gap-4 shadow-sm">
-                {appointment.design_image ? (
-                  <img
-                    src={appointment.design_image}
-                    alt={appointment.design_name || "Selected Design"}
-                    className="w-16 h-16 rounded-xl object-cover border border-pink-200 shadow-sm shrink-0 bg-white"
-                  />
+              <div className="flex items-center gap-2">
+                {status === "Completed" ? (
+                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-full">
+                    Completed (Locked)
+                  </span>
                 ) : (
-                  <div className="w-16 h-16 rounded-xl bg-pink-100 flex items-center justify-center font-bold text-pink-600 text-xs shrink-0">
-                    {appointment.design_id || "NAIL"}
+                  <div className="relative inline-flex items-center">
+                    <select
+                      value={status}
+                      disabled={isUpdatingStatus}
+                      onChange={(e) => handleStatusUpdate(e.target.value)}
+                      className="text-xs font-bold text-pink-700 bg-white border border-pink-200 rounded-lg px-2.5 py-1 pr-6 focus:outline-none focus:ring-1 focus:ring-pink-500 cursor-pointer disabled:opacity-50 appearance-none shadow-xs"
+                    >
+                      <option value="Scheduled">Scheduled</option>
+                      <option value="In Progress">In Progress / Confirmed</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Cancelled">Cancelled</option>
+                      <option value="no_show">No-Show</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-pink-500 absolute right-1.5 pointer-events-none" />
                   </div>
                 )}
-                <div className="flex-1 min-w-0">
-                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-pink-600 block mb-0.5">
-                    Selected Nail Design
-                  </span>
-                  <h4 className="text-base font-bold text-slate-900 truncate">
-                    {appointment.design_name || appointment.design_id}
-                  </h4>
-                  {appointment.design_id && (
-                    <span className="inline-block text-[11px] font-mono font-semibold text-pink-700 bg-white/80 px-2 py-0.5 rounded-full border border-pink-200/60 mt-1">
-                      ID: {appointment.design_id}
-                    </span>
-                  )}
-                </div>
+                {isUpdatingStatus && <Loader2 className="w-3.5 h-3.5 animate-spin text-pink-500" />}
               </div>
-            )}
-
-            {/* Customer Note Section */}
-            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 mt-auto">
-              <span className="text-[9px] font-medium text-slate-400 uppercase tracking-[0.2em] block mb-3">Customer Note</span>
-              <p className="text-sm font-normal text-slate-600 leading-relaxed italic">
-                "{appointment.notes || "No special instructions provided for this appointment."}"
-              </p>
             </div>
 
-            <button
-              onClick={onClose}
-              className="mt-8 w-full py-4 rounded-full bg-pink-500 hover:bg-pink-600 text-white font-bold text-sm transition-all active:scale-[0.98] shadow-lg shadow-pink-100"
-            >
-              Close Details
-            </button>
+            {/* Scrollable Content Body */}
+            <div className="overflow-y-auto px-5 py-4 sm:px-8 sm:py-5 space-y-4.5 flex-1 text-slate-800">
+              {/* Grid 1: Date & Time, Service & Total Price */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3.5">
+                {/* Date */}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100/80">
+                    <Calendar className="w-4.5 h-4.5 text-pink-500 stroke-[1.5]" />
+                  </div>
+                  <div className="flex flex-col text-left min-w-0">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.18em]">Date</span>
+                    <span className="text-xs sm:text-sm font-bold text-slate-800 truncate">{appointment.appointment_date || appointment.date}</span>
+                  </div>
+                </div>
+
+                {/* Service */}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100/80">
+                    <Scissors className="w-4.5 h-4.5 text-pink-500 stroke-[1.5]" />
+                  </div>
+                  <div className="flex flex-col text-left min-w-0">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.18em]">Service</span>
+                    <span className="text-xs sm:text-sm font-bold text-slate-800 leading-snug truncate" title={appointment.service_name || appointment.services?.name || "N/A"}>
+                      {appointment.service_name || appointment.services?.name || "N/A"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Time */}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100/80">
+                    <Clock className="w-4.5 h-4.5 text-pink-500 stroke-[1.5]" />
+                  </div>
+                  <div className="flex flex-col text-left min-w-0">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.18em]">Time</span>
+                    <span className="text-xs sm:text-sm font-bold text-slate-800 truncate">{formatAMPM(appointment.appointment_time || appointment.time)}</span>
+                  </div>
+                </div>
+
+                {/* Total Price */}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100/80">
+                    <span className="text-xs font-bold text-pink-500">₱</span>
+                  </div>
+                  <div className="flex flex-col text-left min-w-0">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.18em]">Total Price</span>
+                    <span className="text-xs sm:text-sm font-bold text-slate-800 truncate">₱{Number(appointment.price || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grid 2: Staff Member & Source */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3.5 pt-2 border-t border-pink-50/60">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100/80">
+                    <User className="w-4.5 h-4.5 text-pink-500 stroke-[1.5]" />
+                  </div>
+                  <div className="flex flex-col text-left min-w-0">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.18em]">Staff Member</span>
+                    <span className="text-xs sm:text-sm font-bold text-slate-800 truncate">{appointment.staff_name || appointment.staff?.name || "N/A"}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-pink-50 flex items-center justify-center shrink-0 border border-pink-100/80">
+                    <ExternalLink className="w-4.5 h-4.5 text-pink-500 stroke-[1.5]" />
+                  </div>
+                  <div className="flex flex-col text-left min-w-0">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.18em]">Source</span>
+                    <span className="text-xs sm:text-sm font-bold text-slate-800 truncate">{appointment.source || "Walk-in"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selected Nail Design Section (With Thumbnail & "View Image" Button) */}
+              {(appointment.design_name || appointment.design_id || appointment.design_image) && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-pink-50/90 via-pink-100/40 to-purple-50/40 border border-pink-200/80 flex items-center gap-3.5 shadow-2xs">
+                  {/* Thumbnail */}
+                  <div
+                    className={`relative shrink-0 rounded-xl overflow-hidden border border-pink-200/90 shadow-2xs bg-white group ${appointment.design_image ? 'cursor-pointer' : ''}`}
+                    onClick={() => {
+                      if (appointment.design_image) setIsImagePreviewOpen(true);
+                    }}
+                    title={appointment.design_image ? "Click to enlarge image" : undefined}
+                  >
+                    {appointment.design_image ? (
+                      <>
+                        <img
+                          src={appointment.design_image}
+                          alt={appointment.design_name || "Selected Design"}
+                          className="w-18 h-18 sm:w-20 sm:h-20 object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                          <ZoomIn className="w-4 h-4 drop-shadow" />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="w-18 h-18 sm:w-20 sm:h-20 bg-pink-100/80 flex items-center justify-center font-bold text-pink-600 text-xs">
+                        💅
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Design Info & "View Image" Button */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 py-0.5">
+                    <div>
+                      <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-pink-600 block mb-0.5">
+                        Selected Nail Design
+                      </span>
+                      <h4 className="text-sm sm:text-base font-bold text-slate-900 truncate leading-snug">
+                        {appointment.design_name || "Custom Nail Design"}
+                      </h4>
+                    </div>
+
+                    {appointment.design_image && (
+                      <button
+                        type="button"
+                        onClick={() => setIsImagePreviewOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-pink-500 hover:bg-pink-600 text-white text-[11px] font-bold tracking-wide shadow-xs hover:shadow transition-all w-fit cursor-pointer active:scale-95 mt-0.5"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        View Image
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Customer Note Section (Only displayed if customer provided actual instructions) */}
+              {actualCustomerNote ? (
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] block mb-1.5">
+                    Customer Note
+                  </span>
+                  <p className="text-xs sm:text-sm font-normal text-slate-600 leading-relaxed italic">
+                    "{actualCustomerNote}"
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Footer Action (Fixed Bottom) */}
+            <div className="px-5 py-3.5 sm:px-8 sm:py-4 border-t border-pink-50 bg-white shrink-0">
+              <button
+                onClick={onClose}
+                className="w-full py-3 rounded-full bg-pink-500 hover:bg-pink-600 text-white font-bold text-xs uppercase tracking-wider transition-all active:scale-[0.98] shadow-md shadow-pink-500/20 cursor-pointer"
+              >
+                Close Details
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* ─── Lightbox / Enlarged Image Preview Modal ──────────────────────── */}
+      {isImagePreviewOpen && appointment.design_image && (
+        <div
+          className="fixed inset-0 z-[10010] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+          onClick={() => setIsImagePreviewOpen(false)}
+        >
+          <div
+            className="relative max-w-[92vw] max-h-[88vh] bg-slate-900/95 backdrop-blur-xl rounded-3xl p-3 sm:p-4 border border-white/20 shadow-2xl flex flex-col items-center cursor-default animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Bar */}
+            <div className="w-full flex items-center justify-between gap-4 px-2 py-1 mb-2 text-white">
+              <div className="flex flex-col min-w-0">
+                <span className="text-[9.5px] uppercase font-bold tracking-widest text-pink-400">
+                  Selected Nail Design Preview
+                </span>
+                <h4 className="text-sm sm:text-base font-semibold truncate text-white">
+                  {appointment.design_name || "Custom Nail Design"}
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImagePreviewOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+                title="Close Preview"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Preserved Aspect-Ratio Image Container */}
+            <div className="relative rounded-2xl overflow-hidden bg-black/50 flex items-center justify-center max-h-[75vh]">
+              <img
+                src={appointment.design_image}
+                alt={appointment.design_name || "Nail Design Preview"}
+                className="max-w-full max-h-[75vh] w-auto h-auto object-contain rounded-xl select-none"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -56,6 +56,7 @@ function AppointmentContent() {
     const [customers, setCustomers] = useState<any[]>([]);
     const [services, setServices] = useState<any[]>([]);
     const [staffList, setStaffList] = useState<any[]>([]);
+    const [allStaffList, setAllStaffList] = useState<any[]>([]);
     const [operatingHours, setOperatingHours] = useState<any>(null);
 
     // Modal state
@@ -127,7 +128,9 @@ function AppointmentContent() {
                 setAppointments(aptData);
                 setCustomers(custData);
                 setServices(svcData);
-                setStaffList(staffData);
+                setAllStaffList(staffData);
+                // Inactive (resigned) employees cannot be assigned to new appointments
+                setStaffList(staffData.filter((s: any) => (s.employment_status || 'Active') !== 'Inactive'));
                 setOperatingHours(hoursData);
 
                 // Fix hydration: set dates on client only
@@ -251,7 +254,7 @@ function AppointmentContent() {
 
             // 1. Find service and staff details
             const selectedService = services.find(s => s.name === formData.serviceName);
-            const selectedStaff = staffList.find(s => s.name === formData.staffName);
+            const selectedStaff = allStaffList.find(s => s.name === formData.staffName);
             const selectedCustomer = customers.find(c => c.name === formData.customerName);
 
             const primaryPrice = selectedService?.price || 0;

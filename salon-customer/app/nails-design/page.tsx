@@ -95,6 +95,12 @@ export default function NailsDesignPage() {
                 'High-shine protective top coat'
               ],
               isFeatured: item.is_trending || false,
+              art_data: item.art_data,
+              preview_url: item.preview_url,
+              shape: item.shape,
+              primary_color: item.primary_color,
+              secondary_color: item.secondary_color,
+              texture: item.texture,
             };
           });
           setDesigns(mapped);
@@ -174,6 +180,36 @@ export default function NailsDesignPage() {
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
+
+  const previewDecors = useMemo(() => {
+    if (!selectedPreviewDesign) return [];
+    const ad = selectedPreviewDesign.art_data;
+    if (!ad) return [];
+    if (Array.isArray(ad.decorationsApplied) && ad.decorationsApplied.length > 0) {
+      return ad.decorationsApplied;
+    }
+    if (ad.nailSet) {
+      const list: any[] = [];
+      const fks = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky'];
+      fks.forEach((fk) => {
+        const nail = ad.nailSet[fk] || ad.nailSet[fk.toLowerCase()] || ad.nailSet[fk.toLowerCase() === 'pinky' ? 'little' : ''];
+        if (nail && Array.isArray(nail.decorations)) {
+          nail.decorations.forEach((d: any) => {
+            const decorName = d.type === 'lines-wavy-dots' ? 'Lines / Wavy / Dots' : d.type === 'mermaid-embossed' ? 'Mermaid / Embossed' : d.type === 'ribbon-bows' ? 'Ribbon / Bows' : d.type;
+            list.push({
+              fingerName: fk,
+              name: decorName,
+              group: decorName,
+              xPct: d.xPct ?? 50,
+              yPct: d.yPct ?? 50,
+            });
+          });
+        }
+      });
+      return list;
+    }
+    return [];
+  }, [selectedPreviewDesign]);
 
   // Open existing Candy & Rose booking system with selected design pre-selected
   const handleBookDesign = (design?: NailDesignItem) => {
@@ -292,6 +328,18 @@ export default function NailsDesignPage() {
                   </button>
                 );
               })}
+            </div>
+
+            {/* Interactive Nail Studio Banner Link */}
+            <div className="pt-2">
+              <a
+                href="/customize"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#F72D9B] to-[#d81f83] text-white text-xs font-bold uppercase tracking-wider shadow-md shadow-[#F72D9B]/25 hover:shadow-lg hover:shadow-[#F72D9B]/35 transition-all hover:scale-102 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-white" />
+                <span>Open Interactive Virtual Nail Studio</span>
+                <ChevronRight className="w-3.5 h-3.5 text-white/80" />
+              </a>
             </div>
           </div>
 
@@ -495,9 +543,7 @@ export default function NailsDesignPage() {
               {!showCustomDesigns && (
                 <div
                   onClick={() => {
-                    setShowCustomDesigns(true);
-                    setSelectedCategory('ALL STYLES');
-                    setSearchQuery('');
+                    window.location.href = '/customize';
                   }}
                   className="group flex flex-col justify-between items-center text-center bg-[#FDFBF7] rounded-2xl p-6 sm:p-7 border border-[#EED7E2] hover:border-[#D93B78] shadow-xs hover:shadow-md transition-all duration-300 cursor-pointer h-full"
                 >
@@ -509,7 +555,7 @@ export default function NailsDesignPage() {
                         CUSTOM STUDIO
                       </span>
                       <span className="px-2.5 py-0.5 rounded-full bg-[#D93B78]/10 text-[#D93B78] text-[9px] sm:text-[9.5px] font-sans font-bold uppercase tracking-wider border border-[#D93B78]/20">
-                        STUDIO
+                        VIRTUAL 3D
                       </span>
                     </div>
 
@@ -520,23 +566,19 @@ export default function NailsDesignPage() {
 
                     {/* Description */}
                     <p className="text-xs sm:text-[13px] text-[#666666] font-light leading-relaxed max-w-[250px] mx-auto">
-                      Explore our Custom Studio designs crafted for your bespoke aesthetic.
+                      Step into our Interactive Virtual Nail Studio to customize each fingernail individually.
                     </p>
                   </div>
 
                   {/* ACTION: Smaller, elegant outlined pill button near bottom of card */}
                   <div className="pt-5 w-full flex justify-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowCustomDesigns(true);
-                        setSelectedCategory('ALL STYLES');
-                        setSearchQuery('');
-                      }}
+                    <a
+                      href="/customize"
+                      onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center justify-center px-5 sm:px-6 py-2.5 rounded-full border border-[#D93B78] text-[#D93B78] bg-transparent group-hover:bg-[#D93B78] group-hover:text-white text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all duration-300 shadow-xs cursor-pointer active:scale-95 text-center whitespace-nowrap"
                     >
-                      EXPLORE COLLECTION →
-                    </button>
+                      LAUNCH STUDIO →
+                    </a>
                   </div>
                 </div>
               )}
@@ -680,6 +722,35 @@ export default function NailsDesignPage() {
                       </p>
                     </div>
                   </div>
+
+                  {/* Applied Decorations breakdown if present */}
+                  {previewDecors.length > 0 && (
+                    <div className="rounded-xl bg-pink-50/70 p-3 border border-pink-200/70 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#D93B78] flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-[#D93B78]" />
+                          Decorations Applied ({previewDecors.length})
+                        </span>
+                        <span className="text-[9px] text-zinc-500 font-medium">Position preserved</span>
+                      </div>
+                      <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                        {previewDecors.map((dec: any, idx: number) => (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-pink-100 text-[11px] shadow-2xs"
+                          >
+                            <span className="px-1.5 py-0.5 rounded bg-pink-50 text-[#D93B78] font-bold text-[9.5px] uppercase tracking-wide">
+                              {String(dec.fingerName || dec.finger).toUpperCase()}
+                            </span>
+                            <span className="text-zinc-300 font-normal">—</span>
+                            <span className="font-semibold text-zinc-800">
+                              {dec.name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Atelier Inclusions: Compact checklist */}
                   {selectedPreviewDesign.inclusions && selectedPreviewDesign.inclusions.length > 0 && (

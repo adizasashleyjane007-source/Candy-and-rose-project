@@ -89,11 +89,15 @@ export function WeeklyRevenueChart() {
     }, [selectedMonth, selectedWeek]);
  
     return (
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-pink-200 flex flex-col h-full relative min-h-[350px] min-w-0">
-            <div className="flex justify-between items-center mb-4">
-                <div className="flex flex-col gap-1">
-                    <h3 className="font-semibold text-gray-900">Weekly Revenue - <span className="text-pink-500">{months[selectedMonth]}</span></h3>
-                    <div className="flex items-center gap-2 mt-1">
+        <div className="bg-white rounded-3xl p-4 sm:p-5 lg:px-6 lg:py-5 shadow-sm border border-pink-200 flex flex-col h-[420px] max-h-[450px] relative w-full min-w-0">
+            {/* Header: Title, Week Navigation Tabs, and Month Dropdown */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2 sm:mb-3 shrink-0">
+                <div className="flex flex-col gap-1.5 min-w-0">
+                    <h3 className="font-semibold text-gray-900 text-base sm:text-lg tracking-tight">
+                        Weekly Revenue - <span className="text-pink-500">{months[selectedMonth]}</span>
+                    </h3>
+                    {/* Week 1–Week 6 navigation tabs */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
                         {(() => {
                             const lastDay = new Date(new Date().getFullYear(), selectedMonth + 1, 0).getDate();
                             const firstOfMonth = new Date(new Date().getFullYear(), selectedMonth, 1);
@@ -103,7 +107,11 @@ export function WeeklyRevenueChart() {
                                 <button
                                     key={`week-${w}`}
                                     onClick={() => setSelectedWeek(w)}
-                                    className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-all uppercase tracking-tighter ${selectedWeek === w ? 'bg-pink-500 text-white shadow-sm' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                                    className={`px-2.5 sm:px-3 py-1 text-[10px] sm:text-[11px] font-bold rounded-full transition-all uppercase tracking-tight cursor-pointer ${
+                                        selectedWeek === w
+                                            ? 'bg-pink-500 text-white shadow-sm shadow-pink-500/25'
+                                            : 'bg-gray-100 text-gray-500 hover:bg-pink-50 hover:text-pink-600'
+                                    }`}
                                 >
                                     Week {w}
                                 </button>
@@ -111,48 +119,99 @@ export function WeeklyRevenueChart() {
                         })()}
                     </div>
                 </div>
-                <div className="relative">
-                    <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-gray-400 hover:text-pink-500 transition-colors p-1">
+
+                <div className="relative self-end sm:self-center shrink-0">
+                    <button
+                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        className="text-gray-400 hover:text-pink-500 hover:bg-pink-50 transition-colors p-1.5 rounded-xl cursor-pointer"
+                        title="Select Month"
+                    >
                         <MoreHorizontal className="w-5 h-5" />
                     </button>
                     {isMenuOpen && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-pink-50 py-2 z-20">
-                            {months.map((month, idx) => (
-                                <button key={month} onClick={() => { setSelectedMonth(idx); setIsMenuOpen(false); }} className={`w-full text-left px-4 py-2 text-sm ${selectedMonth === idx ? 'bg-pink-50 text-pink-600 font-bold' : 'text-gray-600'}`}>{month}</button>
-                            ))}
-                        </div>
+                        <>
+                            <div className="fixed inset-0 z-20" onClick={() => setIsMenuOpen(false)} />
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-pink-100 py-2 z-30 max-h-60 overflow-y-auto">
+                                {months.map((month, idx) => (
+                                    <button
+                                        key={month}
+                                        onClick={() => { setSelectedMonth(idx); setIsMenuOpen(false); }}
+                                        className={`w-full text-left px-4 py-2 text-sm transition-colors cursor-pointer ${
+                                            selectedMonth === idx ? 'bg-pink-50 text-pink-600 font-bold' : 'text-gray-600 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        {month}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
                     )}
                 </div>
             </div>
-            <div className="flex-1 w-full min-h-[250px] min-w-0 relative">
+
+            {/* Chart Area */}
+            <div className="flex-1 w-full min-h-0 relative flex flex-col justify-center">
                 {!isMounted || loading ? (
-                    <div className="w-full h-full min-h-[250px] flex items-center justify-center">
-                        <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
+                    <div className="w-full h-full min-h-[260px] flex items-center justify-center">
+                        <Loader2 className="w-9 h-9 animate-spin text-pink-300" />
                     </div>
                 ) : (
-                    <div className="w-full h-full min-h-[250px] min-w-0">
-                        <ResponsiveContainer width="100%" height={250} minWidth={0}>
-                            <BarChart data={revenueData} margin={{ bottom: 20 }}>
+                    <div className="w-full h-full min-h-0 flex-1">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={260}>
+                            <BarChart data={revenueData} margin={{ top: 10, right: 8, left: 8, bottom: 4 }}>
                                 <XAxis
                                     dataKey="name"
-                                    stroke="#a1a1aa"
-                                    fontSize={12}
+                                    stroke="#cbd5e1"
                                     tickLine={false}
                                     axisLine={false}
+                                    interval={0}
+                                    height={44}
                                     tick={(props: any) => {
                                         const { x, y, payload } = props;
                                         const item = revenueData.find(d => d.name === payload.value);
                                         const revenue = item ? item.total : 0;
                                         return (
                                             <g transform={`translate(${x},${y})`}>
-                                                <text x={0} y={0} dy={16} textAnchor="middle" fill="#71717a" fontSize={12} fontWeight={600}>{payload.value}</text>
-                                                <text x={0} y={0} dy={32} textAnchor="middle" fill="#ec4899" fontSize={10} fontWeight={700}>₱{revenue.toLocaleString()}</text>
+                                                <text
+                                                    x={0}
+                                                    y={0}
+                                                    dy={14}
+                                                    textAnchor="middle"
+                                                    fill="#64748b"
+                                                    fontSize={11}
+                                                    fontWeight={600}
+                                                >
+                                                    {payload.value}
+                                                </text>
+                                                <text
+                                                    x={0}
+                                                    y={0}
+                                                    dy={28}
+                                                    textAnchor="middle"
+                                                    fill="#ec4899"
+                                                    fontSize={10}
+                                                    fontWeight={700}
+                                                >
+                                                    ₱{revenue.toLocaleString()}
+                                                </text>
                                             </g>
                                         );
                                     }}
                                 />
-                                <Tooltip cursor={{ fill: "#fce7f3" }} contentStyle={{ borderRadius: "8px", border: "none" }} formatter={(value: any) => [`₱${Number(value).toLocaleString()}`, "Revenue"]} />
-                                <Bar dataKey="total" fill="#ec4899" radius={[4, 4, 0, 0]} barSize={32} />
+                                <Tooltip
+                                    cursor={{ fill: "#fdf2f8", radius: 6 }}
+                                    contentStyle={{
+                                        backgroundColor: "#ffffff",
+                                        borderRadius: "12px",
+                                        border: "1px solid #fce7f3",
+                                        boxShadow: "0 10px 25px -5px rgba(236, 72, 153, 0.12)",
+                                        padding: "8px 12px",
+                                        fontSize: "12px",
+                                        fontWeight: 600,
+                                    }}
+                                    formatter={(value: any) => [`₱${Number(value || 0).toLocaleString()}`, "Revenue"]}
+                                />
+                                <Bar dataKey="total" fill="#ec4899" radius={[6, 6, 0, 0]} maxBarSize={42} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>

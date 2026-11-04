@@ -175,7 +175,7 @@ export function BookingModal({
     setSelectedTime('05:00 PM');
 
     supabase.from('staff').select('*').order('name').then(({ data }) => {
-      if (data && data.length > 0) setStaffList(data as Staff[]);
+      if (data && data.length > 0) setStaffList((data as Staff[]).filter(st => (st.employment_status || 'Active') !== 'Inactive'));
     });
   }, [open]);
 
@@ -597,9 +597,11 @@ export function BookingModal({
         }
       }
 
-      let notesWithDesign = selectedDesign
-        ? `${customerNotes.trim() ? customerNotes.trim() + ' | ' : ''}Selected Design: ${selectedDesign.name} (${selectedDesign.id})`
-        : (customerNotes.trim() || '');
+      let notesWithDesign = customerNotes.trim() || '';
+
+
+
+
 
       if (methodToSave === 'GCash' && gcashData) {
         const gcashNote = `GCash Screenshot: ${gcashData.filename} | Payment Status: Pending Verification | Uploaded: ${new Date().toISOString()}${gcashData.previewUrl ? ` | URL: ${gcashData.previewUrl}` : ''}`;

@@ -13,6 +13,12 @@ export interface NailDesignItem {
   formulation?: string;
   inclusions?: string[];
   isFeatured?: boolean;
+  art_data?: any;
+  preview_url?: string;
+  shape?: string;
+  primary_color?: string;
+  secondary_color?: string;
+  texture?: string;
 }
 
 export const DEFAULT_NAIL_INCLUSIONS = [

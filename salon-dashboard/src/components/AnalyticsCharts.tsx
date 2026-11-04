@@ -477,7 +477,19 @@ export function TopStaffChart({ selectedMonth: globalSelectedMonth }: { selected
                                     tickLine={false}
                                     axisLine={false}
                                     width={dynamicYAxisWidth}
-                                    tick={{ fill: "#111827" }}
+                                    tick={(tickProps: any) => (
+                                        <text
+                                            x={tickProps.x - dynamicYAxisWidth}
+                                            y={tickProps.y}
+                                            dy={4}
+                                            textAnchor="start"
+                                            fill="#111827"
+                                            fontSize={isMobile ? 11 : 13}
+                                            fontWeight={600}
+                                        >
+                                            {tickProps.payload?.value}
+                                        </text>
+                                    )}
                                 />
                                 <Tooltip
                                     cursor={{ fill: "#f8fafc" }}
@@ -597,11 +609,11 @@ export function TopCustomersList({ selectedMonth: globalSelectedMonth }: { selec
                 ) : (
                     customersList.map((customer, index) => (
                         <div key={index} onClick={() => handleCustomerClick(customer)} className="flex items-center justify-between p-4 rounded-xl hover:bg-pink-50/50 transition-all cursor-pointer border border-transparent hover:border-pink-50">
-                            <div>
-                                <h4 className="font-bold text-gray-900 text-sm">{customer.name}</h4>
+                            <div className="flex-1 min-w-0 text-left">
+                                <h4 className="font-bold text-gray-900 text-sm text-left">{customer.name}</h4>
                                 <p className="text-xs text-gray-500">Last visit: {customer.lastVisit}</p>
                             </div>
-                            <div className="text-right">
+                            <div className="text-right shrink-0 pl-3">
                                 <p className="font-bold text-gray-900">₱{customer.spentValue.toLocaleString()}</p>
                                 <p className="text-xs text-pink-500 font-bold">{customer.visits} visits</p>
                             </div>

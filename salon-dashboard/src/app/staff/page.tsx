@@ -91,6 +91,7 @@ export default function StaffPage() {
         phone: "",
         role: "",
         schedule: "",
+        employment_status: "Active" as "Active" | "Inactive",
     });
 
     const loadData = async () => {
@@ -115,7 +116,7 @@ export default function StaffPage() {
             const todayRecord = ledgerMap[todayKey];
             if (!todayRecord) {
                 // Initialize today's status as "Present" if no record exists
-                await Promise.all(staffData.map(s => 
+                await Promise.all(staffData.filter(s => (s.employment_status || 'Active') !== 'Inactive').map(s => 
                     AttendanceDB.upsert({ staff_id: s.id!, staff_name: s.name, date: todayKey, status: "Present" })
                 ));
                 // Reload to get today's record
@@ -149,7 +150,8 @@ export default function StaffPage() {
                     email: formData.email,
                     role: formData.role,
                     phone: formData.phone,
-                    schedule: formData.schedule
+                    schedule: formData.schedule,
+                    employment_status: formData.employment_status
                 });
                 addNotification("Staff Updated", `${formData.name} updated successfully.`, "system");
             } else {
@@ -159,14 +161,15 @@ export default function StaffPage() {
                     role: formData.role,
                     phone: formData.phone,
                     schedule: formData.schedule || "Mon-Fri",
-                    status: "Present"
+                    status: "Present",
+                    employment_status: formData.employment_status
                 });
                 addNotification("New Staff Added", `${formData.name} was successfully registered as ${formData.role}.`, "system");
             }
             await loadData();
             setIsFormModalOpen(false);
             setEditingId(null);
-            setFormData({ name: "", email: "", phone: "", role: "", schedule: "" });
+            setFormData({ name: "", email: "", phone: "", role: "", schedule: "", employment_status: "Active" });
         } catch (error: any) {
             console.error("Save staff failed:", error);
             alert(`Failed to save staff member: ${error.message || "Unknown error"}`);
@@ -180,7 +183,8 @@ export default function StaffPage() {
             email: staff.email || "",
             phone: staff.phone || "",
             role: staff.role,
-            schedule: staff.schedule || ""
+            schedule: staff.schedule || "",
+            employment_status: staff.employment_status === "Inactive" ? "Inactive" : "Active"
         });
         setIsFormModalOpen(true);
     };
@@ -372,7 +376,7 @@ export default function StaffPage() {
                     <button
                         onClick={() => {
                             setEditingId(null);
-                            setFormData({ name: "", email: "", phone: "", role: "", schedule: "" });
+                            setFormData({ name: "", email: "", phone: "", role: "", schedule: "", employment_status: "Active" });
                             setIsFormModalOpen(true);
                         }}
                         className="flex justify-center items-center gap-2 px-6 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md font-semibold transition-colors w-full md:w-auto"
@@ -562,6 +566,12 @@ export default function StaffPage() {
                                             <td className="py-2.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{staff.phone || "N/A"}</td>
                                             <td className="py-2.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">{staff.schedule}</td>
                                             <td className="py-2.5 px-4 text-sm text-center border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">
+                                                <div className="flex items-center justify-center gap-2">
+                                                {staff.employment_status === 'Inactive' ? (
+                                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500 border border-gray-200">Inactive</span>
+                                                ) : (
+                                                <>
+                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">Active</span>
                                                 <button
                                                     onClick={() => {
                                                         if (!staff.id) return;
@@ -576,6 +586,9 @@ export default function StaffPage() {
                                                     {staff.status === 'Present' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>}
                                                     {staff.status}
                                                 </button>
+                                                </>
+                                                )}
+                                                </div>
                                             </td>
                                             <td className="py-2.5 px-4 text-sm rounded-r-xl border border-transparent group-hover:border-pink-200 border-l-0 text-center whitespace-nowrap">
                                                 <div className="flex items-center justify-center gap-3">
@@ -708,6 +721,30 @@ export default function StaffPage() {
                                         value={formData.schedule}
                                         onChange={(e) => setFormData({ ...formData, schedule: e.target.value })}
                                     />
+                                </div>
+
+                                <div className="sm:col-span-2">
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 pl-1">Status</label>
+                                    <div className="flex items-center gap-3 pl-1">
+                                        <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={formData.employment_status === "Active"}
+                                            aria-label="Status"
+                                            onClick={() => setFormData({ ...formData, employment_status: formData.employment_status === "Active" ? "Inactive" : "Active" })}
+                                            className={`relative inline-flex h-7 w-16 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 ${formData.employment_status === "Active" ? "bg-[#F72D9B] focus:ring-[#F72D9B]" : "bg-gray-300 focus:ring-gray-400"}`}
+                                        >
+                                            <span
+                                                className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${formData.employment_status === "Active" ? "translate-x-9" : "translate-x-1"}`}
+                                            />
+                                        </button>
+                                        <span className={`text-sm font-bold ${formData.employment_status === "Active" ? "text-[#F72D9B]" : "text-gray-500"}`}>
+                                            {formData.employment_status}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1.5 pl-1">
+                                        Inactive means the employee has resigned. Their records are kept, but they can't be assigned to new appointments.
+                                    </p>
                                 </div>
                             </div>
 

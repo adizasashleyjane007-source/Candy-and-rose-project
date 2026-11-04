@@ -3,11 +3,27 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Plus, Loader2, X, Star, Eye, Trash2, Grid3X3, Layers, CalendarDays, Search, ChevronDown, Filter, Tag, Check,
-  ChevronRight, AlertTriangle, Pencil
+  ChevronRight, AlertTriangle, Pencil, Sparkles, Image as ImageIcon, Hand
 } from "lucide-react";
 import Header from "@/components/Header";
 import { NailDesigns, Storage, SettingsDB, type NailDesign } from "@/lib/db";
 import { addNotification } from "@/lib/notifications";
+import {
+  FINGER_CALIBRATIONS,
+  generateNailPath,
+  getNailExtensionHeight,
+  type FingerKey,
+} from "@/lib/nail-landmark-detector";
+import {
+  DECORATIONS,
+  VectorDecoration,
+  SKIN_TONES,
+  FINGER_KEYS,
+  FINGER_DISPLAY_NAMES,
+  getDecorationPct,
+  type DecorationItem,
+  type DecorationType,
+} from "@/app/nails/page";
 
 const DEFAULT_CATEGORIES = ["Abstract", "Floral", "Minimalist", "Glam", "Natural", "Seasonal"];
 
@@ -44,6 +60,264 @@ function getPersistentRawNumber(design: NailDesign, idMap: Record<string, string
   return "001";
 }
 
+export interface AppliedDecorationDetail {
+  finger: string;
+  fingerName: string;
+  type: string;
+  name: string;
+  group: string;
+  spot?: string;
+  xPct: number;
+  yPct: number;
+  offsetX?: number;
+  offsetY?: number;
+}
+
+export function extractAppliedDecorations(design: NailDesign): AppliedDecorationDetail[] {
+  const result: AppliedDecorationDetail[] = [];
+  if (!design) return result;
+
+  // 1. Check art_data?.decorationsApplied
+  if (Array.isArray(design.art_data?.decorationsApplied) && design.art_data.decorationsApplied.length > 0) {
+    return design.art_data.decorationsApplied.map((item: any) => {
+      const decMeta = DECORATIONS.find((x) => x.id === item.type);
+      return {
+        finger: item.finger || "nail",
+        fingerName: item.fingerName || FINGER_DISPLAY_NAMES[item.finger as FingerKey] || item.finger || "Fingernail",
+        type: item.type || "lines-wavy-dots",
+        name: item.name || decMeta?.name || item.type,
+        group: item.group || decMeta?.name || "Decors",
+        spot: item.spot,
+        xPct: typeof item.xPct === "number" ? item.xPct : 50,
+        yPct: typeof item.yPct === "number" ? item.yPct : 50,
+        offsetX: item.offsetX,
+        offsetY: item.offsetY,
+      };
+    });
+  }
+
+  // 2. Check art_data?.nailSet
+  if (design.art_data?.nailSet) {
+    const ns = design.art_data.nailSet;
+    FINGER_KEYS.forEach((fk) => {
+      const nail = ns[fk] || ns[fk.toLowerCase()] || ns[fk.toLowerCase() === "pinky" ? "little" : ""];
+      if (nail && Array.isArray(nail.decorations)) {
+        nail.decorations.forEach((dec: any) => {
+          const decorMeta = DECORATIONS.find((x) => x.id === dec.type);
+          const pct = getDecorationPct(dec);
+          result.push({
+            finger: fk,
+            fingerName: FINGER_DISPLAY_NAMES[fk] || fk,
+            type: dec.type,
+            name: decorMeta?.name || dec.type,
+            group: decorMeta?.name || "Decors",
+            spot: dec.position,
+            xPct: pct.xPct,
+            yPct: pct.yPct,
+            offsetX: dec.offsetX,
+            offsetY: dec.offsetY,
+          });
+        });
+      }
+    });
+    if (result.length > 0) return result;
+  }
+
+  // 3. Fallback to parse inclusions or description
+  const textToScan = `${design.inclusions || ""} \n ${design.description || ""}`;
+  const lines = textToScan.split("\n");
+  lines.forEach((line) => {
+    if (line.toLowerCase().includes("decor:") || line.toLowerCase().includes("decoration")) {
+      const clean = line.replace(/^[•\-\*\s]+/, "").trim();
+      if (clean) {
+        result.push({
+          finger: "Hand",
+          fingerName: "Set Decor",
+          type: "lines-wavy-dots",
+          name: clean,
+          group: "Decors",
+          xPct: 50,
+          yPct: 50,
+        });
+      }
+    }
+  });
+
+  return result;
+}
+
+// ── Realistic SVG Hand Preview with Custom Nails & Vector Decors ─────────────
+export function SavedDesignHandPreview({
+  design,
+  className = "",
+}: {
+  design: NailDesign;
+  className?: string;
+}) {
+  const nailSet = design.art_data?.nailSet;
+  const savedSkinTone = design.art_data?.skinTone || "fair";
+  const skinToneObj = SKIN_TONES.find((s) => s.id === savedSkinTone) || SKIN_TONES[0];
+  const uniqueId = design.id ? String(design.id).replace(/[^a-zA-Z0-9]/g, "") : "preview";
+
+  if (!nailSet) {
+    if (design.image_url) {
+      return (
+        <img
+          src={design.image_url}
+          alt={design.name}
+          className={`w-full h-full object-cover ${className}`}
+        />
+      );
+    }
+    return <span className="text-6xl">💅</span>;
+  }
+
+  const normalizedNailSet: Record<FingerKey, any> = {
+    Thumb: nailSet.Thumb || nailSet.thumb || {},
+    Index: nailSet.Index || nailSet.index || {},
+    Middle: nailSet.Middle || nailSet.middle || {},
+    Ring: nailSet.Ring || nailSet.ring || {},
+    Pinky: nailSet.Pinky || nailSet.pinky || nailSet.little || {},
+  };
+
+  return (
+    <svg
+      viewBox="0 0 600 628"
+      className={`w-full h-full select-none ${className}`}
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <defs>
+        <radialGradient id={`hp-lunula-${uniqueId}`} cx="50%" cy="30%" r="50%">
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.45" />
+          <stop offset="60%" stopColor="#FFFFFF" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`hp-cyl-${uniqueId}`} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#000000" stopOpacity="0.30" />
+          <stop offset="15%" stopColor="#000000" stopOpacity="0.08" />
+          <stop offset="50%" stopColor="#FFFFFF" stopOpacity="0.25" />
+          <stop offset="85%" stopColor="#000000" stopOpacity="0.08" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.34" />
+        </linearGradient>
+        <linearGradient id={`hp-gloss-${uniqueId}`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.84" />
+          <stop offset="35%" stopColor="#FFFFFF" stopOpacity="0.70" />
+          <stop offset="70%" stopColor="#FFFFFF" stopOpacity="0.52" />
+          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.10" />
+        </linearGradient>
+
+        {FINGER_KEYS.map((fk) => {
+          const nail = normalizedNailSet[fk];
+          const shape = nail.shape || design.shape || "Almond";
+          const extCm = nail.extensionLengthCm ?? 0;
+          const nailPath = generateNailPath(fk, shape, extCm);
+          return (
+            <clipPath key={fk} id={`hp-clip-${fk}-${uniqueId}`}>
+              <path d={nailPath} />
+            </clipPath>
+          );
+        })}
+      </defs>
+
+      {/* Layer 1: Hand Backdrop & Realistic Hand Photo */}
+      <rect x="0" y="-28" width="600" height="656" rx="28" fill="#FCE0EC" />
+      <image
+        href={skinToneObj.imagePath}
+        x="0"
+        y="0"
+        width="600"
+        height="628"
+        preserveAspectRatio="xMidYMid meet"
+      />
+
+      {/* Layer 2: 5 Nails with Accurate Anatomy & Placed Decors */}
+      {FINGER_KEYS.map((finger) => {
+        const cal = FINGER_CALIBRATIONS[finger];
+        const nail = normalizedNailSet[finger];
+        const shape = nail.shape || design.shape || "Almond";
+        const extCm = nail.extensionLengthCm ?? 0;
+        const fullNailPath = generateNailPath(finger, shape, extCm);
+        const w = cal.bedWidth / 2;
+        const hBed = cal.bedHeight;
+        const hExt = getNailExtensionHeight(hBed, shape, extCm);
+        const totalH = hBed + hExt;
+        const tipY = -totalH;
+        const smileY = -hBed;
+        const baseColor = nail.baseColor || design.primary_color || "#F9C5D1";
+        const decorations: DecorationItem[] = Array.isArray(nail.decorations) ? nail.decorations : [];
+
+        return (
+          <g
+            key={finger}
+            transform={`translate(${cal.cuticleCx}, ${cal.cuticleCy}) rotate(${cal.rotation})`}
+            style={{ transformOrigin: "0px 0px" }}
+          >
+            {/* Ambient drop shadow */}
+            <path d={fullNailPath} fill="rgba(50, 18, 25, 0.22)" />
+
+            {/* Clipped nail surface */}
+            <g clipPath={`url(#hp-clip-${finger}-${uniqueId})`}>
+              {/* Gel base color */}
+              <rect x={-w * 2} y={tipY - 5} width={w * 4} height={totalH + 15} fill={baseColor} />
+
+              {/* Natural Lunula */}
+              <ellipse
+                cx={0}
+                cy={-cal.cuticleDepth * 0.3}
+                rx={w * 0.52}
+                ry={hBed * 0.26}
+                fill={`url(#hp-lunula-${uniqueId})`}
+              />
+
+              {/* French Tip Pattern */}
+              {nail.pattern === "french-tip" && (
+                <path
+                  d={`M ${-w * 1.5},${smileY - 1} C ${-w * 0.5},${smileY + 5} ${w * 0.5},${smileY + 5} ${w * 1.5},${smileY - 1} L ${w * 2},${tipY - 10} L ${-w * 2},${tipY - 10} Z`}
+                  fill={nail.patternColor || "#FFFFFF"}
+                />
+              )}
+
+              {/* 3D Convex Curvature */}
+              <rect x={-w} y={tipY - 5} width={w * 2} height={totalH + 15} fill={`url(#hp-cyl-${uniqueId})`} />
+
+              {/* Specular Glaze Reflection */}
+              {nail.finish !== "matte" && (
+                <path
+                  d={`M ${-w * 0.3},${tipY + 4} C ${-w * 0.36},${smileY} ${-w * 0.32},${-hBed * 0.35} ${-w * 0.18},${-cal.cuticleDepth - 1} C ${-w * 0.08},${-hBed * 0.35} ${-w * 0.12},${smileY} ${-w * 0.14},${tipY + 4} Z`}
+                  fill={`url(#hp-gloss-${uniqueId})`}
+                />
+              )}
+
+              {/* Vector Decorations Placed on Nail */}
+              {decorations.map((dec) => {
+                const isSurfaceArt = dec.type === "lines-wavy-dots" || dec.type === "mermaid-embossed";
+                const sz = isSurfaceArt ? w * 1.75 : w * 1.42;
+                const { xPct, yPct } = getDecorationPct(dec);
+                let cx = ((xPct - 50) / 50) * w;
+                let cy = tipY + (yPct / 100) * totalH;
+                if (dec.offsetX) cx += dec.offsetX;
+                if (dec.offsetY) cy += dec.offsetY;
+
+                return (
+                  <g
+                    key={dec.id}
+                    transform={`translate(${cx - sz / 2}, ${cy - sz / 2})`}
+                  >
+                    <VectorDecoration type={dec.type} className="drop-shadow-sm pointer-events-none" />
+                  </g>
+                );
+              })}
+            </g>
+
+            {/* Fine anatomical edge */}
+            <path d={fullNailPath} fill="none" stroke="rgba(110, 55, 45, 0.22)" strokeWidth="0.85" />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 // ── Modern Preview Modal ──────────────────────────────────────────────────────
 function PreviewModal({
   design,
@@ -59,27 +333,72 @@ function PreviewModal({
   onDeleteRequest?: () => void;
 }) {
   const catStyle = getCategoryStyle(design.category);
+  const appliedDecors = useMemo(() => extractAppliedDecorations(design), [design]);
+  const hasArtData = Boolean(design.art_data?.nailSet);
+  const [viewMode, setViewMode] = useState<"hand" | "image">(hasArtData ? "hand" : "image");
+
+  // Extract specs from art_data or design attributes
+  const shape = design.shape || design.art_data?.nailSet?.Index?.shape || design.art_data?.nailSet?.Thumb?.shape || "Almond";
+  const extensionCm = design.art_data?.nailSet?.Index?.extensionLengthCm ?? design.art_data?.nailSet?.Thumb?.extensionLengthCm ?? 0;
+  const finish = design.texture || design.art_data?.nailSet?.Index?.finish || "glossy";
+  const primaryColor = design.primary_color || design.art_data?.nailSet?.Index?.baseColor || "#F9C5D1";
+  const skinToneId = design.art_data?.skinTone;
+  const skinToneObj = SKIN_TONES.find((s) => s.id === skinToneId);
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6 bg-slate-950/65 backdrop-blur-md animate-in fade-in duration-200"
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="bg-white/95 backdrop-blur-xl border border-pink-100/80 rounded-3xl w-full max-w-2xl shadow-2xl shadow-pink-500/10 overflow-hidden relative flex flex-col md:flex-row animate-in zoom-in-95 duration-200 max-h-[90vh]"
+        className="bg-white/98 backdrop-blur-xl border border-pink-100 rounded-3xl w-full max-w-4xl shadow-2xl shadow-pink-500/10 overflow-hidden relative flex flex-col md:flex-row animate-in zoom-in-95 duration-200 max-h-[92vh]"
       >
         {/* Left — Visual Showcase */}
-        <div className="relative md:w-5/12 min-h-[260px] md:min-h-[380px] bg-gradient-to-br from-pink-50 via-pink-100/40 to-purple-50/50 flex items-center justify-center overflow-hidden p-6">
+        <div className="relative md:w-5/12 min-h-[300px] md:min-h-[460px] bg-gradient-to-br from-pink-50/80 via-pink-100/30 to-purple-50/40 flex flex-col items-center justify-center p-5 overflow-hidden border-b md:border-b-0 md:border-r border-pink-100/60">
           <div className="absolute -top-10 -left-10 w-36 h-36 bg-pink-400/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-10 -right-10 w-36 h-36 bg-purple-400/20 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="relative w-full h-full max-h-72 rounded-2xl overflow-hidden shadow-md border border-white/80 bg-white/40 group flex items-center justify-center">
-            {design.image_url ? (
+          {/* View Mode Switcher (Hand vs Snapshot) */}
+          {hasArtData && design.image_url && (
+            <div className="absolute top-4 right-4 z-20 flex items-center bg-white/90 backdrop-blur-md p-1 rounded-full border border-pink-100 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setViewMode("hand")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${
+                  viewMode === "hand"
+                    ? "bg-pink-500 text-white shadow-xs"
+                    : "text-gray-600 hover:text-pink-600"
+                }`}
+                title="View interactive realistic hand"
+              >
+                <Hand className="w-3 h-3" /> Hand View
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("image")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${
+                  viewMode === "image"
+                    ? "bg-pink-500 text-white shadow-xs"
+                    : "text-gray-600 hover:text-pink-600"
+                }`}
+                title="View image snapshot"
+              >
+                <ImageIcon className="w-3 h-3" /> Snapshot
+              </button>
+            </div>
+          )}
+
+          <div className="relative w-full h-full max-h-[360px] md:max-h-[420px] rounded-2xl overflow-hidden shadow-sm border border-white/80 bg-white/60 group flex items-center justify-center p-2">
+            {viewMode === "hand" && hasArtData ? (
+              <SavedDesignHandPreview design={design} />
+            ) : design.image_url ? (
               <img
                 src={design.image_url}
                 alt={design.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-500"
               />
+            ) : hasArtData ? (
+              <SavedDesignHandPreview design={design} />
             ) : (
               <span className="text-6xl">💅</span>
             )}
@@ -91,13 +410,19 @@ function PreviewModal({
                 <Star className="w-3.5 h-3.5 fill-white" /> Featured
               </span>
             )}
+            {appliedDecors.length > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-white/90 backdrop-blur-sm text-pink-600 border border-pink-200 rounded-full text-[10.5px] font-bold shadow-xs">
+                <Sparkles className="w-3 h-3 text-pink-500" />
+                {appliedDecors.length} Decor{appliedDecors.length > 1 ? "s" : ""}
+              </span>
+            )}
           </div>
         </div>
 
         {/* Right — Details & Attributes */}
-        <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between min-w-0 bg-white overflow-y-auto">
+        <div className="flex-1 p-6 sm:p-7 flex flex-col justify-between min-w-0 bg-white overflow-y-auto">
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-3.5 py-1 bg-pink-500 text-white text-xs font-bold rounded-full shadow-sm shadow-pink-500/20">
                   {nailId}
@@ -118,7 +443,7 @@ function PreviewModal({
               </button>
             </div>
 
-            <div className="flex items-start justify-between gap-2 mb-1.5">
+            <div className="flex items-start justify-between gap-2 mb-1">
               <h3 className="text-2xl font-bold text-gray-900 capitalize">
                 {design.name}
               </h3>
@@ -126,73 +451,81 @@ function PreviewModal({
                 ₱{design.price !== undefined && design.price !== null ? design.price : 500}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-6">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-4">
               <CalendarDays className="w-3.5 h-3.5 text-pink-400" />
               {formatDate(design.created_at)}
             </div>
 
-            <div className="space-y-4">
-              {/* Category */}
-              <div>
-                <span className="text-xs font-semibold text-gray-500 block mb-1">
-                  Category
-                </span>
-                <div className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                  {design.category ? (
-                    <span className="inline-flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-pink-500" />
-                      {design.category}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400 italic">No category assigned</span>
-                  )}
+            {/* Design Specifications Bar */}
+            <div className="flex items-center gap-1.5 flex-wrap mb-4 pb-3 border-b border-gray-100 text-xs">
+              <div className="flex items-center gap-1 px-2.5 py-1 bg-pink-50/70 border border-pink-100 rounded-lg text-pink-700 font-semibold">
+                <span className="text-gray-400 font-normal">Shape:</span> {shape}
+              </div>
+              {extensionCm > 0 && (
+                <div className="flex items-center gap-1 px-2.5 py-1 bg-pink-50/70 border border-pink-100 rounded-lg text-pink-700 font-semibold">
+                  <span className="text-gray-400 font-normal">Extension:</span> +{extensionCm.toFixed(1)} cm
                 </div>
+              )}
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-pink-50/70 border border-pink-100 rounded-lg text-pink-700 font-semibold">
+                <span className="w-3 h-3 rounded-full border border-gray-300 inline-block shadow-2xs" style={{ backgroundColor: primaryColor }} />
+                <span className="text-gray-400 font-normal">Color</span>
+              </div>
+              <div className="flex items-center gap-1 px-2.5 py-1 bg-pink-50/70 border border-pink-100 rounded-lg text-pink-700 font-semibold capitalize">
+                <span className="text-gray-400 font-normal">Topcoat:</span> {finish}
+              </div>
+              {skinToneObj && (
+                <div className="flex items-center gap-1 px-2.5 py-1 bg-pink-50/70 border border-pink-100 rounded-lg text-pink-700 font-semibold">
+                  <span className="text-gray-400 font-normal">Hand:</span> {skinToneObj.name}
+                </div>
+              )}
+            </div>
+
+            {/* Decorations Applied Section (Cleaned up, no Description, no Inclusion, no coordinates) */}
+            <div className="flex-1 flex flex-col min-h-0 mb-2">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5 uppercase tracking-wide">
+                  <Sparkles className="w-3.5 h-3.5 text-pink-500" />
+                  Decorations Applied ({appliedDecors.length})
+                </span>
+                {appliedDecors.length > 0 && (
+                  <span className="text-[10px] text-pink-500 font-semibold bg-pink-50 px-2 py-0.5 rounded-full border border-pink-100">
+                    Active Ornaments
+                  </span>
+                )}
               </div>
 
-              {/* Description Box */}
-              <div>
-                <span className="text-xs font-semibold text-gray-500 block mb-1.5">
-                  Description
-                </span>
-                <div className="bg-pink-50/40 border border-pink-100/60 rounded-2xl p-4 text-sm text-gray-700 leading-relaxed max-h-36 overflow-y-auto">
-                  {design.description ? (
-                    design.description
-                  ) : (
-                    <span className="text-gray-400 italic">No description provided for this design.</span>
-                  )}
+              {appliedDecors.length > 0 ? (
+                <div className="bg-pink-50/40 border border-pink-100/80 rounded-2xl p-3 space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                  {appliedDecors.map((dec, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-3 bg-white rounded-xl px-3.5 py-2.5 border border-pink-100/70 shadow-2xs text-xs hover:border-pink-200 transition-all"
+                    >
+                      <span className="px-2.5 py-1 rounded-lg bg-pink-50 text-pink-600 font-bold text-[10.5px] tracking-wider uppercase shrink-0">
+                        {dec.fingerName.toUpperCase()}
+                      </span>
+                      <span className="text-gray-300 font-normal">—</span>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-5 h-5 rounded-md bg-pink-50/80 border border-pink-100 flex items-center justify-center shrink-0 p-0.5">
+                          <VectorDecoration type={dec.type as DecorationType} className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="font-semibold text-gray-800 text-xs truncate">
+                          {dec.name}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-
-              {/* Inclusion Box */}
-              <div>
-                <span className="text-xs font-semibold text-gray-500 block mb-1.5">
-                  Inclusion
-                </span>
-                <div className="bg-pink-50/40 border border-pink-100/60 rounded-2xl p-4 text-xs text-gray-700 leading-relaxed">
-                  {design.inclusions ? (
-                    <ul className="space-y-1">
-                      {design.inclusions.split('\n').map((inc, i) => (
-                        <li key={i} className="flex items-start gap-1.5">
-                          <span className="text-pink-500 font-bold">•</span>
-                          <span>{inc.replace(/^[•\-\*\s]+/, '')}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <ul className="space-y-1">
-                      <li className="flex items-start gap-1.5"><span className="text-pink-500 font-bold">•</span><span>Full set application</span></li>
-                      <li className="flex items-start gap-1.5"><span className="text-pink-500 font-bold">•</span><span>Nail preparation & shaping</span></li>
-                      <li className="flex items-start gap-1.5"><span className="text-pink-500 font-bold">•</span><span>Artisan design application</span></li>
-                      <li className="flex items-start gap-1.5"><span className="text-pink-500 font-bold">•</span><span>High-shine gel top coat finish</span></li>
-                    </ul>
-                  )}
+              ) : (
+                <div className="bg-pink-50/30 border border-pink-100/60 rounded-2xl p-6 text-center text-xs text-gray-400 italic">
+                  No decorations applied to this design.
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
           {/* Bottom Action Footer */}
-          <div className="pt-6 mt-6 border-t border-gray-100 flex items-center justify-between gap-3">
+          <div className="pt-4 mt-4 border-t border-gray-100 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               {onEditRequest && (
                 <button
@@ -712,6 +1045,8 @@ function DesignCard({
   cardWidth?: string;
 }) {
   const catStyle = getCategoryStyle(design.category);
+  const appliedDecors = useMemo(() => extractAppliedDecorations(design), [design]);
+  const hasArtData = Boolean(design.art_data?.nailSet);
 
   return (
     <div
@@ -724,6 +1059,8 @@ function DesignCard({
             alt={design.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
+        ) : hasArtData ? (
+          <SavedDesignHandPreview design={design} className="p-1" />
         ) : (
           <span className="text-5xl">💅</span>
         )}
@@ -737,6 +1074,12 @@ function DesignCard({
           {design.category && !featured && (
             <span className={`px-2.5 py-1 ${catStyle.badge} text-white rounded-full text-xs font-semibold shadow-sm`}>
               {design.category}
+            </span>
+          )}
+          {appliedDecors.length > 0 && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-white/95 backdrop-blur-sm text-pink-600 rounded-full text-[10px] font-bold shadow-xs border border-pink-200">
+              <Sparkles className="w-2.5 h-2.5 text-pink-500" />
+              {appliedDecors.length} Decor{appliedDecors.length > 1 ? "s" : ""}
             </span>
           )}
         </div>
