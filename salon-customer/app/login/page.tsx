@@ -7,6 +7,7 @@ import { Mail, Check } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 import { EmailField, PasswordField, validateEmail } from '@/components/auth-fields';
+import { GoogleIcon } from '@/components/auth-modals';
 
 function LoginFormContent() {
   const router = useRouter();
@@ -23,8 +24,43 @@ function LoginFormContent() {
   const [customerDisplayName, setCustomerDisplayName] = useState('');
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => searchParams.get('error') || searchParams.get('error_description') || '');
   const [busy, setBusy] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    if (busy) return;
+    try {
+      setBusy(true);
+      setError('');
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('candy_rose_google_login_pending', 'true');
+      }
+      const targetNext = returnTo || (book ? `/customize?book=${encodeURIComponent(book)}` : '/services');
+      const redirectUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(targetNext)}`
+        : undefined;
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+        },
+      });
+      if (error) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('candy_rose_google_login_pending');
+        }
+        setError(error.message || 'Failed to connect to Google authentication.');
+        setBusy(false);
+      }
+    } catch (err: any) {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('candy_rose_google_login_pending');
+      }
+      setError(err.message || 'An unexpected error occurred during Google sign in.');
+      setBusy(false);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -275,6 +311,23 @@ function LoginFormContent() {
                     </div>
                   )}
 
+                  <div className="mb-4">
+                    <button
+                      type="button"
+                      onClick={handleGoogleSignIn}
+                      disabled={busy}
+                      className="relative w-full h-[50px] sm:h-[52px] rounded-xl border border-[#E1DFE3] bg-white hover:bg-zinc-50 hover:border-zinc-300 text-[#231F20] font-medium text-xs sm:text-sm transition-all duration-150 flex items-center justify-center shadow-sm cursor-pointer disabled:opacity-60"
+                    >
+                      <GoogleIcon className="absolute left-4 sm:left-4.5 w-4.5 h-4.5 sm:w-5 sm:h-5" />
+                      <span>Continue with Google</span>
+                    </button>
+
+                    <div className="flex items-center my-3 sm:my-3.5">
+                      <div className="flex-grow border-t border-[#E1DFE3]" />
+                      <span className="shrink-0 px-3 text-xs text-[#77727A]">or sign in with email</span>
+                      <div className="flex-grow border-t border-[#E1DFE3]" />
+                    </div>
+                  </div>
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <EmailField
                       id="login-email"

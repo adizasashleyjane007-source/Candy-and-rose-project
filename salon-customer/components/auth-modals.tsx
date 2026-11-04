@@ -58,30 +58,38 @@ export function AuthModal({ open, onClose, onSuccess }: { open: boolean; onClose
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleGoogleSignIn = async () => {
+    if (busy) return;
     try {
       setBusy(true);
       setError('');
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('candy_rose_google_login_pending', 'true');
       }
-      const { error } = await supabase.auth.signInWithOAuth({
+      const targetNext = typeof window !== 'undefined'
+        ? `${window.location.pathname}${window.location.search}`
+        : '/';
+      const redirectUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(targetNext)}`
+        : undefined;
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/` : undefined,
+          redirectTo: redirectUrl,
         },
       });
       if (error) {
         if (typeof window !== 'undefined') {
           sessionStorage.removeItem('candy_rose_google_login_pending');
         }
-        setError(error.message);
+        setError(error.message || 'Failed to connect to Google authentication.');
+        setBusy(false);
       }
     } catch (err: any) {
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('candy_rose_google_login_pending');
       }
-      setError(err.message || 'An unexpected error occurred.');
-    } finally {
+      setError(err.message || 'An unexpected error occurred during Google sign in.');
       setBusy(false);
     }
   };

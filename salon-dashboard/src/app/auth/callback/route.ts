@@ -92,8 +92,8 @@ export async function GET(request: NextRequest) {
         console.warn("⚠️ Auth Callback: Profile fetch warning:", profileError.message);
       }
 
-      if (profile?.role && profile.role !== "Administrator") {
-        console.warn("🛡️ Auth Callback: Access denied for non-admin user role:", profile.role);
+      if (!profile || profile.role !== "Administrator") {
+        console.warn("🛡️ Auth Callback: Access denied for non-admin user role:", profile?.role);
         return NextResponse.redirect(`${redirectOrigin}/unauthorized`);
       }
 
