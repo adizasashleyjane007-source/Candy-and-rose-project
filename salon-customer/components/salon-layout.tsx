@@ -9,6 +9,8 @@ import { useAuth } from '@/lib/auth-context';
 import { supabase, type Service } from '@/lib/supabase';
 import type { NailDesignItem } from '@/lib/nail-designs';
 
+import { BookingModal } from './booking-modal';
+
 const AuthModal = dynamic(
   () => import('./auth-modals').then((mod) => mod.AuthModal),
   { ssr: false }
@@ -16,11 +18,6 @@ const AuthModal = dynamic(
 
 const GoogleWelcomeModal = dynamic(
   () => import('./auth-modals').then((mod) => mod.GoogleWelcomeModal),
-  { ssr: false }
-);
-
-const BookingModal = dynamic(
-  () => import('./booking-modal').then((mod) => mod.BookingModal),
   { ssr: false }
 );
 
@@ -38,6 +35,8 @@ export default function SalonLayout({ children }: { children: ReactNode }) {
   const handleBookingRequest = useCallback(async (services?: Service[], design?: NailDesignItem | null) => {
     const targetServices = services || [];
     const targetDesign = design || null;
+
+    console.log('[SalonLayout Debug] handleBookingRequest called with services:', targetServices);
 
     setPreselectedServices(targetServices);
     setSelectedDesign(targetDesign);

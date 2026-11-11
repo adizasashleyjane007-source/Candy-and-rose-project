@@ -48,6 +48,8 @@ export default function CustomerPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const selectedCustomer = editingId ? customers.find(c => c.id === editingId) : null;
+
     const loadCustomers = useCallback(async () => {
         try {
             setLoading(true);
@@ -145,7 +147,11 @@ export default function CustomerPage() {
         const matchesType =
             filterType === "All Customers" ? true
             : filterType === "New" ? (c.visits ?? 0) <= 7
-            : (c.visits ?? 0) > 7;
+            : filterType === "Regular" ? (c.visits ?? 0) > 7
+            : filterType === "Flagged" ? c.risk_status === "Flagged"
+            : filterType === "Warning" ? c.risk_status === "Warning"
+            : filterType === "Good Standing" ? c.risk_status === "Good Standing"
+            : true;
         return matchesType && (
             c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (c.email ?? "").toLowerCase().includes(searchQuery.toLowerCase())
@@ -242,7 +248,7 @@ export default function CustomerPage() {
 
                             {filterOpen && (
                                 <div className="absolute z-10 mt-2 w-full sm:w-48 bg-white rounded-2xl shadow-xl border border-pink-100 py-2 right-0">
-                                    {["All Customers", "New", "Regular"].map(type => (
+                                    {["All Customers", "Good Standing", "Warning", "Flagged", "New", "Regular"].map(type => (
                                         <button
                                             key={type}
                                             className={`w-full text-left px-5 py-2.5 text-sm transition-colors ${filterType === type ? "bg-pink-50 text-pink-600 font-bold" : "text-gray-700 hover:bg-gray-50 font-medium"}`}
@@ -285,13 +291,14 @@ export default function CustomerPage() {
                                             <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Visits</th>
                                             <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Total Spent</th>
                                             <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap w-[120px] text-center">Type</th>
+                                            <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap w-[130px] text-center">Status</th>
                                             <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap text-center">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {paginatedCustomers.length === 0 ? (
                                             <tr>
-                                                <td colSpan={7} className="text-center py-12 text-gray-400 font-medium">No customers found. Add your first one!</td>
+                                                <td colSpan={8} className="text-center py-12 text-gray-400 font-medium">No customers found. Add your first one!</td>
                                             </tr>
                                         ) : paginatedCustomers.map((cust) => (
                                             <tr key={cust.id} className="bg-gray-50/50 hover:bg-pink-50/50 transition-all shadow-sm group">
@@ -304,6 +311,30 @@ export default function CustomerPage() {
                                                     <span className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-tight border ${((cust.membership_type || ((cust.visits || 0) > 7 ? 'Regular' : 'New')) === 'Regular') ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-pink-50 text-pink-600 border-pink-200'}`}>
                                                         {cust.membership_type || ((cust.visits || 0) > 7 ? 'Regular' : 'New')}
                                                     </span>
+                                                </td>
+                                                <td className="py-2.5 px-4 text-sm text-center border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">
+                                                    {cust.risk_status === 'Flagged' ? (
+                                                        <span
+                                                            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black tracking-tight border bg-red-100 text-red-700 border-red-300 shadow-xs"
+                                                            title={`Failed Appointments: ${cust.failed_appointments ?? 0} (${cust.cancelled_appointments ?? 0} Cancelled, ${cust.noshow_appointments ?? 0} No-Show)`}
+                                                        >
+                                                            🚩 Flagged
+                                                        </span>
+                                                    ) : cust.risk_status === 'Warning' ? (
+                                                        <span
+                                                            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold tracking-tight border bg-amber-50 text-amber-700 border-amber-300"
+                                                            title={`Failed Appointments: ${cust.failed_appointments ?? 0} (${cust.cancelled_appointments ?? 0} Cancelled, ${cust.noshow_appointments ?? 0} No-Show)`}
+                                                        >
+                                                            ⚠️ Warning
+                                                        </span>
+                                                    ) : (
+                                                        <span
+                                                            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold tracking-tight border bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                            title={`Good Standing (${cust.failed_appointments ?? 0} failed)`}
+                                                        >
+                                                            Good Standing
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="py-2.5 px-4 text-sm rounded-r-xl border border-transparent group-hover:border-pink-200 border-l-0 text-center whitespace-nowrap">
                                                     <div className="flex items-center justify-center gap-3">
@@ -330,9 +361,30 @@ export default function CustomerPage() {
                                         </div>
 
                                         <div className="flex flex-col gap-3">
-                                            <div>
-                                                <h3 className="text-base font-bold text-gray-900">{cust.name}</h3>
-                                                <p className="text-xs text-gray-500 truncate">{cust.email || "No email"}</p>
+                                            <div className="flex items-start justify-between pr-20">
+                                                <div>
+                                                    <h3 className="text-base font-bold text-gray-900">{cust.name}</h3>
+                                                    <p className="text-xs text-gray-500 truncate">{cust.email || "No email"}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                {cust.risk_status === 'Flagged' ? (
+                                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black border bg-red-100 text-red-700 border-red-300">
+                                                        🚩 Flagged
+                                                    </span>
+                                                ) : cust.risk_status === 'Warning' ? (
+                                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-200">
+                                                        ⚠️ Warning
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-50 text-emerald-600 border-emerald-200">
+                                                        Good Standing
+                                                    </span>
+                                                )}
+                                                <span className="text-[10px] text-gray-400">
+                                                    Failed Appointments: <strong className="text-gray-700">{cust.failed_appointments ?? 0}</strong>
+                                                </span>
                                             </div>
 
                                             <div className="flex items-center gap-4 py-2 border-y border-gray-50">
@@ -390,6 +442,44 @@ export default function CustomerPage() {
                         </div>
 
                         <form onSubmit={handleFormSave} className="space-y-3">
+                            {editingId && selectedCustomer && (
+                                <div className="p-3.5 bg-pink-50/50 rounded-2xl border border-pink-100 mb-2">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                            Appointment History &amp; Risk Status
+                                        </span>
+                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${
+                                            selectedCustomer.risk_status === 'Flagged' ? 'bg-red-100 text-red-700 border-red-300' :
+                                            selectedCustomer.risk_status === 'Warning' ? 'bg-amber-100 text-amber-700 border-amber-300' :
+                                            'bg-emerald-100 text-emerald-700 border-emerald-300'
+                                        }`}>
+                                            {selectedCustomer.risk_status === 'Flagged' ? '🚩 Flagged' : (selectedCustomer.risk_status || 'Good Standing')}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                                        <div className="bg-white p-2 rounded-xl border border-pink-100 shadow-xs">
+                                            <p className="text-[10px] text-gray-400 uppercase font-semibold">Total Bookings</p>
+                                            <p className="font-bold text-gray-900 mt-0.5">{selectedCustomer.total_appointments || 0}</p>
+                                        </div>
+                                        <div className="bg-white p-2 rounded-xl border border-pink-100 shadow-xs">
+                                            <p className="text-[10px] text-gray-400 uppercase font-semibold">Completed</p>
+                                            <p className="font-bold text-emerald-600 mt-0.5">{selectedCustomer.completed_appointments || 0}</p>
+                                        </div>
+                                        <div className="bg-white p-2 rounded-xl border border-pink-100 shadow-xs">
+                                            <p className="text-[10px] text-gray-400 uppercase font-semibold">Cancelled</p>
+                                            <p className="font-bold text-red-500 mt-0.5">{selectedCustomer.cancelled_appointments || 0}</p>
+                                        </div>
+                                        <div className="bg-white p-2 rounded-xl border border-pink-100 shadow-xs">
+                                            <p className="text-[10px] text-gray-400 uppercase font-semibold">No-Show</p>
+                                            <p className="font-bold text-rose-600 mt-0.5">{selectedCustomer.noshow_appointments || 0}</p>
+                                        </div>
+                                    </div>
+                                    <p className="text-[11px] text-gray-500 font-medium mt-2 text-center">
+                                        Failed Bookings (Cancelled + No-Show): <strong className="text-gray-900">{selectedCustomer.failed_appointments || 0}</strong>
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="sm:col-span-2">
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>

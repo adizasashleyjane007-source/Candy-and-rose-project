@@ -2,7 +2,8 @@ import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContai
 import { MoreHorizontal, TrendingUp, Scissors, PhilippinePeso, Calendar, X, Clock, Wallet, Loader2, Star, Sparkles, ChevronRight, Eye } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Appointments, Customers, NailDesigns, SettingsDB, type Appointment, type NailDesign } from "@/lib/db";
+import { Appointments, Billing, Customers, NailDesigns, SettingsDB, type Appointment, type NailDesign } from "@/lib/db";
+import { LoyaltyDB, computeMonthlyTop5Customers, type LoyaltyRewardRecord } from "@/lib/loyalty";
 
 const monthsList = [
     "January", "February", "March", "April", "May", "June",
@@ -529,6 +530,7 @@ export function TopStaffChart({ selectedMonth: globalSelectedMonth }: { selected
 
 export function TopCustomersList({ selectedMonth: globalSelectedMonth }: { selectedMonth?: string }) {
     const [currentMonthIdx, setCurrentMonthIdx] = useState(new Date().getMonth());
+    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [customersList, setCustomersList] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
@@ -541,8 +543,10 @@ export function TopCustomersList({ selectedMonth: globalSelectedMonth }: { selec
         if (globalSelectedMonth === "Last Month") {
             const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
             setCurrentMonthIdx(lastMonth.getMonth());
+            setCurrentYear(lastMonth.getFullYear());
         } else if (globalSelectedMonth === "This Month") {
             setCurrentMonthIdx(now.getMonth());
+            setCurrentYear(now.getFullYear());
         }
     }, [globalSelectedMonth]);
 
@@ -550,32 +554,52 @@ export function TopCustomersList({ selectedMonth: globalSelectedMonth }: { selec
         const loadData = async () => {
             try {
                 setLoading(true);
-                const allApps = await Appointments.list();
-                const currentYear = new Date().getFullYear();
-                const filteredApps = allApps.filter((apt) => {
-                    const isCompleted = apt.status === 'Completed';
-                    if (!isCompleted || !apt.appointment_date) return false;
-                    const d = new Date(apt.appointment_date);
-                    return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
-                });
+                const syncResult = await LoyaltyDB.syncTop5ForMonth(currentYear, currentMonthIdx);
+                const rewardsByCustId = new Map<string, LoyaltyRewardRecord>();
+                const rewardsByName = new Map<string, LoyaltyRewardRecord>();
 
-                let customerMap: Record<string, any> = {};
-                filteredApps.forEach((app) => {
-                    const custName = app.customers?.name || app.customer_name;
-                    if (custName) {
-                        if (!customerMap[custName]) customerMap[custName] = { name: custName, visits: 0, spentValue: 0, lastVisit: null };
-                        customerMap[custName].visits += 1;
-                        customerMap[custName].spentValue += (app.price || 0);
-                        if (!customerMap[custName].lastVisit || new Date(app.appointment_date) > new Date(customerMap[custName].lastVisit)) {
-                            customerMap[custName].lastVisit = app.appointment_date;
-                        }
-                    }
-                });
+                for (const r of syncResult.rewards || []) {
+                    if (r.customer_id) rewardsByCustId.set(r.customer_id, r);
+                    if (r.customer_name) rewardsByName.set(r.customer_name.trim().toLowerCase(), r);
+                }
 
-                const processed = Object.values(customerMap)
-                    .sort((a, b) => b.spentValue - a.spentValue)
-                    .slice(0, 5);
-                setCustomersList(processed);
+                if (syncResult.top5 && syncResult.top5.length > 0) {
+                    const processed = syncResult.top5.map((cand) => {
+                        const matchedReward =
+                            (cand.customer_id && rewardsByCustId.get(cand.customer_id)) ||
+                            rewardsByName.get(cand.customer_name.trim().toLowerCase()) ||
+                            null;
+                        return {
+                            rank: cand.rank,
+                            customerId: cand.customer_id,
+                            name: cand.customer_name,
+                            visits: cand.completed_transactions,
+                            spentValue: cand.total_spent,
+                            lastVisit: cand.last_transaction_date ? cand.last_transaction_date.split("T")[0] : "N/A",
+                            reward: matchedReward,
+                        };
+                    });
+                    setCustomersList(processed);
+                } else {
+                    // Fallback to direct client computation if API unavailable
+                    const [allApps, allBills, allCusts] = await Promise.all([
+                        Appointments.list(),
+                        Billing.list().catch(() => []),
+                        Customers.list().catch(() => []),
+                    ]);
+                    const ranked = computeMonthlyTop5Customers(allApps, allBills, allCusts, currentYear, currentMonthIdx, 5);
+                    setCustomersList(
+                        ranked.map((cand) => ({
+                            rank: cand.rank,
+                            customerId: cand.customer_id,
+                            name: cand.customer_name,
+                            visits: cand.completed_transactions,
+                            spentValue: cand.total_spent,
+                            lastVisit: cand.last_transaction_date ? cand.last_transaction_date.split("T")[0] : "N/A",
+                            reward: null,
+                        }))
+                    );
+                }
             } catch (error) {
                 console.error("Failed to load customer analytics:", error);
             } finally {
@@ -584,7 +608,7 @@ export function TopCustomersList({ selectedMonth: globalSelectedMonth }: { selec
         };
 
         loadData();
-    }, [currentMonthIdx]);
+    }, [currentMonthIdx, currentYear]);
 
     const handleCustomerClick = async (customer: any) => {
         const allApps = await Appointments.list();
@@ -601,33 +625,107 @@ export function TopCustomersList({ selectedMonth: globalSelectedMonth }: { selec
             <div className="flex justify-between items-start mb-6">
                 <div>
                     <h3 className="text-xl font-bold text-gray-900 tracking-tight">Top Customers - <span className="text-pink-500">{monthsList[currentMonthIdx]}</span></h3>
+                    <p className="text-xs text-gray-500 mt-1 font-medium">Top 5 customers automatically qualify for a monthly Loyalty Reward</p>
                 </div>
             </div>
-            <div className="space-y-4 flex-1">
+            <div className="space-y-3.5 flex-1">
                 {loading ? (
                     <div className="h-full flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-pink-200" /></div>
+                ) : customersList.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center py-8 text-gray-400">
+                        <Star className="w-8 h-8 text-pink-200 mb-2" />
+                        <p className="text-sm font-semibold text-gray-500">No completed transactions for {monthsList[currentMonthIdx]}</p>
+                    </div>
                 ) : (
-                    customersList.map((customer, index) => (
-                        <div key={index} onClick={() => handleCustomerClick(customer)} className="flex items-center justify-between p-4 rounded-xl hover:bg-pink-50/50 transition-all cursor-pointer border border-transparent hover:border-pink-50">
-                            <div className="flex-1 min-w-0 text-left">
-                                <h4 className="font-bold text-gray-900 text-sm text-left">{customer.name}</h4>
-                                <p className="text-xs text-gray-500">Last visit: {customer.lastVisit}</p>
+                    customersList.map((customer, index) => {
+                        const rankNum = customer.rank || index + 1;
+                        const rewardStatus = customer.reward?.status || "AVAILABLE";
+                        const rewardDesc = customer.reward?.reward_description || "Top 5 Reward";
+                        return (
+                            <div
+                                key={index}
+                                onClick={() => handleCustomerClick(customer)}
+                                className="flex items-center justify-between p-4 rounded-2xl hover:bg-pink-50/50 transition-all cursor-pointer border border-pink-100/60 hover:border-pink-200 bg-white shadow-2xs"
+                            >
+                                <div className="flex items-start gap-3 flex-1 min-w-0 text-left">
+                                    <div className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0 mt-0.5 ${
+                                        rankNum === 1
+                                            ? "bg-amber-100 text-amber-700 border border-amber-200"
+                                            : rankNum === 2
+                                                ? "bg-slate-100 text-slate-700 border border-slate-200"
+                                                : rankNum === 3
+                                                    ? "bg-orange-100 text-orange-700 border border-orange-200"
+                                                    : "bg-pink-50 text-pink-600 border border-pink-100"
+                                    }`}>
+                                        #{rankNum}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-pink-600 bg-pink-50 px-1.5 py-0.5 rounded-md border border-pink-100">
+                                                Rank {rankNum}
+                                            </span>
+                                            <h4 className="font-bold text-gray-900 text-sm text-left truncate">{customer.name}</h4>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-0.5">Last visit: {customer.lastVisit}</p>
+                                        <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-50 text-pink-700 border border-pink-200">
+                                                <span>⭐ Top 5 Loyalty Reward</span>
+                                                <span className="text-pink-400">•</span>
+                                                <span>{rewardDesc}</span>
+                                            </span>
+                                            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
+                                                rewardStatus === "AVAILABLE"
+                                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                    : rewardStatus === "USED"
+                                                        ? "bg-gray-100 text-gray-600 border border-gray-200"
+                                                        : "bg-rose-50 text-rose-600 border border-rose-200"
+                                            }`}>
+                                                {rewardStatus}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="text-right shrink-0 pl-3">
+                                    <p className="font-extrabold text-gray-900 text-sm">₱{customer.spentValue.toLocaleString()}</p>
+                                    <p className="text-[11px] text-gray-400 font-medium">total spending</p>
+                                    <p className="text-xs text-pink-500 font-bold mt-0.5">{customer.visits} {customer.visits === 1 ? "visit" : "visits"}</p>
+                                </div>
                             </div>
-                            <div className="text-right shrink-0 pl-3">
-                                <p className="font-bold text-gray-900">₱{customer.spentValue.toLocaleString()}</p>
-                                <p className="text-xs text-pink-500 font-bold">{customer.visits} visits</p>
-                            </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
 
             {isHistoryModalOpen && selectedCustomer && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
                     <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl relative flex flex-col border border-pink-100 max-h-[90vh]">
-                        <div className="p-8 border-b border-pink-50">
+                        <div className="p-6 sm:p-8 border-b border-pink-50">
                             <button onClick={() => setIsHistoryModalOpen(false)} className="absolute top-6 right-6 text-gray-400 hover:text-pink-600"><X className="w-5 h-5" /></button>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-extrabold uppercase tracking-wider text-pink-600 bg-pink-50 px-2.5 py-0.5 rounded-full border border-pink-200">
+                                    ⭐ Rank {selectedCustomer.rank || 1} Top 5 Customer
+                                </span>
+                            </div>
                             <h3 className="text-2xl font-bold text-gray-900">{selectedCustomer.name}</h3>
+                            {selectedCustomer.reward && (
+                                <div className="mt-3 p-3 rounded-xl bg-pink-50/70 border border-pink-100 flex items-center justify-between text-xs">
+                                    <div>
+                                        <p className="font-bold text-pink-700">Reward: {selectedCustomer.reward.reward_description}</p>
+                                        <p className="text-gray-500 text-[11px]">
+                                            Valid until {new Date(selectedCustomer.reward.valid_until).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                        </p>
+                                    </div>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                        selectedCustomer.reward.status === "AVAILABLE"
+                                            ? "bg-emerald-100 text-emerald-700"
+                                            : selectedCustomer.reward.status === "USED"
+                                                ? "bg-gray-200 text-gray-700"
+                                                : "bg-rose-100 text-rose-700"
+                                    }`}>
+                                        {selectedCustomer.reward.status}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                         <div className="p-6 overflow-y-auto">
                             {customerHistory.map((app, idx) => (

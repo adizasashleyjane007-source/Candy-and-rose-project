@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Calendar, X, Clock, User, Scissors, ExternalLink, Eye, ZoomIn, CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Calendar, X, Clock, User, Scissors, ExternalLink, Eye, ZoomIn, CheckCircle2, ChevronDown, Loader2, AlertTriangle, Flag } from "lucide-react";
 import { Appointments } from "@/lib/db";
+import { createClient } from "@/lib/supabase/client";
+import { calculateCustomerRisk, type CustomerRiskSummary } from "@/lib/customer-risk";
+import { addNotification } from "@/lib/notifications";
 
 interface AppointmentDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   appointment: any;
+  customerRisk?: CustomerRiskSummary;
   onStatusChange?: (updatedAppointment: any) => void;
 }
 
@@ -58,17 +62,51 @@ export function extractActualCustomerNote(rawNotes?: string | null): string {
   return cleanSegments.join(" • ").trim();
 }
 
-export default function AppointmentDetailsModal({ isOpen, onClose, appointment, onStatusChange }: AppointmentDetailsModalProps) {
-  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
+export default function AppointmentDetailsModal({ isOpen, onClose, appointment, customerRisk, onStatusChange }: AppointmentDetailsModalProps) {
+  const [previewModal, setPreviewModal] = useState<{ url: string; label: string; title: string } | null>(null);
   const [status, setStatus] = useState(appointment?.status || "Scheduled");
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusSuccessMsg, setStatusSuccessMsg] = useState("");
+  const [currentRisk, setCurrentRisk] = useState<CustomerRiskSummary | null>(customerRisk || null);
+
+  const fetchCustomerRisk = useCallback(async () => {
+    const custId = appointment?.customer_id;
+    const custName = appointment?.customer_name || appointment?.customers?.name;
+    if (!custId && !custName) return;
+
+    try {
+      const supabase = createClient();
+      let query = supabase.from("appointments").select("id, status, appointment_date, created_at, date");
+      if (custId) {
+        query = query.eq("customer_id", custId);
+      } else {
+        query = query.eq("customer_name", custName);
+      }
+      const { data } = await query;
+      if (data) {
+        const summary = calculateCustomerRisk(data, { id: custId, name: custName });
+        setCurrentRisk(summary);
+        return summary;
+      }
+    } catch (err) {
+      console.warn("Failed to load customer risk:", err);
+    }
+    return null;
+  }, [appointment]);
 
   useEffect(() => {
     if (appointment?.status) {
       setStatus(appointment.status);
     }
   }, [appointment]);
+
+  useEffect(() => {
+    if (customerRisk) {
+      setCurrentRisk(customerRisk);
+    } else {
+      fetchCustomerRisk();
+    }
+  }, [customerRisk, fetchCustomerRisk]);
 
   if (!isOpen || !appointment) return null;
 
@@ -78,10 +116,24 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointment, 
     if (!appointment?.id || newStatus === status) return;
     try {
       setIsUpdatingStatus(true);
+      const custName = appointment?.customer_name || appointment?.customers?.name || "Customer";
+      const wasFlagged = Boolean(currentRisk?.isFlagged);
+
       await Appointments.update(appointment.id, { status: newStatus as any });
       setStatus(newStatus);
       setStatusSuccessMsg("Status updated!");
       setTimeout(() => setStatusSuccessMsg(""), 2500);
+      const updatedRisk = await fetchCustomerRisk();
+
+      // Trigger system alert if customer newly transitioned from NOT FLAGGED to FLAGGED
+      if (!wasFlagged && updatedRisk?.isFlagged) {
+        await addNotification(
+          "⚠️ Customer Flagged",
+          `${custName} has reached 2 cancelled/no-show appointments and has been flagged for review.`,
+          "customer"
+        );
+      }
+
       onStatusChange?.({ ...appointment, status: newStatus });
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent('appointment-updated', { detail: { id: appointment.id, status: newStatus } }));
@@ -177,6 +229,31 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointment, 
               </div>
             </div>
 
+            {/* Flagged Customer Warning (Only for 5+ failed bookings) */}
+            {currentRisk?.isFlagged && (
+              <div className="px-5 py-3 sm:px-8 bg-red-50 border-b border-red-200 flex items-start gap-3 shrink-0 text-left animate-in fade-in">
+                <div className="w-8 h-8 rounded-xl bg-red-100 border border-red-200 flex items-center justify-center shrink-0 text-red-600 mt-0.5 font-bold">
+                  <AlertTriangle className="w-4.5 h-4.5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-red-900 uppercase tracking-wide">
+                      ⚠️ Flagged Customer
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-red-200 text-red-800">
+                      High No-Show Risk
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-red-800 mt-1">
+                    This customer has {currentRisk.failedAppointments} cancelled/no-show bookings.
+                  </p>
+                  <p className="text-[11px] font-medium text-red-700 mt-1">
+                    Please review the customer&apos;s appointment history before approving this appointment.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Scrollable Content Body */}
             <div className="overflow-y-auto px-5 py-4 sm:px-8 sm:py-5 space-y-4.5 flex-1 text-slate-800">
               {/* Grid 1: Date & Time, Service & Total Price */}
@@ -258,7 +335,13 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointment, 
                   <div
                     className={`relative shrink-0 rounded-xl overflow-hidden border border-pink-200/90 shadow-2xs bg-white group ${appointment.design_image ? 'cursor-pointer' : ''}`}
                     onClick={() => {
-                      if (appointment.design_image) setIsImagePreviewOpen(true);
+                      if (appointment.design_image) {
+                        setPreviewModal({
+                          url: appointment.design_image,
+                          label: "Selected Nail Design Preview",
+                          title: appointment.design_name || "Custom Nail Design",
+                        });
+                      }
                     }}
                     title={appointment.design_image ? "Click to enlarge image" : undefined}
                   >
@@ -294,13 +377,76 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointment, 
                     {appointment.design_image && (
                       <button
                         type="button"
-                        onClick={() => setIsImagePreviewOpen(true)}
+                        onClick={() =>
+                          setPreviewModal({
+                            url: appointment.design_image,
+                            label: "Selected Nail Design Preview",
+                            title: appointment.design_name || "Custom Nail Design",
+                          })
+                        }
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-pink-500 hover:bg-pink-600 text-white text-[11px] font-bold tracking-wide shadow-xs hover:shadow transition-all w-fit cursor-pointer active:scale-95 mt-0.5"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         View Image
                       </button>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Hairstyle Reference Image Section (For Kids/Men/Women Haircut) */}
+              {appointment.hairstyle_reference_image && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-pink-50/90 via-pink-100/40 to-rose-50/40 border border-pink-200/80 flex items-center gap-3.5 shadow-2xs">
+                  {/* Thumbnail */}
+                  <div
+                    className="relative shrink-0 rounded-xl overflow-hidden border border-pink-200/90 shadow-2xs bg-white group cursor-pointer"
+                    onClick={() =>
+                      setPreviewModal({
+                        url: appointment.hairstyle_reference_image,
+                        label: "Hairstyle Reference Photo",
+                        title: `${appointment.customer_name || "Customer"}'s Preferred Hairstyle`,
+                      })
+                    }
+                    title="Click to enlarge hairstyle reference photo"
+                  >
+                    <img
+                      src={appointment.hairstyle_reference_image}
+                      alt="Hairstyle Reference"
+                      className="w-18 h-18 sm:w-20 sm:h-20 object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                      <ZoomIn className="w-4 h-4 drop-shadow" />
+                    </div>
+                  </div>
+
+                  {/* Info & "View Image" Button */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5 py-0.5">
+                    <div>
+                      <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-pink-600 block mb-0.5">
+                        Hairstyle Reference Image
+                      </span>
+                      <h4 className="text-sm sm:text-base font-bold text-slate-900 truncate leading-snug">
+                        Preferred Hairstyle Inspiration
+                      </h4>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        Uploaded by customer for {appointment.service_name || "Haircut"}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPreviewModal({
+                          url: appointment.hairstyle_reference_image,
+                          label: "Hairstyle Reference Photo",
+                          title: `${appointment.customer_name || "Customer"}'s Preferred Hairstyle`,
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-pink-500 hover:bg-pink-600 text-white text-[11px] font-bold tracking-wide shadow-xs hover:shadow transition-all w-fit cursor-pointer active:scale-95 mt-0.5"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      View Image
+                    </button>
                   </div>
                 </div>
               )}
@@ -332,10 +478,10 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointment, 
       </div>
 
       {/* ─── Lightbox / Enlarged Image Preview Modal ──────────────────────── */}
-      {isImagePreviewOpen && appointment.design_image && (
+      {previewModal && (
         <div
           className="fixed inset-0 z-[10010] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
-          onClick={() => setIsImagePreviewOpen(false)}
+          onClick={() => setPreviewModal(null)}
         >
           <div
             className="relative max-w-[92vw] max-h-[88vh] bg-slate-900/95 backdrop-blur-xl rounded-3xl p-3 sm:p-4 border border-white/20 shadow-2xl flex flex-col items-center cursor-default animate-in zoom-in-95 duration-200"
@@ -345,15 +491,15 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointment, 
             <div className="w-full flex items-center justify-between gap-4 px-2 py-1 mb-2 text-white">
               <div className="flex flex-col min-w-0">
                 <span className="text-[9.5px] uppercase font-bold tracking-widest text-pink-400">
-                  Selected Nail Design Preview
+                  {previewModal.label}
                 </span>
                 <h4 className="text-sm sm:text-base font-semibold truncate text-white">
-                  {appointment.design_name || "Custom Nail Design"}
+                  {previewModal.title}
                 </h4>
               </div>
               <button
                 type="button"
-                onClick={() => setIsImagePreviewOpen(false)}
+                onClick={() => setPreviewModal(null)}
                 className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
                 title="Close Preview"
               >
@@ -364,8 +510,8 @@ export default function AppointmentDetailsModal({ isOpen, onClose, appointment, 
             {/* Preserved Aspect-Ratio Image Container */}
             <div className="relative rounded-2xl overflow-hidden bg-black/50 flex items-center justify-center max-h-[75vh]">
               <img
-                src={appointment.design_image}
-                alt={appointment.design_name || "Nail Design Preview"}
+                src={previewModal.url}
+                alt={previewModal.title}
                 className="max-w-full max-h-[75vh] w-auto h-auto object-contain rounded-xl select-none"
               />
             </div>

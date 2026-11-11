@@ -10,6 +10,7 @@ import {
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Appointments, Customers, NotificationsDB, type Appointment } from "@/lib/db";
 import { addNotification } from "@/lib/notifications";
+import { calculateCustomerRisk, type CustomerRiskSummary } from "@/lib/customer-risk";
 
 // Types for Reminder Summary
 interface SummaryData {
@@ -62,6 +63,7 @@ export default function GlobalNotificationProvider() {
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | null>(null);
+  const [detailedCustomerRisk, setDetailedCustomerRisk] = useState<CustomerRiskSummary | null>(null);
 
   // Processing State
   const [isProcessing, setIsProcessing] = useState(false);
@@ -530,6 +532,25 @@ export default function GlobalNotificationProvider() {
       if (detailedApt) {
         setDetailedAppointment(detailedApt);
         setShowDetails(true);
+        try {
+          const custId = detailedApt.customer_id;
+          const custName = detailedApt.customer_name || detailedApt.customers?.name;
+          if (custId || custName) {
+            const supabase = createClient();
+            let q = supabase.from("appointments").select("id, status, appointment_date, created_at, date");
+            if (custId) {
+              q = q.eq("customer_id", custId);
+            } else {
+              q = q.eq("customer_name", custName);
+            }
+            const { data: apts } = await q;
+            if (apts) {
+              setDetailedCustomerRisk(calculateCustomerRisk(apts, { id: custId, name: custName }));
+            }
+          }
+        } catch (rErr) {
+          console.warn("Could not load customer risk:", rErr);
+        }
       } else {
         showStatus('error', 'Appointment Not Found', "The details for this appointment could not be found. It may have been deleted.");
         setActiveNotification(null);
@@ -1126,6 +1147,31 @@ export default function GlobalNotificationProvider() {
                   <p className="text-[10px] font-bold text-brand-pink uppercase tracking-[0.2em] mb-0.5">Booking Confirmation</p>
                 </div>
               </div>
+
+              {/* Flagged Customer Warning (Requirement 6) */}
+              {detailedCustomerRisk?.isFlagged && (
+                <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-2xl text-left flex items-start gap-3 shadow-xs">
+                  <div className="w-8 h-8 rounded-xl bg-red-100 border border-red-200 flex items-center justify-center shrink-0 text-red-600 mt-0.5 font-bold">
+                    ⚠️
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-red-900 uppercase tracking-wide">
+                        Flagged Customer
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-red-200 text-red-800">
+                        High No-Show Risk
+                      </span>
+                    </div>
+                    <p className="text-xs font-semibold text-red-800 mt-1">
+                      This customer has {detailedCustomerRisk.failedAppointments} cancelled/no-show bookings.
+                    </p>
+                    <p className="text-[11px] font-medium text-red-700 mt-1">
+                      Please review the customer&apos;s appointment history before approving this appointment.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-6 mb-8 bg-gray-50 p-8 rounded-3xl border border-gray-100">
                 <div className="space-y-6">

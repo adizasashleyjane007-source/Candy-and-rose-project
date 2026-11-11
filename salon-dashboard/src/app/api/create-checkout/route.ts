@@ -4,7 +4,19 @@ import { createClient } from '@supabase/supabase-js';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { appointmentId, amount, serviceName, customerName, email, phone, returnUrl } = body;
+    const {
+      appointmentId,
+      amount,
+      serviceName,
+      customerName,
+      email,
+      phone,
+      returnUrl,
+      loyaltyRewardId,
+      originalAmount,
+      loyaltyDiscountAmount,
+      loyaltyRewardDescription,
+    } = body;
 
     if (!appointmentId || !amount || !serviceName) {
       return NextResponse.json(
@@ -64,6 +76,10 @@ export async function POST(req: Request) {
           metadata: {
             appointment_id: appointmentId,
             service_name: serviceName,
+            loyalty_reward_id: loyaltyRewardId || '',
+            original_amount: originalAmount !== undefined ? String(originalAmount) : '',
+            loyalty_discount_amount: loyaltyDiscountAmount !== undefined ? String(loyaltyDiscountAmount) : '',
+            loyalty_reward_description: loyaltyRewardDescription || '',
           }
         },
       },
@@ -108,6 +124,10 @@ export async function POST(req: Request) {
           .update({
             notes: `paymongo_session_id:${checkoutSessionId}`,
             payment_method: 'GCash',
+            loyalty_reward_id: loyaltyRewardId || null,
+            original_amount: originalAmount !== undefined ? Number(originalAmount) : null,
+            loyalty_discount_amount: loyaltyDiscountAmount !== undefined ? Number(loyaltyDiscountAmount) : null,
+            loyalty_reward_description: loyaltyRewardDescription || null,
           })
           .eq('id', existingBill.id);
       } else {
@@ -119,6 +139,10 @@ export async function POST(req: Request) {
             payment_method: 'GCash',
             status: 'Pending',
             notes: `paymongo_session_id:${checkoutSessionId}`,
+            loyalty_reward_id: loyaltyRewardId || null,
+            original_amount: originalAmount !== undefined ? Number(originalAmount) : null,
+            loyalty_discount_amount: loyaltyDiscountAmount !== undefined ? Number(loyaltyDiscountAmount) : null,
+            loyalty_reward_description: loyaltyRewardDescription || null,
           });
       }
     } catch (dbErr) {

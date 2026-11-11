@@ -17,7 +17,7 @@ const nextConfig = {
   compress: true,
   swcMinify: true,
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error'] } : false,
+    removeConsole: false,
   },
   images: {
     formats: ['image/avif', 'image/webp'],
@@ -33,6 +33,19 @@ const nextConfig = {
     return config;
   },
   async headers() {
+    if (process.env.NODE_ENV !== 'production') {
+      return [
+        {
+          source: '/_next/static/:path*',
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'no-store, must-revalidate',
+            },
+          ],
+        },
+      ];
+    }
     return [
       {
         source: '/:all*(svg|jpg|png|webp|avif|woff2|woff|ico)',

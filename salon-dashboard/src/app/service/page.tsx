@@ -42,7 +42,8 @@ export default function ServicePage() {
         duration: "",
         duration_val: "",
         duration_unit: "mins",
-        required_role: ""
+        required_role: "",
+        status: "Active"
     });
 
     const [serviceImage, setServiceImage] = useState<File | null>(null);
@@ -142,7 +143,7 @@ export default function ServicePage() {
             await loadData();
             setIsFormModalOpen(false);
             setEditingId(null);
-            setFormData({ name: "", category: "", price: "", duration: "", duration_val: "", duration_unit: "mins", required_role: "" });
+            setFormData({ name: "", category: "", price: "", duration: "", duration_val: "", duration_unit: "mins", required_role: "", status: "Active" });
             clearImage();
         } catch (error) {
             console.error("Save failed:", error);
@@ -174,7 +175,8 @@ export default function ServicePage() {
             duration: svc.duration || "",
             duration_val: val,
             duration_unit: unit,
-            required_role: svc.required_role || ""
+            required_role: svc.required_role || "",
+            status: svc.status || "Active"
         });
         // Pre-fill existing image from DB
         if (svc.image_url) {
@@ -207,7 +209,7 @@ export default function ServicePage() {
 
     const openAddModal = () => {
         setEditingId(null);
-        setFormData({ name: "", category: "", price: "", duration: "", duration_val: "", duration_unit: "mins", required_role: "" });
+        setFormData({ name: "", category: "", price: "", duration: "", duration_val: "", duration_unit: "mins", required_role: "", status: "Active" });
         clearImage();
         setIsFormModalOpen(true);
     };
@@ -459,6 +461,32 @@ export default function ServicePage() {
                                                 )}
                                             </div>
                                         </td>
+                                        <td className="py-2.5 px-4 text-sm font-medium border border-transparent group-hover:border-pink-200 border-x-0 text-center">
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    const nextStatus = (svc.status || "Active") === "Active" ? "Inactive" : "Active";
+                                                    try {
+                                                        await Services.update(svc.id!, { status: nextStatus });
+                                                        await loadData();
+                                                    } catch (err) {
+                                                        console.error("Failed to update status:", err);
+                                                        alert("Failed to update service status.");
+                                                    }
+                                                }}
+                                                title="Click to toggle status"
+                                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                                                    (svc.status || "Active") === "Active"
+                                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                                                        : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
+                                                }`}
+                                            >
+                                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                                    (svc.status || "Active") === "Active" ? "bg-emerald-500" : "bg-gray-400"
+                                                }`} />
+                                                {svc.status || "Active"}
+                                            </button>
+                                        </td>
                                         <td className="py-3.5 px-4 text-sm rounded-r-xl border border-transparent group-hover:border-pink-200 border-l-0 text-center">
                                             <div className="flex items-center justify-center gap-3">
                                                 <button onClick={() => handleEditClick(svc)} className="p-2 bg-white text-pink-500 rounded-xl border border-pink-200 shadow-sm hover:bg-pink-50 hover:scale-105 transition-all" title="Edit">
@@ -606,6 +634,19 @@ export default function ServicePage() {
                                             placeholder="e.g. Nail Technician"
                                         />
                                     </div>
+                                </div>
+
+                                {/* ── Status / Availability ── */}
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Status / Availability</label>
+                                    <select
+                                        value={formData.status}
+                                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                        className="w-full px-4 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 text-gray-900 transition-all font-medium"
+                                    >
+                                        <option value="Active">Active (Visible & Bookable by customers)</option>
+                                        <option value="Inactive">Inactive (Hidden from customers)</option>
+                                    </select>
                                 </div>
 
                                 {/* ── Price & Duration ── */}

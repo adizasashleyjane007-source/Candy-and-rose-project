@@ -3,6 +3,7 @@
  * All CRUD operations for every entity live here.
  */
 import { createClient } from "@/lib/supabase/client";
+import { calculateCustomerRisk, type CustomerRiskLevel } from "@/lib/customer-risk";
 
 const supabaseClient = createClient();
 const supabase = () => supabaseClient;
@@ -20,6 +21,13 @@ export interface Customer {
   total_spent?: number;
   status?: string;
   membership_type?: string;
+  total_appointments?: number;
+  completed_appointments?: number;
+  cancelled_appointments?: number;
+  noshow_appointments?: number;
+  failed_appointments?: number;
+  risk_status?: CustomerRiskLevel;
+  is_flagged?: boolean;
 }
 
 export interface Staff {
@@ -58,6 +66,7 @@ export interface Appointment {
   design_id?: string | null;
   design_name?: string | null;
   design_image?: string | null;
+  hairstyle_reference_image?: string | null;
   appointment_date: string;
   appointment_time: string;
   source: string;
@@ -69,6 +78,10 @@ export interface Appointment {
   payment_method?: string | null;
   payment_status?: string | null;
   cancellation_reason?: string | null;
+  loyalty_reward_id?: string | null;
+  original_amount?: number | null;
+  loyalty_discount_amount?: number | null;
+  loyalty_reward_description?: string | null;
   created_at?: string;
   customers?: { name: string; email?: string; phone?: string };
   staff?: { name: string };
@@ -87,6 +100,56 @@ export interface InventoryItem {
   status?: string;
 }
 
+export type InventoryTransactionType =
+  | "RESTOCK"
+  | "ISSUE"
+  | "RETURN"
+  | "ADJUSTMENT"
+  | "WASTE"
+  | "EXPIRED"
+  | "DAMAGED";
+
+export type IssuedToType =
+  | "Staff"
+  | "Customer"
+  | "Department/Salon Use"
+  | "Other"
+  | "System";
+
+export interface InventoryTransaction {
+  id: string;
+  inventory_id: string;
+  transaction_type: InventoryTransactionType;
+  quantity: number;
+  quantity_delta: number;
+  stock_before: number;
+  stock_after: number;
+  issued_by: string;
+  issued_by_name: string;
+  issued_to?: string | null;
+  issued_to_id?: string | null;
+  issued_to_type?: IssuedToType | null;
+  appointment_id?: string | null;
+  reason?: string | null;
+  notes?: string | null;
+  created_at: string;
+  inventory?: {
+    id: string;
+    name: string;
+    category?: string;
+    unit?: string;
+    quantity?: number;
+    status?: string;
+  } | null;
+  appointment?: {
+    id: string;
+    customer_name?: string;
+    service_name?: string;
+    appointment_date?: string;
+    appointment_time?: string;
+  } | null;
+}
+
 export interface BillingRecord {
   id?: string;
   created_at?: string;
@@ -97,6 +160,10 @@ export interface BillingRecord {
   payment_method?: string;
   status?: string;
   notes?: string;
+  loyalty_reward_id?: string | null;
+  original_amount?: number | null;
+  loyalty_discount_amount?: number | null;
+  loyalty_reward_description?: string | null;
   customers?: { name: string } | null;
 }
 
@@ -134,6 +201,8 @@ export interface NailDesign {
   secondary_color?: string;
   texture?: string;
   art_data?: any;
+  visibility?: 'public' | 'private';
+  customer_id?: string | null;
 }
 
 export interface Message {
@@ -196,20 +265,30 @@ export const Customers = {
   async list() {
     const { data, error } = await supabase()
       .from("customers")
-      .select("*, appointments(price, status)")
+      .select("*, appointments(price, status, appointment_date, created_at, date)")
       .order("created_at", { ascending: false });
     if (error) throw error;
 
-    // Calculate total_spent and visits dynamically for accuracy
+    // Calculate total_spent, visits, and risk metrics dynamically for accuracy
     const enrichedData = ((data as any[]) || []).map(cust => {
-      const completedApts = (cust.appointments || []).filter((a: any) => a.status === 'Completed');
+      const aptsList = (cust.appointments || []) as Array<{ price?: number | string; status?: string }>;
+      const completedApts = aptsList.filter((a: any) => a.status === 'Completed');
       const totalSpent = completedApts.reduce((sum: number, a: any) => sum + (Number(a.price) || 0), 0);
-      const visitCount = (cust.appointments || []).length;
+      const visitCount = aptsList.length;
+
+      const risk = calculateCustomerRisk(aptsList, { id: cust.id, name: cust.name });
 
       return {
         ...cust,
         total_spent: totalSpent,
-        visits: visitCount
+        visits: visitCount,
+        total_appointments: risk.totalAppointments,
+        completed_appointments: risk.completedAppointments,
+        cancelled_appointments: risk.cancelledAppointments,
+        noshow_appointments: risk.noshowAppointments,
+        failed_appointments: risk.failedAppointments,
+        risk_status: risk.riskStatus,
+        is_flagged: risk.isFlagged,
       };
     });
 
@@ -461,10 +540,54 @@ export const Inventory = {
       .select()
       .single();
     if (error) throw error;
+
+    // Automatically log initial RESTOCK audit record if initial quantity > 0
+    const initialQty = Number(data?.quantity || 0);
+    if (data?.id && initialQty > 0) {
+      try {
+        const { data: authData } = await supabase().auth.getUser();
+        const user = authData?.user;
+        if (user) {
+          const { data: profile } = await supabase()
+            .from("profiles")
+            .select("name, email")
+            .eq("id", user.id)
+            .maybeSingle();
+          const actorName =
+            profile?.name?.trim() ||
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            user.email?.split("@")[0] ||
+            "Admin User";
+          await supabase().from("inventory_transactions").insert({
+            inventory_id: data.id,
+            transaction_type: "RESTOCK",
+            quantity: initialQty,
+            quantity_delta: initialQty,
+            stock_before: 0,
+            stock_after: initialQty,
+            issued_by: user.id,
+            issued_by_name: actorName,
+            reason: "Initial Stock",
+            notes: `Initial stock added for ${data.name}`,
+          });
+        }
+      } catch (txErr) {
+        console.warn("Could not record initial inventory transaction:", txErr);
+      }
+    }
+
     return data as InventoryItem;
   },
 
   async update(id: string, payload: Partial<InventoryItem>) {
+    // Fetch previous stock before updating so we can log a RESTOCK/ADJUSTMENT audit entry if quantity changed
+    const { data: prevItem } = await supabase()
+      .from("inventory")
+      .select("quantity, name")
+      .eq("id", id)
+      .maybeSingle();
+
     const { data, error } = await supabase()
       .from("inventory")
       .update(payload)
@@ -472,6 +595,46 @@ export const Inventory = {
       .select()
       .single();
     if (error) throw error;
+
+    if (prevItem && payload.quantity !== undefined) {
+      const oldQty = Number(prevItem.quantity || 0);
+      const newQty = Number(payload.quantity || 0);
+      const diff = newQty - oldQty;
+      if (diff !== 0) {
+        try {
+          const { data: authData } = await supabase().auth.getUser();
+          const user = authData?.user;
+          if (user) {
+            const { data: profile } = await supabase()
+              .from("profiles")
+              .select("name, email")
+              .eq("id", user.id)
+              .maybeSingle();
+            const actorName =
+              profile?.name?.trim() ||
+              user.user_metadata?.full_name ||
+              user.user_metadata?.name ||
+              user.email?.split("@")[0] ||
+              "Admin User";
+            await supabase().from("inventory_transactions").insert({
+              inventory_id: id,
+              transaction_type: diff > 0 ? "RESTOCK" : "ADJUSTMENT",
+              quantity: Math.abs(diff),
+              quantity_delta: diff,
+              stock_before: oldQty,
+              stock_after: newQty,
+              issued_by: user.id,
+              issued_by_name: actorName,
+              reason: diff > 0 ? "Restock" : "Stock Adjustment",
+              notes: `Stock updated from ${oldQty} to ${newQty} via Inventory Management`,
+            });
+          }
+        } catch (txErr) {
+          console.warn("Could not record stock update transaction:", txErr);
+        }
+      }
+    }
+
     return data as InventoryItem;
   },
 
@@ -489,6 +652,85 @@ export const Inventory = {
       .delete()
       .eq("id", id);
     if (error) throw error;
+  },
+};
+
+export const InventoryTransactions = {
+  async list(inventoryId?: string): Promise<{
+    transactions: InventoryTransaction[];
+    currentUser: { id: string; name: string; email: string; role: string } | null;
+  }> {
+    const url = inventoryId
+      ? `/api/inventory/transactions?inventoryId=${encodeURIComponent(inventoryId)}`
+      : "/api/inventory/transactions";
+    const res = await fetch(url, { cache: "no-store" });
+    if (res.ok) {
+      const json = await res.json();
+      return {
+        transactions: (json.transactions || []) as InventoryTransaction[],
+        currentUser: json.currentUser || null,
+      };
+    }
+
+    // Fallback to direct Supabase query if API route is unavailable
+    let query = supabase()
+      .from("inventory_transactions")
+      .select(
+        `
+        *,
+        inventory:inventory_id (id, name, category, unit, quantity, status),
+        appointment:appointment_id (id, customer_name, service_name, appointment_date, appointment_time)
+      `
+      )
+      .order("created_at", { ascending: false });
+
+    if (inventoryId) {
+      query = query.eq("inventory_id", inventoryId);
+    }
+
+    const { data } = await query;
+    return {
+      transactions: (data || []) as InventoryTransaction[],
+      currentUser: null,
+    };
+  },
+
+  async record(input: {
+    inventoryId: string;
+    transactionType?: InventoryTransactionType;
+    quantity: number;
+    issuedTo?: string | null;
+    issuedToId?: string | null;
+    issuedToType?: IssuedToType | null;
+    appointmentId?: string | null;
+    reason?: string | null;
+    notes?: string | null;
+    isNegativeAdjustment?: boolean;
+  }): Promise<{
+    success: boolean;
+    transaction?: InventoryTransaction;
+    inventory?: any;
+    error?: string;
+  }> {
+    const res = await fetch("/api/inventory/transactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        success: false,
+        error: json.error || "Failed to record inventory transaction.",
+      };
+    }
+
+    return {
+      success: true,
+      transaction: json.transaction as InventoryTransaction,
+      inventory: json.inventory,
+    };
   },
 };
 
@@ -972,8 +1214,22 @@ export async function fulfillPaymentSuccess(input: {
   cashReceived?: number;
   paymentMethod?: string;
   notes?: string;
+  loyaltyRewardId?: string | null;
+  originalAmount?: number;
+  loyaltyDiscountAmount?: number;
+  loyaltyRewardDescription?: string | null;
 }) {
-  const { appointmentId, amount, cashReceived, paymentMethod = "GCash", notes } = input;
+  const {
+    appointmentId,
+    amount,
+    cashReceived,
+    paymentMethod = "GCash",
+    notes,
+    loyaltyRewardId,
+    originalAmount,
+    loyaltyDiscountAmount,
+    loyaltyRewardDescription,
+  } = input;
 
   if (!appointmentId) {
     console.error("❌ [PAYMENT FULFILLMENT] Missing appointmentId.");
@@ -992,17 +1248,102 @@ export async function fulfillPaymentSuccess(input: {
       return { success: false, error: "Appointment not found" };
     }
 
+    // Server/DB-side verification of loyalty reward if provided
+    let verifiedReward: any = null;
+    let computedOriginalAmount =
+      originalAmount !== undefined && !isNaN(originalAmount)
+        ? originalAmount
+        : Number(apt.original_amount ?? apt.price ?? 0);
+    let computedDiscountAmount =
+      loyaltyDiscountAmount !== undefined && !isNaN(loyaltyDiscountAmount)
+        ? loyaltyDiscountAmount
+        : 0;
+    let computedRewardDesc = loyaltyRewardDescription || null;
+
+    if (loyaltyRewardId) {
+      const { data: rewardRow, error: rewardErr } = await supabase()
+        .from("loyalty_rewards")
+        .select("*")
+        .eq("id", loyaltyRewardId)
+        .maybeSingle();
+
+      if (rewardErr || !rewardRow) {
+        return { success: false, error: "Selected loyalty reward was not found." };
+      }
+
+      const now = new Date();
+      if (new Date(rewardRow.valid_until).getTime() < now.getTime()) {
+        await supabase()
+          .from("loyalty_rewards")
+          .update({ status: "EXPIRED", updated_at: now.toISOString() })
+          .eq("id", rewardRow.id);
+        return { success: false, error: "This loyalty reward has expired." };
+      }
+
+      if (
+        rewardRow.status === "USED" &&
+        rewardRow.redeemed_appointment_id &&
+        rewardRow.redeemed_appointment_id !== appointmentId
+      ) {
+        return {
+          success: false,
+          error: "This loyalty reward has already been redeemed.",
+        };
+      }
+
+      verifiedReward = rewardRow;
+      computedRewardDesc = computedRewardDesc || rewardRow.reward_description || "Top 5 Loyalty Reward";
+
+      // If caller didn't pass explicit discount amount, calculate from reward row
+      if (computedDiscountAmount <= 0 && computedOriginalAmount > 0) {
+        if (rewardRow.reward_type === "percentage_discount") {
+          const pct = Math.min(100, Math.max(0, Number(rewardRow.reward_value) || 0));
+          computedDiscountAmount = Math.round((computedOriginalAmount * pct) / 100);
+        } else if (rewardRow.reward_type === "fixed_amount") {
+          computedDiscountAmount = Math.min(
+            computedOriginalAmount,
+            Math.max(0, Number(rewardRow.reward_value) || 0)
+          );
+        } else if (rewardRow.reward_type === "free_service") {
+          computedDiscountAmount = Math.min(
+            computedOriginalAmount,
+            Math.max(0, Number(rewardRow.reward_value) || computedOriginalAmount)
+          );
+        }
+      }
+    }
+
+    const finalAmount =
+      amount !== undefined && !isNaN(amount) && amount >= 0
+        ? amount
+        : Math.max(0, computedOriginalAmount - computedDiscountAmount);
+
+    const finalCashReceived =
+      cashReceived !== undefined && !isNaN(cashReceived) && cashReceived >= finalAmount
+        ? cashReceived
+        : finalAmount;
+
     const isAlreadyCompleted = apt.status === "Completed";
+
+    const aptUpdatePayload: Record<string, any> = {
+      status: "Completed",
+      payment_method: paymentMethod || apt.payment_method || "GCash",
+      payment_status: "Paid",
+    };
+
+    if (verifiedReward) {
+      aptUpdatePayload.loyalty_reward_id = verifiedReward.id;
+      aptUpdatePayload.original_amount = computedOriginalAmount;
+      aptUpdatePayload.loyalty_discount_amount = computedDiscountAmount;
+      aptUpdatePayload.loyalty_reward_description = computedRewardDesc;
+      aptUpdatePayload.price = finalAmount;
+    }
 
     // Update appointment status to 'Completed' if not already completed
     if (!isAlreadyCompleted) {
       const { error: updateError } = await supabase()
         .from("appointments")
-        .update({
-          status: "Completed",
-          payment_method: paymentMethod || apt.payment_method || "GCash",
-          payment_status: "Paid",
-        })
+        .update(aptUpdatePayload)
         .eq("id", appointmentId);
 
       if (updateError) {
@@ -1011,10 +1352,10 @@ export async function fulfillPaymentSuccess(input: {
       }
       console.log(`✅ [PAYMENT FULFILLMENT] Appointment ${appointmentId} status updated to Completed.`);
     } else {
-      if (apt.payment_status !== "Paid") {
+      if (apt.payment_status !== "Paid" || verifiedReward) {
         await supabase()
           .from("appointments")
-          .update({ payment_status: "Paid" })
+          .update(aptUpdatePayload)
           .eq("id", appointmentId);
       }
       console.log(`ℹ️ [PAYMENT FULFILLMENT] Appointment ${appointmentId} was already Completed.`);
@@ -1028,43 +1369,82 @@ export async function fulfillPaymentSuccess(input: {
       .limit(1)
       .maybeSingle();
 
-    const finalAmount = amount !== undefined && !isNaN(amount) && amount > 0 
-      ? amount 
-      : (apt.price || 0);
-
-    const finalCashReceived = cashReceived !== undefined && !isNaN(cashReceived) && cashReceived >= finalAmount
-      ? cashReceived
-      : finalAmount;
+    let billingId: string | null = existingBilling?.id || null;
 
     if (!existingBilling) {
-      const { error: billInsertErr } = await supabase()
+      const insertBillingPayload: Record<string, any> = {
+        appointment_id: appointmentId,
+        customer_id: apt.customer_id || verifiedReward?.customer_id || null,
+        amount: finalAmount,
+        cash_received: finalCashReceived,
+        payment_method: paymentMethod || "GCash",
+        status: "Paid",
+        notes: notes || `Payment for ${apt.service_name || "service"}`,
+      };
+
+      if (verifiedReward) {
+        insertBillingPayload.loyalty_reward_id = verifiedReward.id;
+        insertBillingPayload.original_amount = computedOriginalAmount;
+        insertBillingPayload.loyalty_discount_amount = computedDiscountAmount;
+        insertBillingPayload.loyalty_reward_description = computedRewardDesc;
+      }
+
+      const { data: insertedBill, error: billInsertErr } = await supabase()
         .from("billing")
-        .insert({
-          appointment_id: appointmentId,
-          customer_id: apt.customer_id || null,
-          amount: finalAmount,
-          cash_received: finalCashReceived,
-          payment_method: paymentMethod || "GCash",
-          status: "Paid",
-          notes: notes || `Payment for ${apt.service_name || "service"}`,
-        });
+        .insert(insertBillingPayload)
+        .select("*")
+        .single();
 
       if (billInsertErr) {
         console.error(`❌ [PAYMENT FULFILLMENT] Billing insert error:`, billInsertErr);
       } else {
+        billingId = insertedBill?.id || null;
         console.log(`✅ [PAYMENT FULFILLMENT] Billing record created with status Paid.`);
       }
-    } else if (existingBilling.status !== "Paid") {
+    } else if (existingBilling.status !== "Paid" || verifiedReward) {
+      const updateBillingPayload: Record<string, any> = {
+        status: "Paid",
+        amount: finalAmount,
+        cash_received: finalCashReceived,
+        payment_method: paymentMethod || existingBilling.payment_method || "GCash",
+      };
+
+      if (verifiedReward) {
+        updateBillingPayload.loyalty_reward_id = verifiedReward.id;
+        updateBillingPayload.original_amount = computedOriginalAmount;
+        updateBillingPayload.loyalty_discount_amount = computedDiscountAmount;
+        updateBillingPayload.loyalty_reward_description = computedRewardDesc;
+      }
+
       await supabase()
         .from("billing")
-        .update({
-          status: "Paid",
-          amount: finalAmount,
-          cash_received: finalCashReceived,
-          payment_method: paymentMethod || existingBilling.payment_method || "GCash",
-        })
+        .update(updateBillingPayload)
         .eq("id", existingBilling.id);
       console.log(`✅ [PAYMENT FULFILLMENT] Existing billing record updated to Paid.`);
+    }
+
+    // Mark loyalty reward as USED only after payment is fulfilled
+    if (verifiedReward && verifiedReward.status !== "USED") {
+      const nowIso = new Date().toISOString();
+      await supabase()
+        .from("loyalty_rewards")
+        .update({
+          status: "USED",
+          redeemed_at: nowIso,
+          redeemed_appointment_id: appointmentId,
+          redeemed_billing_id: billingId,
+          original_amount: computedOriginalAmount,
+          discount_amount: computedDiscountAmount,
+          final_amount: finalAmount,
+          updated_at: nowIso,
+        })
+        .eq("id", verifiedReward.id);
+      console.log(`✅ [PAYMENT FULFILLMENT] Loyalty reward ${verifiedReward.id} marked as USED.`);
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("payment-updated"));
+      window.dispatchEvent(new Event("appointment-updated"));
     }
 
     return {
@@ -1072,6 +1452,10 @@ export async function fulfillPaymentSuccess(input: {
       appointmentId,
       status: "Completed",
       alreadyCompleted: isAlreadyCompleted,
+      finalAmount,
+      originalAmount: computedOriginalAmount,
+      loyaltyDiscountAmount: computedDiscountAmount,
+      loyaltyRewardDescription: computedRewardDesc,
     };
   } catch (err: any) {
     console.error(`❌ [PAYMENT FULFILLMENT] Server exception:`, err);

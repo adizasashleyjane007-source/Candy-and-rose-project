@@ -7,7 +7,6 @@ import {
     CalendarIcon,
     Clock,
     CheckCircle,
-    PhilippinePeso,
     Search,
     Filter,
     Plus,
@@ -20,14 +19,16 @@ import {
     User,
     XCircle,
     AlertCircle,
+    Flag,
 } from "lucide-react";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import Pagination from "@/components/Pagination";
 import { useSearchParams } from "next/navigation";
 import { addNotification } from "@/lib/notifications";
 import { Appointments, Customers, Services, StaffDB, SettingsDB, type Appointment } from "@/lib/db";
 import AppointmentDetailsModal from "@/components/AppointmentDetailsModal";
+import { buildCustomerRiskMap } from "@/lib/customer-risk";
 
 
 function AppointmentContent() {
@@ -635,15 +636,37 @@ function AppointmentContent() {
                 return;
             }
 
+            // Check risk before update
+            const targetApt = appointments.find(a => a.id === id);
+            const custId = targetApt?.customer_id;
+            const custName = targetApt?.customer_name || targetApt?.customers?.name || "Customer";
+            const prevRisk = (custId && customerRiskData.byCustomerId.get(custId)) ||
+                             (custName && customerRiskData.byCustomerName.get(custName.toLowerCase()));
+            const wasFlagged = Boolean(prevRisk?.isFlagged);
+
             await Appointments.update(id, { 
                 status: newStatus,
                 ...(newStatus === 'Cancelled' ? { payment_status: 'Cancelled' } : {})
             });
-            setAppointments(prev => prev.map(a => a.id === id ? { 
+            const updated = appointments.map(a => a.id === id ? { 
                 ...a, 
                 status: newStatus,
                 ...(newStatus === 'Cancelled' ? { payment_status: 'Cancelled' } : {})
-            } : a));
+            } : a);
+            setAppointments(updated);
+
+            // Recompute risk & trigger alert if customer newly transitioned into Flagged
+            const newMap = buildCustomerRiskMap(updated);
+            const newRisk = (custId && newMap.byCustomerId.get(custId)) ||
+                            (custName && newMap.byCustomerName.get(custName.toLowerCase()));
+            if (!wasFlagged && newRisk?.isFlagged) {
+                await addNotification(
+                    "⚠️ Customer Flagged",
+                    `${custName} has reached 2 cancelled/no-show appointments and has been flagged for review.`,
+                    "customer"
+                );
+            }
+
             if (typeof window !== "undefined") {
                 window.dispatchEvent(new Event("appointmentsUpdated"));
             }
@@ -651,6 +674,26 @@ function AppointmentContent() {
             console.error("Status update failed:", error);
             alert("Failed to update status.");
         }
+    };
+
+    // Customer Risk Map (Flagged Customer / No-Show Risk calculations)
+    const customerRiskData = useMemo(() => {
+        return buildCustomerRiskMap(appointments);
+    }, [appointments]);
+
+    const flaggedCustomersCount = customerRiskData.uniqueFlaggedCount;
+    const flaggedTodayCount = customerRiskData.flaggedTodayCount;
+
+    const isCustomerFlagged = (apt: any) => {
+        const custId = apt.customer_id?.trim();
+        const custName = (apt.customer_name || apt.customers?.name || "").trim().toLowerCase();
+        const risk = (custId && customerRiskData.byCustomerId.get(custId)) ||
+                     (custName && customerRiskData.byCustomerName.get(custName));
+        if (risk) return risk.isFlagged;
+        return Boolean(
+            (custId && customerRiskData.flaggedCustomerIds.has(custId)) ||
+            (custName && (customerRiskData.flaggedCustomerIds.has(`name:${custName}`) || customerRiskData.flaggedCustomerIds.has(custName)))
+        );
     };
 
     // Filter, Search, and Pagination Logic
@@ -669,7 +712,9 @@ function AppointmentContent() {
                 ? true
                 : (statusFilter === "No-Show"
                     ? (apt.status === "no_show" || apt.status === "No-Show")
-                    : apt.status === statusFilter));
+                    : (statusFilter === "Flagged" || statusFilter === "Flagged Customer"
+                        ? isCustomerFlagged(apt)
+                        : apt.status === statusFilter)));
 
         const matchesSource = sourceFilter === "All"
             ? true
@@ -719,16 +764,6 @@ function AppointmentContent() {
     const cancelledCount = appointments.filter(a => a.status === 'Cancelled').length;
     const noShowCount = appointments.filter(a => a.status === 'no_show' || a.status === 'No-Show').length;
 
-    // VERY simple revenue calculation for demo purposes
-    const totalRevenue = appointments
-        .filter(a => a.status === 'Completed')
-        .reduce((sum, a) => {
-            const price = typeof a.price === 'string'
-                ? parseInt(a.price.replace(/[^0-9]/g, ''))
-                : (Number(a.price) || 0);
-            return sum + (isNaN(price) ? 0 : price);
-        }, 0);
-
     return (
         <div className="flex-1 flex flex-col h-full bg-gradient-to-br from-pink-50 via-white to-pink-100 overflow-y-auto overflow-x-hidden">
             <Header />
@@ -739,7 +774,7 @@ function AppointmentContent() {
                 </div>
 
                 {/* 5 Summary Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
                     <button
                         onClick={() => setStatusFilter("All")}
                         className={`p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-all text-left ${statusFilter === "All" ? "bg-pink-100 border-pink-300" : "bg-white border-pink-100 hover:bg-pink-50"}`}
@@ -752,8 +787,6 @@ function AppointmentContent() {
                             <h3 className="text-3xl font-bold text-gray-900">{totalAppointmentsCount}</h3>
                         </div>
                     </button>
-
-                    
 
                     <button
                         onClick={() => setStatusFilter("Completed")}
@@ -794,15 +827,27 @@ function AppointmentContent() {
                         </div>
                     </button>
 
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-pink-100 flex flex-col justify-between">
-                        <div className="flex justify-between items-start">
-                            <p className="text-sm font-medium text-gray-500">Revenue</p>
-                            <PhilippinePeso className="w-5 h-5 text-pink-400" />
+                    {/* Flagged Customer */}
+                    <button
+                        onClick={() => setStatusFilter("Flagged")}
+                        className={`p-6 rounded-2xl shadow-sm border flex flex-col justify-between transition-all text-left ${statusFilter === "Flagged" || statusFilter === "Flagged Customer" ? "bg-red-50 border-red-300 ring-1 ring-red-300" : "bg-white border-pink-100 hover:bg-red-50"}`}
+                        title="View bookings for customers with 2+ cancelled/no-show appointments"
+                    >
+                        <div className="w-full">
+                            <div className="flex justify-between items-start">
+                                <p className="text-sm font-medium text-gray-500">Flagged Customer</p>
+                                <Flag className="w-5 h-5 text-red-500" />
+                            </div>
+                            <div className="mt-1.5 flex items-center">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-pink-50 text-pink-700 border border-pink-200">
+                                    Flagged Today: {flaggedTodayCount ?? 0}
+                                </span>
+                            </div>
                         </div>
                         <div className="mt-4">
-                            <h3 className="text-3xl font-bold text-gray-900">₱{totalRevenue.toLocaleString()}</h3>
+                            <h3 className="text-3xl font-bold text-gray-900">{flaggedCustomersCount ?? 0}</h3>
                         </div>
-                    </div>
+                    </button>
                 </div>
 
                 {/* Controls Row */}
@@ -872,7 +917,7 @@ function AppointmentContent() {
 
                             {filterOpen && (
                                 <div className="absolute top-12 left-0 sm:left-auto sm:right-0 w-48 bg-white rounded-xl shadow-lg border border-pink-100 py-2 z-10 animate-in fade-in slide-in-from-top-2">
-                                    {["All", "Scheduled", "In Progress", "Completed", "Cancelled", "No-Show"].map((status) => (
+                                    {["All", "Scheduled", "In Progress", "Completed", "Cancelled", "No-Show", "Flagged"].map((status) => (
                                         <button
                                             key={status}
                                             className={`w-full text-left px-4 py-2 text-sm transition-colors ${statusFilter === status ? 'bg-pink-50 text-pink-600 font-bold' : 'text-gray-700 hover:bg-pink-50 hover:text-pink-600 font-medium'}`}
@@ -973,12 +1018,36 @@ function AppointmentContent() {
                                                 </button>
                                                 {(() => {
                                                     const customerData = apt.customers || customers.find(c => c.name === (apt.customer_name || apt.customers?.name));
-                                                    if (!customerData) return null;
-                                                    const isRegular = customerData.membership_type === 'Regular' || (customerData.visits || 0) > 7;
+                                                    const isRegular = customerData?.membership_type === 'Regular' || (customerData?.visits || 0) > 7;
+                                                    const custId = apt.customer_id?.trim();
+                                                    const custName = (apt.customer_name || apt.customers?.name || "").trim().toLowerCase();
+                                                    const risk = (custId && customerRiskData.byCustomerId.get(custId)) ||
+                                                                 (custName && customerRiskData.byCustomerName.get(custName));
+
                                                     return (
-                                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-tight border uppercase ${isRegular ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-pink-50 text-pink-600 border-pink-200'}`}>
-                                                            {isRegular ? 'Regular' : 'New'}
-                                                        </span>
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            {customerData && (
+                                                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-tight border uppercase ${isRegular ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-pink-50 text-pink-600 border-pink-200'}`}>
+                                                                    {isRegular ? 'Regular' : 'New'}
+                                                                </span>
+                                                            )}
+                                                            {risk?.isFlagged && (
+                                                                <span
+                                                                    className="px-2 py-0.5 rounded-md text-[10px] font-black tracking-tight border uppercase bg-red-100 text-red-700 border-red-300 flex items-center gap-1 shadow-xs"
+                                                                    title={`🚩 Flagged Customer: ${risk.failedAppointments} failed appointments (${risk.cancelledAppointments} cancelled, ${risk.noshowAppointments} no-show)`}
+                                                                >
+                                                                    🚩 Flagged
+                                                                </span>
+                                                            )}
+                                                            {risk?.isWarning && (
+                                                                <span
+                                                                    className="px-2 py-0.5 rounded-md text-[10px] font-bold tracking-tight border uppercase bg-amber-50 text-amber-700 border-amber-300 flex items-center gap-1"
+                                                                    title={`⚠️ Warning: ${risk.failedAppointments} failed appointments (${risk.cancelledAppointments} cancelled, ${risk.noshowAppointments} no-show)`}
+                                                                >
+                                                                    ⚠️ Warning
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     );
                                                 })()}
                                             </div>
@@ -1057,6 +1126,16 @@ function AppointmentContent() {
                 isOpen={isDetailsModalOpen}
                 onClose={() => setIsDetailsModalOpen(false)}
                 appointment={selectedAptDetails}
+                customerRisk={selectedAptDetails ? (() => {
+                    const custId = selectedAptDetails.customer_id?.trim();
+                    const custName = (selectedAptDetails.customer_name || selectedAptDetails.customers?.name || "").trim().toLowerCase();
+                    return (custId && customerRiskData.byCustomerId.get(custId)) ||
+                           (custName && customerRiskData.byCustomerName.get(custName));
+                })() : undefined}
+                onStatusChange={(updatedApt: any) => {
+                    setAppointments(prev => prev.map(a => a.id === updatedApt.id ? { ...a, ...updatedApt } : a));
+                    setSelectedAptDetails((prev: any) => prev?.id === updatedApt.id ? { ...prev, ...updatedApt } : prev);
+                }}
             />
 
             {/* Booking Form Modal */}
@@ -1165,6 +1244,27 @@ function AppointmentContent() {
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Flagged Customer Warning Notice in Booking Modal */}
+                                    {(() => {
+                                        const custName = (formData.customerName || "").trim().toLowerCase();
+                                        const risk = customerRiskData.byCustomerName.get(custName);
+                                        if (!risk?.isFlagged) return null;
+                                        return (
+                                            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-left flex items-start gap-2.5 animate-in fade-in">
+                                                <span className="text-sm">⚠️</span>
+                                                <div className="flex-1 text-xs">
+                                                    <span className="font-black text-red-900 block">Flagged Customer Notice</span>
+                                                    <span className="text-red-800 font-semibold block mt-0.5">
+                                                        This customer has {risk.failedAppointments} cancelled/no-show appointments ({risk.cancelledAppointments} cancelled, {risk.noshowAppointments} no-show).
+                                                    </span>
+                                                    <span className="text-red-700 text-[11px] block mt-0.5">
+                                                        Please review the customer&apos;s appointment history before confirming this booking.
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                                         <div>

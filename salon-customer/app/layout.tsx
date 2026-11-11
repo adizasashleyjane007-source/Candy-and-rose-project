@@ -98,6 +98,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var v="hairstyle-upload-v8";if(window.localStorage.getItem("__salon_chunk_bust")!==v){var run=function(){Promise.all([fetch("/",{cache:"no-store"}).catch(function(){}),fetch("/services",{cache:"no-store"}).catch(function(){}),fetch("/customize",{cache:"no-store"}).catch(function(){}),fetch("/nails-design",{cache:"no-store"}).catch(function(){})]).then(function(){var urls=["/_next/static/chunks/webpack.js","/_next/static/chunks/main-app.js","/_next/static/chunks/app-pages-internals.js","/_next/static/chunks/app/layout.js","/_next/static/chunks/app/page.js","/_next/static/chunks/app/services/page.js","/_next/static/chunks/app/services/layout.js","/_next/static/chunks/app/customize/page.js","/_next/static/chunks/app/nails-design/page.js"];var domScripts=Array.prototype.slice.call(document.querySelectorAll('script[src*="/_next/static/"]')).map(function(s){return s.getAttribute("src");}).filter(Boolean); domScripts.forEach(function(s){if(urls.indexOf(s)===-1)urls.push(s);});return Promise.all(urls.map(function(u){return fetch(u,{cache:"reload"}).catch(function(){});}));}).then(function(){window.localStorage.setItem("__salon_chunk_bust",v);window.location.reload();});};if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",run);}else{run();}}}catch(e){}})();`,
+          }}
+        />
+        <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />

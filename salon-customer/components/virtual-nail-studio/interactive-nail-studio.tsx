@@ -6,7 +6,7 @@ import {
   ChevronRight, ZoomIn, ZoomOut, Eye, Palette, Shapes,
   Layers, Gem, Heart, Star, Award, Loader2,
   Trash2, Copy, Info, CheckCircle2, ArrowRight,
-  Minus, Plus, Ruler
+  Minus, Plus, Ruler, Globe, Lock, AlertCircle
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
@@ -1297,9 +1297,16 @@ export function InteractiveNailStudio({
   const [isZoomedNail, setIsZoomedNail] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [selectedVisibility, setSelectedVisibility] = useState<'public' | 'private' | null>(null);
+  const [saveError, setSaveError] = useState<string>('');
   const [resetConfirmModalOpen, setResetConfirmModalOpen] = useState(false);
   const [designTitle, setDesignTitle] = useState('Candy & Rose Bespoke Glam');
-  const [saveSuccessData, setSaveSuccessData] = useState<{ id: string; reference: string; preview: string } | null>(null);
+  const [saveSuccessData, setSaveSuccessData] = useState<{
+    id: string;
+    reference: string;
+    preview: string;
+    visibility: 'public' | 'private';
+  } | null>(null);
 
   const [savedDesignsModalOpen, setSavedDesignsModalOpen] = useState(false);
   const [savedDesignsList, setSavedDesignsList] = useState<any[]>([]);
@@ -1855,14 +1862,32 @@ export function InteractiveNailStudio({
     return canvas.toDataURL('image/png', 0.92);
   };
 
-  const handleSaveDesign = async () => {
+  const handleOpenSaveModal = () => {
+    setSelectedVisibility(null);
+    setSaveError('');
     if (!designTitle.trim()) {
-      alert('Please enter a title for your custom design.');
+      setDesignTitle('Candy & Rose Bespoke Glam');
+    }
+    setSaveModalOpen(true);
+  };
+
+  const handleSaveDesign = async () => {
+    if (isSaving) return;
+
+    if (!selectedVisibility) {
+      setSaveError('Please select whether you want your design to be Public or Private.');
+      return;
+    }
+
+    if (!designTitle.trim()) {
+      setSaveError('Please enter a title for your custom design.');
       return;
     }
 
     try {
       setIsSaving(true);
+      setSaveError('');
+      const visibilityToSave: 'public' | 'private' = selectedVisibility;
       const previewDataUrl = await generatePreviewImage();
       const uniqueRef = `CR-STUDIO-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
@@ -1918,6 +1943,19 @@ export function InteractiveNailStudio({
         );
       }
 
+      // Resolve customer_id without exposing any personal customer details in public fields
+      let resolvedCustomerId: string | null = customer?.id || null;
+      if (!resolvedCustomerId && user?.id) {
+        const { data: custRow } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (custRow?.id) {
+          resolvedCustomerId = custRow.id;
+        }
+      }
+
       const designPayload = {
         name: designTitle.trim(),
         shape: currentActiveDesign.shape,
@@ -1930,15 +1968,17 @@ export function InteractiveNailStudio({
         image_url: previewDataUrl,
         preview_url: previewDataUrl,
         inclusions: inclusionsList.join('\n'),
+        visibility: visibilityToSave,
         art_data: {
           reference: uniqueRef,
           nailSet,
           skinTone: selectedSkinTone,
           decorationsApplied: decorationsAppliedList,
           estimatedTotal,
+          visibility: visibilityToSave,
           savedAt: new Date().toISOString(),
         },
-        customer_id: customer?.id || null,
+        customer_id: resolvedCustomerId,
       };
 
       const { data, error } = await supabase
@@ -1949,14 +1989,30 @@ export function InteractiveNailStudio({
 
       if (error) {
         console.error('Failed saving nail design:', error);
-        alert('Could not save design. Please check connection and try again.');
+        setSaveError('Could not save your nail design. Please check your connection and try again.');
         return;
       }
 
+      if (typeof window !== 'undefined' && data?.id) {
+        try {
+          const rawIds = window.localStorage.getItem('cr_my_saved_design_ids');
+          const parsedIds: string[] = rawIds ? JSON.parse(rawIds) : [];
+          if (!parsedIds.includes(data.id)) {
+            parsedIds.unshift(data.id);
+            window.localStorage.setItem('cr_my_saved_design_ids', JSON.stringify(parsedIds.slice(0, 50)));
+          }
+        } catch {
+          // Ignore storage errors
+        }
+      }
+
+      setSaveModalOpen(false);
+      setSelectedVisibility(null);
       setSaveSuccessData({
         id: data.id,
         reference: uniqueRef,
         preview: previewDataUrl,
+        visibility: visibilityToSave,
       });
 
       if (onSaveSuccess) {
@@ -1964,7 +2020,7 @@ export function InteractiveNailStudio({
       }
     } catch (err: any) {
       console.error('Unexpected save error:', err);
-      alert('An error occurred while saving your design.');
+      setSaveError('An unexpected error occurred while saving your design. Your customization has been preserved—please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -1975,20 +2031,52 @@ export function InteractiveNailStudio({
       setLoadingSavedDesigns(true);
       setSavedDesignsModalOpen(true);
 
-      let query = supabase
-        .from('nail_designs')
-        .select('*')
-        .eq('category', 'Custom Studio')
-        .order('created_at', { ascending: false })
-        .limit(12);
-
-      if (customer?.id) {
-        query = query.eq('customer_id', customer.id);
+      let resolvedCustomerId: string | null = customer?.id || null;
+      if (!resolvedCustomerId && user?.id) {
+        const { data: custRow } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (custRow?.id) {
+          resolvedCustomerId = custRow.id;
+        }
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      setSavedDesignsList(data || []);
+      let localSavedIds: string[] = [];
+      if (typeof window !== 'undefined') {
+        try {
+          const rawIds = window.localStorage.getItem('cr_my_saved_design_ids');
+          localSavedIds = rawIds ? JSON.parse(rawIds) : [];
+        } catch {
+          localSavedIds = [];
+        }
+      }
+
+      if (resolvedCustomerId) {
+        const { data, error } = await supabase
+          .from('nail_designs')
+          .select('*')
+          .eq('category', 'Custom Studio')
+          .eq('customer_id', resolvedCustomerId)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (error) throw error;
+        setSavedDesignsList(data || []);
+      } else if (localSavedIds.length > 0) {
+        const { data, error } = await supabase
+          .from('nail_designs')
+          .select('*')
+          .in('id', localSavedIds)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (error) throw error;
+        setSavedDesignsList(data || []);
+      } else {
+        setSavedDesignsList([]);
+      }
     } catch (err) {
       console.error('Error fetching saved designs:', err);
       setSavedDesignsList([]);
@@ -2016,6 +2104,10 @@ export function InteractiveNailStudio({
         setSelectedSkinTone(designRecord.art_data.skinTone);
       }
       setDesignTitle(designRecord.name || 'Saved Custom Look');
+      const savedVis = designRecord.visibility || designRecord.art_data?.visibility;
+      if (savedVis === 'public' || savedVis === 'private') {
+        setSelectedVisibility(savedVis);
+      }
       setSavedDesignsModalOpen(false);
     }
   };
@@ -2082,7 +2174,15 @@ export function InteractiveNailStudio({
           </p>
         </div>
 
-        <div className="flex items-center">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={fetchSavedDesigns}
+            className="px-4 sm:px-5 py-2.5 rounded-full border border-[#E5DFD7] hover:border-[#F72D9B] bg-white hover:bg-[#FFF5F9] text-xs sm:text-sm font-semibold text-neutral-800 hover:text-[#F72D9B] transition-all duration-200 shadow-xs flex items-center gap-2 cursor-pointer active:scale-95"
+            title="View your previously saved customized nail designs"
+          >
+            <Eye className="w-4 h-4 text-[#F72D9B]" />
+            <span>Saved Designs</span>
+          </button>
           <button
             onClick={handleResetDesign}
             className="group px-5 py-2.5 rounded-full border border-[#F72D9B]/35 hover:border-[#F72D9B] bg-white hover:bg-[#FFF5F9] text-xs sm:text-sm font-semibold text-neutral-800 hover:text-[#F72D9B] transition-all duration-200 shadow-xs hover:shadow-md hover:shadow-[#F72D9B]/10 flex items-center gap-2 cursor-pointer active:scale-95"
@@ -3179,7 +3279,7 @@ export function InteractiveNailStudio({
               )}
 
               <button
-                onClick={() => setSaveModalOpen(true)}
+                onClick={handleOpenSaveModal}
                 className="w-full h-11 px-4 rounded-full border border-[#D8D2C9] hover:border-[#F72D9B] bg-white text-[#1A1A1A] hover:text-[#F72D9B] text-xs font-bold uppercase tracking-wider transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Save className="w-4 h-4 shrink-0" />
@@ -3252,65 +3352,196 @@ export function InteractiveNailStudio({
         </div>
       )}
 
-      {/* ─── MODAL: SAVE DESIGN ──────────────────────────────────────────────── */}
+      {/* ─── MODAL: SAVE DESIGN (PUBLIC / PRIVATE VISIBILITY CONFIRMATION) ────── */}
       {saveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl border border-[#F0E8DC] p-6 max-w-md w-full shadow-2xl relative space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in overflow-y-auto"
+          onClick={() => {
+            if (!isSaving) {
+              setSaveModalOpen(false);
+              setSelectedVisibility(null);
+              setSaveError('');
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl border border-pink-100 p-6 sm:p-7 max-w-lg w-full shadow-2xl relative space-y-5 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              onClick={() => setSaveModalOpen(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-full text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
+              type="button"
+              disabled={isSaving}
+              onClick={() => {
+                setSaveModalOpen(false);
+                setSelectedVisibility(null);
+                setSaveError('');
+              }}
+              aria-label="Close modal"
+              className="absolute top-4 right-4 sm:top-5 sm:right-5 p-1.5 rounded-full text-neutral-400 hover:text-[#F72D9B] hover:bg-pink-50 transition-colors cursor-pointer disabled:opacity-50"
             >
               <X className="w-4 h-4" />
             </button>
 
             <div>
-              <div className="w-10 h-10 rounded-2xl bg-[#F72D9B]/10 text-[#F72D9B] flex items-center justify-center mb-3">
+              <div className="w-11 h-11 rounded-2xl bg-[#F72D9B]/10 text-[#F72D9B] border border-[#F72D9B]/20 flex items-center justify-center mb-3.5 shadow-2xs">
                 <Save className="w-5 h-5" />
               </div>
-              <h3 className="font-serif text-xl font-medium text-[#1A1A1A]">Save Customized Design</h3>
-              <p className="text-xs text-neutral-500 font-light mt-1">
-                Save this bespoke configuration to your portfolio and link directly to appointment bookings.
+              <h3 className="font-serif text-xl sm:text-2xl font-medium text-[#1A1A1A]">
+                Save Your Nail Design
+              </h3>
+              <p className="text-xs sm:text-sm text-neutral-500 font-light mt-1.5 leading-relaxed">
+                Your nail design is ready! Would you like to share your customized design with others or keep it private?
               </p>
             </div>
 
+            {/* Design Name Field */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-neutral-700">Design Name</label>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#F72D9B] block">
+                Design Name
+              </label>
               <input
                 type="text"
                 value={designTitle}
                 onChange={(e) => setDesignTitle(e.target.value)}
+                disabled={isSaving}
                 placeholder="e.g., Rose Gold French Ombre"
-                className="w-full px-4 py-2.5 rounded-xl border border-[#E5DFD7] text-xs text-neutral-900 outline-none focus:border-[#F72D9B] focus:ring-2 focus:ring-[#F72D9B]/20"
+                className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 bg-white text-xs sm:text-sm text-neutral-900 outline-none transition-all focus:border-[#F72D9B] focus:ring-2 focus:ring-[#F72D9B]/20 disabled:opacity-60"
               />
             </div>
 
-            <div className="p-3 bg-white rounded-xl border border-[#F0E8DC] text-xs space-y-1 text-neutral-600">
-              <div className="flex justify-between">
-                <span>Total Estimated Price:</span>
-                <strong className="text-[#F72D9B]">₱{estimatedTotal.toLocaleString()}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Account Association:</span>
-                <span>{customer?.name || user?.email || 'Guest Customer'}</span>
-              </div>
+            {/* Visibility Options: Public vs Private (Single Selection, None Pre-selected) */}
+            <div className="space-y-2.5" role="radiogroup" aria-label="Design Visibility Preference">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#F72D9B] block">
+                Choose Visibility *
+              </span>
+
+              {/* Option 1: Public */}
+              <button
+                type="button"
+                role="radio"
+                aria-checked={selectedVisibility === 'public'}
+                disabled={isSaving}
+                onClick={() => {
+                  setSelectedVisibility('public');
+                  setSaveError('');
+                }}
+                className={`w-full p-4 rounded-2xl border text-left transition-all duration-200 flex items-start gap-3.5 cursor-pointer ${
+                  selectedVisibility === 'public'
+                    ? 'border-2 border-[#F72D9B] bg-[#FFF5F9] shadow-md shadow-[#F72D9B]/10'
+                    : 'border-neutral-200 bg-white hover:border-pink-300 hover:bg-pink-50/30'
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${
+                    selectedVisibility === 'public'
+                      ? 'bg-[#F72D9B] text-white shadow-xs'
+                      : 'bg-pink-50 text-[#F72D9B]'
+                  }`}
+                >
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-serif text-sm sm:text-base font-semibold text-[#1A1A1A]">
+                      Make Design Public
+                    </span>
+                    <span
+                      className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                        selectedVisibility === 'public'
+                          ? 'border-[#F72D9B] bg-[#F72D9B] text-white'
+                          : 'border-neutral-300 bg-white'
+                      }`}
+                    >
+                      {selectedVisibility === 'public' && <Check className="w-3 h-3 stroke-[3]" />}
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-500 font-light mt-1 leading-relaxed">
+                    Allow other customers to view your customized nail design in the public design gallery or inspiration section.
+                  </p>
+                </div>
+              </button>
+
+              {/* Option 2: Private */}
+              <button
+                type="button"
+                role="radio"
+                aria-checked={selectedVisibility === 'private'}
+                disabled={isSaving}
+                onClick={() => {
+                  setSelectedVisibility('private');
+                  setSaveError('');
+                }}
+                className={`w-full p-4 rounded-2xl border text-left transition-all duration-200 flex items-start gap-3.5 cursor-pointer ${
+                  selectedVisibility === 'private'
+                    ? 'border-2 border-[#F72D9B] bg-[#FFF5F9] shadow-md shadow-[#F72D9B]/10'
+                    : 'border-neutral-200 bg-white hover:border-pink-300 hover:bg-pink-50/30'
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors mt-0.5 ${
+                    selectedVisibility === 'private'
+                      ? 'bg-[#F72D9B] text-white shadow-xs'
+                      : 'bg-pink-50 text-[#F72D9B]'
+                  }`}
+                >
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-serif text-sm sm:text-base font-semibold text-[#1A1A1A]">
+                      Keep Design Private
+                    </span>
+                    <span
+                      className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                        selectedVisibility === 'private'
+                          ? 'border-[#F72D9B] bg-[#F72D9B] text-white'
+                          : 'border-neutral-300 bg-white'
+                      }`}
+                    >
+                      {selectedVisibility === 'private' && <Check className="w-3 h-3 stroke-[3]" />}
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-500 font-light mt-1 leading-relaxed">
+                    Only you and authorized salon staff can view your saved customized design.
+                  </p>
+                </div>
+              </button>
             </div>
 
-            <div className="flex items-center gap-2 pt-2">
+            {saveError && (
+              <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200/80 p-3 text-xs font-semibold text-red-600">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{saveError}</span>
+              </div>
+            )}
+
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 pt-2">
               <button
-                onClick={() => setSaveModalOpen(false)}
-                className="flex-1 py-2.5 rounded-full border border-[#E5DFD7] text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                type="button"
+                disabled={isSaving}
+                onClick={() => {
+                  setSaveModalOpen(false);
+                  setSelectedVisibility(null);
+                  setSaveError('');
+                }}
+                className="flex-1 py-2.5 sm:py-3 px-4 rounded-full border border-[#E5DFD7] hover:border-[#F72D9B]/40 bg-white hover:bg-[#FFF5F9] text-xs font-semibold text-neutral-700 transition-all cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={async () => {
-                  await handleSaveDesign();
-                  setSaveModalOpen(false);
-                }}
-                disabled={isSaving || !designTitle.trim()}
-                className="flex-1 py-2.5 rounded-full bg-[#F72D9B] hover:bg-[#d81f83] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50"
+                type="button"
+                onClick={handleSaveDesign}
+                disabled={isSaving || !selectedVisibility || !designTitle.trim()}
+                className="flex-1 py-2.5 sm:py-3 px-5 rounded-full bg-[#F72D9B] hover:bg-[#d81f83] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md shadow-[#F72D9B]/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer"
               >
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Confirm &amp; Save</span>}
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Confirm &amp; Save Design</span>
+                )}
               </button>
             </div>
           </div>
@@ -3320,19 +3551,32 @@ export function InteractiveNailStudio({
       {/* ─── MODAL: SAVE CONFIRMATION SUCCESS ─────────────────────────────────── */}
       {saveSuccessData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl border border-[#F0E8DC] p-6 max-w-md w-full shadow-2xl relative text-center space-y-4">
+          <div className="bg-white rounded-3xl border border-pink-100 p-6 sm:p-7 max-w-md w-full shadow-2xl relative text-center space-y-4">
             <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-6 h-6" />
             </div>
 
             <div>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full">
-                Saved Successfully
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full inline-block">
+                Design Saved Successfully
               </span>
-              <h3 className="font-serif text-xl font-medium text-[#1A1A1A] mt-2">{designTitle}</h3>
+              <h3 className="font-serif text-xl font-medium text-[#1A1A1A] mt-2.5">{designTitle}</h3>
               <p className="text-xs text-neutral-500 font-light mt-1">
                 Design Reference: <span className="font-mono font-bold text-neutral-800">{saveSuccessData.reference}</span>
               </p>
+              <div className="mt-2.5 flex justify-center">
+                {saveSuccessData.visibility === 'public' ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFF5F9] border border-[#F72D9B]/30 text-[#F72D9B] text-[11px] font-semibold">
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>Public · Shared in Design Gallery</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 text-[11px] font-semibold">
+                    <Lock className="w-3.5 h-3.5 text-[#F72D9B]" />
+                    <span>Private · Only You &amp; Salon Staff</span>
+                  </span>
+                )}
+              </div>
             </div>
 
             {saveSuccessData.preview && (
@@ -3345,10 +3589,10 @@ export function InteractiveNailStudio({
               </div>
             )}
 
-            <div className="flex items-center gap-2 pt-2">
+            <div className="flex items-center gap-2.5 pt-2">
               <button
                 onClick={() => setSaveSuccessData(null)}
-                className="flex-1 py-2.5 rounded-full border border-[#E5DFD7] text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                className="flex-1 py-2.5 rounded-full border border-[#E5DFD7] text-xs font-semibold text-neutral-700 hover:bg-neutral-50 cursor-pointer"
               >
                 Back to Studio
               </button>
@@ -3357,7 +3601,7 @@ export function InteractiveNailStudio({
                   setSaveSuccessData(null);
                   handleBookThisDesign();
                 }}
-                className="flex-1 py-2.5 rounded-full bg-[#F72D9B] hover:bg-[#d81f83] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md shadow-[#F72D9B]/30"
+                className="flex-1 py-2.5 rounded-full bg-[#F72D9B] hover:bg-[#d81f83] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md shadow-[#F72D9B]/30 cursor-pointer"
               >
                 <Calendar className="w-3.5 h-3.5" />
                 <span>Book Now</span>
@@ -3373,7 +3617,7 @@ export function InteractiveNailStudio({
           <div className="bg-white rounded-3xl border border-[#F0E8DC] p-6 max-w-2xl w-full shadow-2xl relative space-y-4 max-h-[85vh] flex flex-col">
             <button
               onClick={() => setSavedDesignsModalOpen(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-full text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100"
+              className="absolute top-4 right-4 p-1.5 rounded-full text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -3404,60 +3648,78 @@ export function InteractiveNailStudio({
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {savedDesignsList.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-3 rounded-2xl border border-[#E5DFD7] bg-white hover:border-[#F72D9B]/50 transition-all shadow-2xs flex flex-col justify-between"
-                    >
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="w-16 h-16 rounded-xl bg-neutral-100 overflow-hidden shrink-0 border border-neutral-200">
-                          {item.image_url || item.preview_url ? (
-                            <img
-                              src={item.image_url || item.preview_url}
-                              alt={item.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-neutral-400">
-                              💅
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-serif text-sm font-semibold text-neutral-900 truncate">
-                            {item.name}
-                          </h4>
-                          <span className="text-[10px] font-mono text-neutral-400 block mt-0.5">
-                            {item.shape || 'Almond'} · {item.art_data?.reference || item.id.substring(0, 8)}
-                          </span>
-                          <span className="font-bold text-xs text-[#F72D9B] block mt-1">
-                            ₱{Number(item.price || 450).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
+                  {savedDesignsList.map((item) => {
+                    const itemVis = item.visibility || item.art_data?.visibility || 'public';
+                    const isPrivate = itemVis === 'private';
 
-                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#F0E8DC]">
-                        <button
-                          onClick={() => loadSavedDesignIntoStudio(item)}
-                          className="py-1.5 px-2 rounded-full border border-[#D8D2C9] hover:border-[#F72D9B] bg-white text-[10.5px] font-bold text-neutral-800 hover:text-[#F72D9B] transition-colors cursor-pointer text-center"
-                        >
-                          Load to Studio
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSavedDesignsModalOpen(false);
-                            if (item.art_data?.nailSet) {
-                              setNailSet(item.art_data.nailSet);
-                            }
-                            handleBookThisDesign();
-                          }}
-                          className="py-1.5 px-2 rounded-full bg-[#F72D9B] hover:bg-[#d81f83] text-white text-[10.5px] font-bold uppercase tracking-wider transition-colors cursor-pointer text-center"
-                        >
-                          Book Design
-                        </button>
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-3 rounded-2xl border border-[#E5DFD7] bg-white hover:border-[#F72D9B]/50 transition-all shadow-2xs flex flex-col justify-between"
+                      >
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="w-16 h-16 rounded-xl bg-neutral-100 overflow-hidden shrink-0 border border-neutral-200">
+                            {item.image_url || item.preview_url ? (
+                              <img
+                                src={item.image_url || item.preview_url}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xs text-neutral-400">
+                                💅
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1.5">
+                              <h4 className="font-serif text-sm font-semibold text-neutral-900 truncate">
+                                {item.name}
+                              </h4>
+                              {isPrivate ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-600 text-[9.5px] font-semibold shrink-0">
+                                  <Lock className="w-2.5 h-2.5 text-[#F72D9B]" />
+                                  <span>Private</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFF5F9] border border-[#F72D9B]/25 text-[#F72D9B] text-[9.5px] font-semibold shrink-0">
+                                  <Globe className="w-2.5 h-2.5" />
+                                  <span>Public</span>
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] font-mono text-neutral-400 block mt-0.5">
+                              {item.shape || 'Almond'} · {item.art_data?.reference || item.id.substring(0, 8)}
+                            </span>
+                            <span className="font-bold text-xs text-[#F72D9B] block mt-1">
+                              ₱{Number(item.price || 450).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#F0E8DC]">
+                          <button
+                            onClick={() => loadSavedDesignIntoStudio(item)}
+                            className="py-1.5 px-2 rounded-full border border-[#D8D2C9] hover:border-[#F72D9B] bg-white text-[10.5px] font-bold text-neutral-800 hover:text-[#F72D9B] transition-colors cursor-pointer text-center"
+                          >
+                            Load to Studio
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSavedDesignsModalOpen(false);
+                              if (item.art_data?.nailSet) {
+                                setNailSet(item.art_data.nailSet);
+                              }
+                              handleBookThisDesign();
+                            }}
+                            className="py-1.5 px-2 rounded-full bg-[#F72D9B] hover:bg-[#d81f83] text-white text-[10.5px] font-bold uppercase tracking-wider transition-colors cursor-pointer text-center"
+                          >
+                            Book Design
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

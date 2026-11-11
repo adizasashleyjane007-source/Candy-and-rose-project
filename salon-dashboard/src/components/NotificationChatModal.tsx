@@ -702,6 +702,27 @@ export default function NotificationChatModal({
                       </div>
                     )}
 
+                    {appointment.hairstyle_reference_image && (
+                      <div className="p-2.5 rounded-xl bg-pink-50/60 border border-pink-200/70 space-y-2">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-pink-600 block">
+                          Hairstyle Reference Image
+                        </span>
+                        <a
+                          href={appointment.hairstyle_reference_image}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block rounded-lg overflow-hidden border border-pink-100 bg-white"
+                          title="Click to view full hairstyle reference photo"
+                        >
+                          <img
+                            src={appointment.hairstyle_reference_image}
+                            alt="Hairstyle Reference"
+                            className="w-full max-h-40 object-cover hover:scale-105 transition-transform duration-300"
+                          />
+                        </a>
+                      </div>
+                    )}
+
 
 
                     {appointment.status === 'Scheduled' && (

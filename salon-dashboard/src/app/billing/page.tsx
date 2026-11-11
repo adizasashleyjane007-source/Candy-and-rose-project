@@ -19,12 +19,15 @@ import {
     X,
     PhilippinePeso,
     Loader2,
-    Mail
+    Mail,
+    Star,
+    Sparkles
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Pagination from "@/components/Pagination";
 import { addNotification } from "@/lib/notifications";
 import { Appointments, Billing, SettingsDB, fulfillPaymentSuccess, type Appointment, type BillingRecord } from "@/lib/db";
+import { LoyaltyDB, calculateLoyaltyDiscountForAppointments, type LoyaltyRewardRecord } from "@/lib/loyalty";
 import { createClient } from "@/lib/supabase/client";
 
 interface PrintingReceiptData {
@@ -35,6 +38,8 @@ interface PrintingReceiptData {
     serviceName: string;
     totalAmount: number;
     subtotal: number;
+    loyaltyDiscountAmount?: number;
+    loyaltyRewardDescription?: string | null;
     paymentMethod: string;
     isCash: boolean;
     cashReceived: number;
@@ -122,11 +127,20 @@ export default function BillingPage() {
     const [selectedBilling, setSelectedBilling] = useState<BillingRecord | null>(null);
     const [isSendingEmail, setIsSendingEmail] = useState<string | null>(null);
 
+    // Top 5 Customer Loyalty Reward States
+    const [availableLoyaltyReward, setAvailableLoyaltyReward] = useState<LoyaltyRewardRecord | null>(null);
+    const [isLoyaltyRewardApplied, setIsLoyaltyRewardApplied] = useState(false);
+    const [loadingLoyaltyReward, setLoadingLoyaltyReward] = useState(false);
+
     const loadData = async () => {
         try {
             setLoading(true);
             const appts = await Appointments.list();
             setAppointments(appts);
+
+            // Sync Top 5 Customer Loyalty Rewards in background
+            const now = new Date();
+            LoyaltyDB.syncTop5ForMonth(now.getFullYear(), now.getMonth()).catch(() => {});
 
             try {
                 const bills = await Billing.list();
@@ -228,13 +242,64 @@ export default function BillingPage() {
         }
     }, []);
 
+    // Fetch available Top 5 Customer Loyalty Reward when a customer or appointment is selected for checkout
+    useEffect(() => {
+        let isMounted = true;
+        const checkCustomerLoyaltyReward = async () => {
+            if (!selectedApt && !selectedCustomer) {
+                if (isMounted) {
+                    setAvailableLoyaltyReward(null);
+                    setIsLoyaltyRewardApplied(false);
+                }
+                return;
+            }
+            const custId = selectedCustomer?.id || selectedApt?.customer_id || null;
+            const custName =
+                selectedCustomer?.name ||
+                selectedApt?.customers?.name ||
+                selectedApt?.customer_name ||
+                null;
+            if (!custId && !custName) {
+                if (isMounted) {
+                    setAvailableLoyaltyReward(null);
+                    setIsLoyaltyRewardApplied(false);
+                }
+                return;
+            }
+            setLoadingLoyaltyReward(true);
+            try {
+                const reward = await LoyaltyDB.getAvailableCustomerReward(custId, custName);
+                if (isMounted) {
+                    setAvailableLoyaltyReward(reward);
+                    setIsLoyaltyRewardApplied(false);
+                }
+            } catch (err) {
+                console.warn("Could not check customer loyalty reward:", err);
+                if (isMounted) {
+                    setAvailableLoyaltyReward(null);
+                    setIsLoyaltyRewardApplied(false);
+                }
+            } finally {
+                if (isMounted) setLoadingLoyaltyReward(false);
+            }
+        };
+        checkCustomerLoyaltyReward();
+        return () => {
+            isMounted = false;
+        };
+    }, [selectedApt?.id, selectedCustomer?.id, selectedCustomer?.name]);
+
     useEffect(() => {
         const fetchCheckoutUrl = async () => {
             if (paymentMethod.toLowerCase() === 'gcash' && selectedApt) {
                 setGeneratingQR(true);
-                const currentFee = selectedAppointmentsBatch.length > 0
-                    ? selectedAppointmentsBatch.reduce((sum, a) => sum + (a.price || 0), 0)
-                    : (selectedApt.price || 0);
+                const apptsForCalc = selectedAppointmentsBatch.length > 0 ? selectedAppointmentsBatch : [selectedApt];
+                const rawSubtotal = apptsForCalc.reduce((sum, a) => sum + (a.price || 0), 0);
+                const loyaltyCalc =
+                    isLoyaltyRewardApplied && availableLoyaltyReward
+                        ? calculateLoyaltyDiscountForAppointments(apptsForCalc, availableLoyaltyReward)
+                        : null;
+                const currentFee = loyaltyCalc && loyaltyCalc.isApplicable ? loyaltyCalc.finalTotal : rawSubtotal;
                 const svcName = selectedAppointmentsBatch.length > 1
                     ? `${selectedAppointmentsBatch.length} Services (${selectedAppointmentsBatch.map(s => s.service_name || s.services?.name || 'Service').join(', ')})`
                     : (selectedApt.service_name || selectedApt.services?.name || 'Salon Service');
@@ -248,7 +313,20 @@ export default function BillingPage() {
                             appointmentId: selectedApt.id,
                             amount: currentFee,
                             serviceName: svcName,
-                            customerName: custName
+                            customerName: custName,
+                            loyaltyRewardId:
+                                isLoyaltyRewardApplied && availableLoyaltyReward && loyaltyCalc?.isApplicable
+                                    ? availableLoyaltyReward.id
+                                    : null,
+                            originalAmount: rawSubtotal,
+                            loyaltyDiscountAmount:
+                                isLoyaltyRewardApplied && loyaltyCalc?.isApplicable
+                                    ? loyaltyCalc.discountAmount
+                                    : 0,
+                            loyaltyRewardDescription:
+                                isLoyaltyRewardApplied && availableLoyaltyReward && loyaltyCalc?.isApplicable
+                                    ? availableLoyaltyReward.reward_description
+                                    : null,
                         })
                     });
                     const data = await response.json();
@@ -265,7 +343,7 @@ export default function BillingPage() {
             }
         };
         fetchCheckoutUrl();
-    }, [paymentMethod, selectedApt, selectedAppointmentsBatch, selectedCustomer]);
+    }, [paymentMethod, selectedApt, selectedAppointmentsBatch, selectedCustomer, isLoyaltyRewardApplied, availableLoyaltyReward]);
 
     const printReceiptDirectly = (receipt: PrintingReceiptData) => {
         let iframe = document.getElementById("receipt-direct-print-frame") as HTMLIFrameElement;
@@ -370,7 +448,7 @@ export default function BillingPage() {
                 <div style="font-size: 11px; margin-bottom: 12px;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
                         <span style="color: #000; flex: 1;">${receipt.serviceName}</span>
-                        <span style="font-weight: 700; color: #000; font-family: monospace; flex-shrink: 0;">₱${receipt.totalAmount.toLocaleString()}</span>
+                        <span style="font-weight: 700; color: #000; font-family: monospace; flex-shrink: 0;">₱${receipt.subtotal.toLocaleString()}</span>
                     </div>
                 </div>
 
@@ -378,9 +456,15 @@ export default function BillingPage() {
 
                 <div style="font-size: 11px; margin-bottom: 12px; line-height: 1.5;">
                     <div style="display: flex; justify-content: space-between; color: #4b5563;">
-                        <span>Sub-total:</span>
+                        <span>Subtotal:</span>
                         <span style="font-family: monospace; font-weight: 500; color: #000;">₱${receipt.subtotal.toLocaleString()}</span>
                     </div>
+                    ${receipt.loyaltyDiscountAmount && receipt.loyaltyDiscountAmount > 0 ? `
+                    <div style="display: flex; justify-content: space-between; color: #F02D98; font-weight: 700;">
+                        <span>Loyalty Discount (${receipt.loyaltyRewardDescription || 'Top 5 Reward'}):</span>
+                        <span style="font-family: monospace; font-weight: 700;">-₱${receipt.loyaltyDiscountAmount.toLocaleString()}</span>
+                    </div>
+                    ` : ''}
                     <div style="display: flex; justify-content: space-between; color: #4b5563;">
                         <span>Tax (0%):</span>
                         <span style="font-family: monospace; font-weight: 500; color: #000;">₱0.00</span>
@@ -432,7 +516,14 @@ export default function BillingPage() {
     const handlePrint = (customCash?: number, customApt?: Appointment | null) => {
         const apt = customApt || selectedApt;
         if (!apt) return;
-        const totalAmount = apt.price || 0;
+        const apptsForReceipt = selectedAppointmentsBatch.length > 0 ? selectedAppointmentsBatch : [apt];
+        const rawSubtotal = apptsForReceipt.reduce((sum, a) => sum + (a.price || 0), 0);
+        const loyaltyCalc =
+            isLoyaltyRewardApplied && availableLoyaltyReward
+                ? calculateLoyaltyDiscountForAppointments(apptsForReceipt, availableLoyaltyReward)
+                : null;
+        const discountVal = loyaltyCalc && loyaltyCalc.isApplicable ? loyaltyCalc.discountAmount : 0;
+        const totalAmount = Math.max(0, rawSubtotal - discountVal);
         const paymentMethodName = paymentMethod || "Cash";
         const isCash = paymentMethodName.toLowerCase() === "cash";
         const cashRec = customCash !== undefined ? Math.max(customCash, totalAmount) : (Number(paymentAmount) || totalAmount);
@@ -446,7 +537,7 @@ export default function BillingPage() {
         const staffName = apt.staff?.name || apt.staff_name || cashierName || "Staff";
         const apptDate = apt.appointment_date || new Date().toLocaleDateString();
         const apptTime = apt.appointment_time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const serviceName = apt.services?.name || apt.service_name || "Salon Service";
+        const serviceName = apptsForReceipt.map(a => a.services?.name || a.service_name || "Salon Service").join(", ");
 
         const receiptData: PrintingReceiptData = {
             invoiceNumber: invoiceNum,
@@ -455,7 +546,9 @@ export default function BillingPage() {
             formattedDateTime: `${apptDate} ${apptTime}`,
             serviceName: serviceName,
             totalAmount: totalAmount,
-            subtotal: totalAmount,
+            subtotal: rawSubtotal,
+            loyaltyDiscountAmount: discountVal,
+            loyaltyRewardDescription: discountVal > 0 ? availableLoyaltyReward?.reward_description : null,
             paymentMethod: paymentMethodName,
             isCash: isCash,
             cashReceived: cashRec,
@@ -799,7 +892,14 @@ export default function BillingPage() {
             console.warn("Could not load billing record:", err);
         }
 
-        const totalAmount = apt.price || matchedBill?.amount || 0;
+        const totalAmount = matchedBill?.amount ?? apt.price ?? 0;
+        const discountVal = Number(matchedBill?.loyalty_discount_amount ?? apt.loyalty_discount_amount ?? 0);
+        const subtotalAmount = Number(
+            matchedBill?.original_amount ??
+                apt.original_amount ??
+                (discountVal > 0 ? totalAmount + discountVal : totalAmount)
+        );
+        const rewardDesc = matchedBill?.loyalty_reward_description || apt.loyalty_reward_description || null;
         const paymentMethodName = matchedBill?.payment_method || "Cash";
         const isCash = paymentMethodName.toLowerCase() === "cash";
         const cashRec = matchedBill?.cash_received !== undefined ? matchedBill.cash_received : totalAmount;
@@ -824,7 +924,9 @@ export default function BillingPage() {
             formattedDateTime: `${apptDate} ${apptTime}`,
             serviceName: serviceName,
             totalAmount: totalAmount,
-            subtotal: totalAmount,
+            subtotal: subtotalAmount,
+            loyaltyDiscountAmount: discountVal,
+            loyaltyRewardDescription: rewardDesc,
             paymentMethod: paymentMethodName,
             isCash: isCash,
             cashReceived: cashRec,
@@ -880,7 +982,7 @@ export default function BillingPage() {
         const currentTotal = totalWithTax;
 
         // Cash Payment Validation
-        if (paymentMethod.toLowerCase() === 'cash') {
+        if (paymentMethod.toLowerCase() === 'cash' && currentTotal > 0) {
             const enteredCash = parseFloat(paymentAmount);
             if (isNaN(enteredCash) || enteredCash < currentTotal) {
                 addNotification("Payment Validation Error", "Please enter a valid cash amount equal to or greater than the total amount.", "billing");
@@ -890,26 +992,47 @@ export default function BillingPage() {
 
         try {
             const billAmount = totalWithTax;
-            const cashRec = paymentMethod.toLowerCase() === 'cash' ? Number(paymentAmount) : totalWithTax;
+            const cashRec = paymentMethod.toLowerCase() === 'cash' ? (Number(paymentAmount) || 0) : totalWithTax;
             const calcChange = Math.max(0, cashRec - billAmount);
+
+            const applyRewardNow =
+                isLoyaltyRewardApplied &&
+                availableLoyaltyReward &&
+                loyaltyCalc.isApplicable &&
+                loyaltyCalc.discountAmount > 0;
+
+            let remainingDiscount = applyRewardNow ? loyaltyCalc.discountAmount : 0;
 
             // Fulfill payment for each selected appointment idempotently
             for (let i = 0; i < appointmentsToPay.length; i++) {
                 const apt = appointmentsToPay[i];
-                const aptPrice = formatPrice(apt.price);
-                const aptCash = i === 0 ? cashRec : aptPrice;
+                const rawAptPrice = formatPrice(apt.price);
+                const aptDiscount = Math.min(rawAptPrice, remainingDiscount);
+                remainingDiscount = Math.max(0, remainingDiscount - aptDiscount);
+                const finalAptPrice = Math.max(0, rawAptPrice - aptDiscount);
+                const aptCash = i === 0 ? cashRec : finalAptPrice;
 
                 const res = await fulfillPaymentSuccess({
                     appointmentId: apt.id!,
-                    amount: aptPrice,
+                    amount: finalAptPrice,
                     cashReceived: aptCash,
                     paymentMethod: paymentMethod,
-                    notes: `Payment for ${apt.service_name || apt.services?.name || 'service'}`
+                    notes: `Payment for ${apt.service_name || apt.services?.name || 'service'}`,
+                    loyaltyRewardId: i === 0 && applyRewardNow ? availableLoyaltyReward.id : null,
+                    originalAmount: i === 0 && applyRewardNow ? apptFee : rawAptPrice,
+                    loyaltyDiscountAmount: i === 0 && applyRewardNow ? loyaltyCalc.discountAmount : 0,
+                    loyaltyRewardDescription:
+                        i === 0 && applyRewardNow ? availableLoyaltyReward.reward_description : null,
                 });
 
                 if (!res.success) {
                     throw new Error(res.error || `Payment fulfillment failed for ${apt.service_name || 'service'}`);
                 }
+            }
+
+            if (applyRewardNow) {
+                setAvailableLoyaltyReward(null);
+                setIsLoyaltyRewardApplied(false);
             }
 
             addNotification("Success", "Payment confirmed successfully.", "billing");
@@ -1001,14 +1124,26 @@ export default function BillingPage() {
 
     const formatPrice = (p: number | null | undefined) => p || 0;
     
-    // Receipt Calculations
-    const apptFee = selectedAppointmentsBatch.length > 0
-        ? selectedAppointmentsBatch.reduce((sum, a) => sum + formatPrice(a.price), 0)
-        : (selectedApt ? formatPrice(selectedApt.price) : 0);
+    // Receipt & Loyalty Discount Calculations
+    const activePaymentAppointments = selectedAppointmentsBatch.length > 0
+        ? selectedAppointmentsBatch
+        : (selectedApt ? [selectedApt] : []);
+    const apptFee = activePaymentAppointments.reduce((sum, a) => sum + formatPrice(a.price), 0);
+    const loyaltyCalc = calculateLoyaltyDiscountForAppointments(
+        activePaymentAppointments,
+        availableLoyaltyReward
+    );
+    const appliedDiscountAmount =
+        isLoyaltyRewardApplied && availableLoyaltyReward && loyaltyCalc.isApplicable
+            ? loyaltyCalc.discountAmount
+            : 0;
     const tax = 0; 
-    const totalWithTax = apptFee + tax;
-    const isAmountReceivedValid = parseInt(paymentAmount) >= totalWithTax;
-    const change = Math.max(0, (parseInt(paymentAmount) || 0) - totalWithTax);
+    const totalWithTax = Math.max(0, apptFee - appliedDiscountAmount + tax);
+    const isAmountReceivedValid =
+        totalWithTax === 0
+            ? (paymentAmount === "" || parseFloat(paymentAmount) >= 0)
+            : parseFloat(paymentAmount) >= totalWithTax;
+    const change = Math.max(0, (parseFloat(paymentAmount) || 0) - totalWithTax);
 
     // Subtotal for customer-based payment selection
     const selectedServicesSubtotal = customerPendingAppointments
@@ -1502,6 +1637,49 @@ export default function BillingPage() {
                         </div>
 
                         <form onSubmit={handleConfirmPayment} className="p-6 space-y-4">
+                            {/* Top 5 Customer Loyalty Reward Banner */}
+                            {availableLoyaltyReward && (
+                                <div className="rounded-2xl border border-pink-200 bg-gradient-to-r from-pink-50 via-rose-50/70 to-pink-50 p-3.5 shadow-2xs">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-pink-500 text-white shadow-2xs">
+                                                    ⭐ TOP 5 CUSTOMER
+                                                </span>
+                                                <span className="text-[11px] font-bold text-pink-700">
+                                                    Rank #{availableLoyaltyReward.rank_position} ({availableLoyaltyReward.ranking_period_label})
+                                                </span>
+                                            </div>
+                                            <p className="text-xs font-extrabold text-gray-900 mt-1.5">
+                                                Available Reward: <span className="text-pink-600">{availableLoyaltyReward.reward_description}</span>
+                                            </p>
+                                            <p className="text-[11px] text-gray-500 mt-0.5">
+                                                Valid until {new Date(availableLoyaltyReward.valid_until).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                            </p>
+                                            {!loyaltyCalc.isApplicable && loyaltyCalc.reason && (
+                                                <p className="text-[11px] text-amber-600 font-semibold mt-1">
+                                                    {loyaltyCalc.reason}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            disabled={!loyaltyCalc.isApplicable}
+                                            onClick={() => setIsLoyaltyRewardApplied((prev) => !prev)}
+                                            className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all shrink-0 cursor-pointer ${
+                                                !loyaltyCalc.isApplicable
+                                                    ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
+                                                    : isLoyaltyRewardApplied
+                                                        ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                                                        : "bg-pink-500 hover:bg-pink-600 text-white shadow-sm shadow-pink-200 active:scale-95"
+                                            }`}
+                                        >
+                                            {isLoyaltyRewardApplied ? "Reward Applied ✓" : "Apply Reward"}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
                                     <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">1. Payment Summary</h4>
@@ -1524,16 +1702,22 @@ export default function BillingPage() {
                                         </div>
                                     ) : null}
                                     <div className="flex justify-between items-center text-sm font-medium text-gray-600">
-                                        <span>Service Price:</span>
+                                        <span>{appliedDiscountAmount > 0 ? "Original subtotal:" : "Service Price:"}</span>
                                         <span className="text-gray-900 font-bold">₱{apptFee.toLocaleString()}</span>
                                     </div>
+                                    {appliedDiscountAmount > 0 && availableLoyaltyReward && (
+                                        <div className="flex justify-between items-center text-sm font-bold text-pink-600">
+                                            <span>Loyalty discount ({availableLoyaltyReward.reward_description}):</span>
+                                            <span>-₱{appliedDiscountAmount.toLocaleString()}</span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between items-center text-sm font-medium text-gray-600">
                                         <span>Tax (0%):</span>
                                         <span className="text-gray-900 font-bold">₱0.00</span>
                                     </div>
                                     <div className="h-px bg-pink-100 my-1" />
                                     <div className="flex justify-between items-center text-sm font-bold text-gray-900">
-                                        <span className="text-gray-800">Total Amount:</span>
+                                        <span className="text-gray-800">{appliedDiscountAmount > 0 ? "Final total:" : "Total Amount:"}</span>
                                         <span className="text-lg text-pink-600 font-extrabold">₱{totalWithTax.toLocaleString()}</span>
                                     </div>
                                 </div>
@@ -1574,7 +1758,7 @@ export default function BillingPage() {
                                             </div>
                                             <input
                                                 type="number"
-                                                required
+                                                required={totalWithTax > 0}
                                                 placeholder="Amount Received"
                                                 className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border ${!isAmountReceivedValid && paymentAmount !== "" ? 'border-rose-400 focus:ring-rose-500' : 'border-gray-300 focus:ring-pink-500'} text-sm font-bold text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all font-sans`}
                                                 value={paymentAmount}

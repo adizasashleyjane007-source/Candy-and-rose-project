@@ -49,7 +49,8 @@ export default function NailsDesignPage() {
         setLoading(true);
         const { data, error } = await supabase
           .from('nail_designs')
-          .select('*')
+          .select('id, name, description, price, image_url, preview_url, category, shape, primary_color, secondary_color, texture, inclusions, is_trending, art_data, visibility, created_at')
+          .neq('visibility', 'private')
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -59,7 +60,11 @@ export default function NailsDesignPage() {
         }
 
         if (data && data.length > 0) {
-          const mapped: NailDesignItem[] = data.map((item: any, index: number) => {
+          const publicRows = data.filter((item: any) => {
+            const vis = String(item.visibility || item.art_data?.visibility || 'public').toLowerCase();
+            return vis !== 'private';
+          });
+          const mapped: NailDesignItem[] = publicRows.map((item: any, index: number) => {
             const rawId = item.id ? String(item.id) : `NAIL${String(index + 1).padStart(2, '0')}`;
             const priceVal = item.price !== null && item.price !== undefined ? Number(item.price) : 450;
 
@@ -101,6 +106,7 @@ export default function NailsDesignPage() {
               primary_color: item.primary_color,
               secondary_color: item.secondary_color,
               texture: item.texture,
+              visibility: 'public',
             };
           });
           setDesigns(mapped);
@@ -129,10 +135,11 @@ export default function NailsDesignPage() {
 
   // Dynamically filter actual database records based on showCustomDesigns view, selected filter pill & search query
   const filteredDesigns = useMemo(() => {
-    // 1. Separate Hand-Painted designs vs Custom Studio designs
+    // 1. Public gallery displays all public designs by default, or only Custom Studio designs when toggled
     const baseList = designs.filter((item) => {
-      const isCustom = isCustomStudio(item);
-      return showCustomDesigns ? isCustom : !isCustom;
+      if (item.visibility === 'private' || item.art_data?.visibility === 'private') return false;
+      if (showCustomDesigns) return isCustomStudio(item);
+      return true;
     });
 
     return baseList.filter((item) => {
@@ -331,7 +338,7 @@ export default function NailsDesignPage() {
             </div>
 
             {/* Interactive Nail Studio Banner Link */}
-            <div className="pt-2">
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5">
               <a
                 href="/customize"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#F72D9B] to-[#d81f83] text-white text-xs font-bold uppercase tracking-wider shadow-md shadow-[#F72D9B]/25 hover:shadow-lg hover:shadow-[#F72D9B]/35 transition-all hover:scale-102 cursor-pointer"
@@ -340,6 +347,20 @@ export default function NailsDesignPage() {
                 <span>Open Interactive Virtual Nail Studio</span>
                 <ChevronRight className="w-3.5 h-3.5 text-white/80" />
               </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCustomDesigns((prev) => !prev);
+                  setSelectedCategory('ALL STYLES');
+                }}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                  showCustomDesigns
+                    ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]'
+                    : 'bg-white text-[#D93B78] border-[#F72D9B]/30 hover:bg-pink-50'
+                }`}
+              >
+                <span>{showCustomDesigns ? 'Showing Community Custom Designs' : 'Community Custom Designs'}</span>
+              </button>
             </div>
           </div>
 

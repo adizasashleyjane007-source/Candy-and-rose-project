@@ -6,6 +6,13 @@ import { CheckCircle2, AlertCircle, X, ChevronLeft, ChevronRight, ArrowLeft, Ban
 import { supabase, type Service, type Staff, parseDurationToMinutes } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import type { NailDesignItem } from '@/lib/nail-designs';
+import {
+  getCustomerTimezone,
+  getNowInTimezone,
+  isTimeSlotInPast,
+  getFirstAvailableSlot,
+  type TimezoneNow
+} from '@/lib/timezone';
 
 interface BookingModalProps {
   open: boolean;
@@ -129,16 +136,34 @@ export function BookingModal({
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [limitModalOpen, setLimitModalOpen] = useState(false);
 
-  // Current calendar view
-  const todayStr = useMemo(() => getTodayString(), []);
-  const todayDate = useMemo(() => new Date(), []);
-  
-  const [viewYear, setViewYear] = useState<number>(todayDate.getFullYear());
-  const [viewMonth, setViewMonth] = useState<number>(todayDate.getMonth()); // 0-indexed
+  // Customer local timezone (Asia/Manila fallback) and dynamic real-time tracking
+  const customerTimezone = useMemo(() => getCustomerTimezone(), []);
+  const [nowInTz, setNowInTz] = useState<TimezoneNow>(() => getNowInTimezone(customerTimezone));
+
+  // Continuously refresh current local time every 15s and on window focus/tab change
+  useEffect(() => {
+    const updateTime = () => {
+      setNowInTz(getNowInTimezone(customerTimezone));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 15000);
+    window.addEventListener('focus', updateTime);
+    document.addEventListener('visibilitychange', updateTime);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', updateTime);
+      document.removeEventListener('visibilitychange', updateTime);
+    };
+  }, [customerTimezone]);
+
+  const [viewYear, setViewYear] = useState<number>(nowInTz.year);
+  const [viewMonth, setViewMonth] = useState<number>(nowInTz.monthIndex); // 0-indexed
 
   // Booking states
-  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
-  const [selectedTime, setSelectedTime] = useState<string>('05:00 PM');
+  const [selectedDate, setSelectedDate] = useState<string>(nowInTz.dateStr);
+  const [selectedTime, setSelectedTime] = useState<string>(() => {
+    return getFirstAvailableSlot(TIME_SLOTS, nowInTz.dateStr, customerTimezone) || '';
+  });
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -157,6 +182,80 @@ export function BookingModal({
   const [verificationInput, setVerificationInput] = useState('');
   const [verificationError, setVerificationError] = useState('');
 
+  // Hairstyle Reference Image States (ONLY for Kids Haircut & Men & Women Haircut)
+  const [hairstyleFile, setHairstyleFile] = useState<File | null>(null);
+  const [hairstylePreviewUrl, setHairstylePreviewUrl] = useState<string | null>(null);
+  const [hairstyleError, setHairstyleError] = useState('');
+  const [isDraggingHairstyle, setIsDraggingHairstyle] = useState(false);
+
+  // Primary selected service & display names from booking state
+  const primaryService = initialServices && initialServices.length > 0 ? initialServices[0] : undefined;
+  const serviceNames = selectedDesign
+    ? (initialServices.length > 0 ? `${initialServices.map(s => s.name).join(', ')} (${selectedDesign.name})` : `Artisan Nail Art - ${selectedDesign.name}`)
+    : (initialServices.length > 0 ? initialServices.map(s => s.name).join(', ') : 'Color, Brazillian Cut');
+
+  // Conditional display: ONLY show Hairstyle Reference Image for:
+  // - Kids Haircut (DB ID: 7b607bd1-039b-4c8f-8e9c-b409a8a8005f, name: 'Kids' / 'Kids Haircut')
+  // - Men & Women Haircut (DB ID: bbf417f2-35f6-42d7-8348-c9b0876e0549, name: 'Men & Women Haircut')
+  // All other services under Haircut & Styling or other categories remain hidden.
+  const showHairstyleUpload = useMemo(() => {
+    const ELIGIBLE_SERVICE_IDS = new Set([
+      '7b607bd1-039b-4c8f-8e9c-b409a8a8005f', // Kids / Kids Haircut
+      'bbf417f2-35f6-42d7-8348-c9b0876e0549', // Men & Women Haircut
+    ]);
+
+    const ELIGIBLE_SERVICE_NAMES = new Set([
+      'kids haircut',
+      "kid's haircut",
+      'kids',
+      'men & women haircut',
+      'men and women haircut',
+    ]);
+
+    const normalizeServiceName = (raw?: string | null) =>
+      (raw || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+    const isEligibleHaircutService = (svc?: Service | null) => {
+      if (!svc) return false;
+      if (svc.id && ELIGIBLE_SERVICE_IDS.has(svc.id.trim().toLowerCase())) {
+        return true;
+      }
+      return ELIGIBLE_SERVICE_NAMES.has(normalizeServiceName(svc.name));
+    };
+
+    if (isEligibleHaircutService(primaryService)) {
+      return true;
+    }
+
+    if (initialServices && initialServices.length > 0 && initialServices.some(isEligibleHaircutService)) {
+      return true;
+    }
+
+    if (ELIGIBLE_SERVICE_NAMES.has(normalizeServiceName(serviceNames))) {
+      return true;
+    }
+
+    return false;
+  }, [initialServices, primaryService, serviceNames]);
+
+  // Debug logging to trace selected service and Hairstyle Reference Image visibility
+  useEffect(() => {
+    if (!open) return;
+    console.log('[BookingModal Debug] Selected service object:', primaryService || null, 'All initialServices:', initialServices);
+    console.log('[BookingModal Debug] Selected service ID:', primaryService?.id || null);
+    console.log('[BookingModal Debug] Selected service name:', primaryService?.name || serviceNames);
+    console.log('[BookingModal Debug] showHairstyleUpload:', showHairstyleUpload);
+    console.log('[BookingModal Debug] Upload component rendered (step === "details" && showHairstyleUpload):', step === 'details' && showHairstyleUpload);
+  }, [open, step, primaryService, initialServices, serviceNames, showHairstyleUpload]);
+
+  useEffect(() => {
+    if (!showHairstyleUpload) {
+      setHairstyleFile(null);
+      setHairstylePreviewUrl(null);
+      setHairstyleError('');
+    }
+  }, [showHairstyleUpload]);
+
   useEffect(() => {
     if (!open) return;
     setStep('datetime');
@@ -167,17 +266,37 @@ export function BookingModal({
     setVerificationError('');
     setGcashFile(null);
     setGcashPreviewUrl(null);
+    setHairstyleFile(null);
+    setHairstylePreviewUrl(null);
+    setHairstyleError('');
     setLimitModalOpen(false);
-    const now = new Date();
-    setViewYear(now.getFullYear());
-    setViewMonth(now.getMonth());
-    setSelectedDate(getTodayString());
-    setSelectedTime('05:00 PM');
+
+    const currentNow = getNowInTimezone(customerTimezone);
+    setNowInTz(currentNow);
+    setViewYear(currentNow.year);
+    setViewMonth(currentNow.monthIndex);
+    setSelectedDate(currentNow.dateStr);
+
+    const firstAvailable = getFirstAvailableSlot(TIME_SLOTS, currentNow.dateStr, customerTimezone) || '';
+    setSelectedTime(firstAvailable);
 
     supabase.from('staff').select('*').order('name').then(({ data }) => {
       if (data && data.length > 0) setStaffList((data as Staff[]).filter(st => (st.employment_status || 'Active') !== 'Inactive'));
     });
-  }, [open]);
+  }, [open, customerTimezone]);
+
+  // Real-time slot validity check: if selected time is in the past for selected date, auto-reselect or clear
+  useEffect(() => {
+    if (!selectedDate) return;
+    if (selectedDate < nowInTz.dateStr) {
+      setSelectedDate(nowInTz.dateStr);
+      return;
+    }
+    if (isTimeSlotInPast(selectedTime, selectedDate, customerTimezone)) {
+      const nextAvailable = getFirstAvailableSlot(TIME_SLOTS, selectedDate, customerTimezone) || '';
+      setSelectedTime(nextAvailable);
+    }
+  }, [selectedDate, nowInTz.timeMinutes, nowInTz.dateStr, customerTimezone, selectedTime]);
 
   useEffect(() => {
     if (user || profile || customer) {
@@ -213,14 +332,9 @@ export function BookingModal({
     ? (baseTotalAmount > 0 ? baseTotalAmount + selectedDesign.priceNumeric : selectedDesign.priceNumeric)
     : (baseTotalAmount > 0 ? baseTotalAmount : 2690);
 
-  const serviceNames = selectedDesign
-    ? (initialServices.length > 0 ? `${initialServices.map(s => s.name).join(', ')} (${selectedDesign.name})` : `Artisan Nail Art - ${selectedDesign.name}`)
-    : (initialServices.length > 0 ? initialServices.map(s => s.name).join(', ') : 'Color, Brazillian Cut');
-
   const durationSummary = initialServices.reduce((acc, s) => acc + (s.duration_min || parseDurationToMinutes(s.duration)), 0) || 50;
 
-  // Primary service & Staff assignment
-  const primaryService = initialServices[0];
+  // Staff assignment
   let assignedStaffName = 'Matthew';
   let assignedStaffId: string | null = null;
   if (primaryService && primaryService.required_role) {
@@ -253,7 +367,7 @@ export function BookingModal({
     }
   };
 
-  const isPrevDisabled = viewYear === todayDate.getFullYear() && viewMonth <= todayDate.getMonth();
+  const isPrevDisabled = viewYear < nowInTz.year || (viewYear === nowInTz.year && viewMonth <= nowInTz.monthIndex);
 
   // Generate days in month grid
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -342,6 +456,73 @@ export function BookingModal({
     reader.readAsDataURL(file);
   };
 
+  // Hairstyle Reference Image Upload & Validation (Strictly PNG, JPG, JPEG only, Max 5 MB)
+  const MAX_HAIRSTYLE_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+  const ALLOWED_HAIRSTYLE_MIMES = ['image/png', 'image/jpeg', 'image/jpg'];
+  const ALLOWED_HAIRSTYLE_EXTS = ['png', 'jpg', 'jpeg'];
+
+  const isValidHairstyleFile = (file: File): { valid: boolean; error?: string } => {
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const mime = (file.type || '').toLowerCase();
+
+    if (!ALLOWED_HAIRSTYLE_EXTS.includes(ext) || !ALLOWED_HAIRSTYLE_MIMES.includes(mime)) {
+      return {
+        valid: false,
+        error: 'Unsupported file format. Only PNG, JPG, and JPEG images are accepted.',
+      };
+    }
+
+    if (file.size > MAX_HAIRSTYLE_FILE_SIZE) {
+      return {
+        valid: false,
+        error: 'File size exceeds the 5 MB limit. Please upload an image under 5 MB.',
+      };
+    }
+
+    return { valid: true };
+  };
+
+  const processHairstyleFile = (file: File) => {
+    const validation = isValidHairstyleFile(file);
+    if (!validation.valid) {
+      setHairstyleError(validation.error || 'Unsupported file format. Only PNG, JPG, and JPEG images are accepted.');
+      setHairstyleFile(null);
+      setHairstylePreviewUrl(null);
+      return;
+    }
+
+    setHairstyleError('');
+    setHairstyleFile(file);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setHairstylePreviewUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleHairstyleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processHairstyleFile(file);
+    e.target.value = '';
+  };
+
+  const handleHairstyleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingHairstyle(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    processHairstyleFile(file);
+  };
+
+  const handleRemoveHairstyleImage = () => {
+    setHairstyleFile(null);
+    setHairstylePreviewUrl(null);
+    setHairstyleError('');
+  };
+
   // Step 1: Click "NEXT STEP"
   const handleNextStep = async () => {
     if (!selectedDate) {
@@ -352,11 +533,38 @@ export function BookingModal({
       setErrorMsg('Please select an available time.');
       return;
     }
+
+    // Dynamic real-time validation: check if date/time has already passed
+    if (isTimeSlotInPast(selectedTime, selectedDate, customerTimezone)) {
+      setErrorMsg('The selected time slot has already passed. Please select a valid upcoming time.');
+      return;
+    }
+
     setErrorMsg('');
 
     if (!user) {
       window.dispatchEvent(new CustomEvent('open-auth'));
       return;
+    }
+
+    // Server-side timezone validation
+    try {
+      const res = await fetch('/api/appointments/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: selectedDate,
+          time: selectedTime,
+          timezone: customerTimezone,
+        }),
+      });
+      if (!res.ok) {
+        const valData = await res.json().catch(() => ({}));
+        setErrorMsg(valData.error || 'The selected date and time has already passed.');
+        return;
+      }
+    } catch (valErr) {
+      console.warn('Backend validation check skipped due to network:', valErr);
     }
 
     try {
@@ -387,6 +595,44 @@ export function BookingModal({
     if (!selectedDate) {
       setErrorMsg('Please select a valid date.');
       return;
+    }
+    if (showHairstyleUpload && hairstyleError) {
+      setErrorMsg(hairstyleError);
+      return;
+    }
+    if (showHairstyleUpload && hairstyleFile) {
+      const check = isValidHairstyleFile(hairstyleFile);
+      if (!check.valid) {
+        setHairstyleError(check.error || 'Unsupported file format. Only PNG, JPG, and JPEG images are accepted.');
+        setErrorMsg(check.error || 'Unsupported file format. Only PNG, JPG, and JPEG images are accepted.');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/appointments/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: selectedDate,
+            time: selectedTime,
+            timezone: customerTimezone,
+            hairstyleImage: {
+              name: hairstyleFile.name,
+              type: hairstyleFile.type,
+              size: hairstyleFile.size,
+            },
+          }),
+        });
+        if (!res.ok) {
+          const valData = await res.json().catch(() => ({}));
+          const errMessage = valData.error || 'Unsupported file format. Only PNG, JPG, and JPEG images are accepted.';
+          setHairstyleError(errMessage);
+          setErrorMsg(errMessage);
+          return;
+        }
+      } catch (valErr) {
+        console.warn('Backend image validation check skipped due to network:', valErr);
+      }
     }
 
     const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -615,12 +861,77 @@ export function BookingModal({
       const validServiceId = isValidUUID(primaryService?.id) ? primaryService?.id : null;
       const validStaffId = isValidUUID(assignedStaffId) ? assignedStaffId : null;
 
+      // Prevent booking inactive or unavailable services
+      if (validServiceId) {
+        const { data: svcCheck } = await supabase
+          .from('services')
+          .select('id, status')
+          .eq('id', validServiceId)
+          .maybeSingle();
+
+        if (svcCheck && svcCheck.status) {
+          const st = svcCheck.status.toLowerCase();
+          if (st !== 'active' && st !== 'available') {
+            setErrorMsg('The selected service is currently inactive or unavailable. Please choose another service.');
+            setSubmitting(false);
+            return;
+          }
+        }
+      }
+
+      // Real-time validation: ensure appointment time has not passed
+      if (isTimeSlotInPast(selectedTime, selectedDate, customerTimezone)) {
+        setErrorMsg('The selected booking date and time has already passed. Please go back and choose an upcoming time slot.');
+        setSubmitting(false);
+        return;
+      }
+
       // Verification check: verify 5-booking limit immediately before inserting appointment
       const activeCountOnDate = await getCustomerDailyBookingCount(selectedDate, currentUser, profile, customerRecord);
       if (activeCountOnDate >= 5) {
         setLimitModalOpen(true);
         setSubmitting(false);
         return;
+      }
+
+      // Upload optional Hairstyle Reference Image to Supabase Storage if applicable
+      let uploadedHairstyleUrl: string | null = null;
+      if (showHairstyleUpload && hairstyleFile) {
+        const hsValidation = isValidHairstyleFile(hairstyleFile);
+        if (!hsValidation.valid) {
+          setErrorMsg(hsValidation.error || 'Unsupported file format. Only PNG, JPG, and JPEG images are accepted.');
+          setSubmitting(false);
+          return;
+        }
+        try {
+          const origExt = hairstyleFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+          const safeExt = ['jpg', 'jpeg', 'png'].includes(origExt) ? origExt : 'jpg';
+          const cleanCustName = (customerName || 'customer').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+          const storageFileName = `hairstyle_${cleanCustName}_${Date.now()}.${safeExt}`;
+
+          const { error: hsUploadErr } = await supabase.storage
+            .from('hairstyle-references')
+            .upload(storageFileName, hairstyleFile, {
+              cacheControl: '3600',
+              upsert: true,
+              contentType: safeExt === 'png' ? 'image/png' : 'image/jpeg',
+            });
+
+          if (!hsUploadErr) {
+            const { data: hsPubData } = supabase.storage
+              .from('hairstyle-references')
+              .getPublicUrl(storageFileName);
+            if (hsPubData?.publicUrl) {
+              uploadedHairstyleUrl = hsPubData.publicUrl;
+            }
+          } else {
+            console.warn('Hairstyle storage upload note, using fallback preview:', hsUploadErr.message);
+            uploadedHairstyleUrl = hairstylePreviewUrl;
+          }
+        } catch (hsErr) {
+          console.warn('Hairstyle storage bucket upload warning:', hsErr);
+          uploadedHairstyleUrl = hairstylePreviewUrl;
+        }
       }
 
       const paymentStatusVal = methodToSave === 'Cash' ? 'Pending' : 'Pending Verification';
@@ -645,6 +956,7 @@ export function BookingModal({
         design_id: selectedDesign?.id || null,
         design_name: selectedDesign?.name || null,
         design_image: selectedDesign?.image || null,
+        hairstyle_reference_image: uploadedHairstyleUrl || null,
       };
 
       const { data: createdAppt, error: apptError } = await supabase
@@ -675,6 +987,7 @@ export function BookingModal({
         paymentStatus: paymentStatusVal,
         screenshotFilename: gcashData?.filename,
         screenshotUrl: gcashData?.previewUrl,
+        hairstyleReferenceImage: uploadedHairstyleUrl || null,
       });
 
       if (methodToSave === 'GCash') {
@@ -697,7 +1010,7 @@ export function BookingModal({
         step === 'datetime'
           ? 'max-w-[1360px] min-h-[615px] lg:h-[628px] overflow-y-auto lg:overflow-hidden'
           : step === 'details'
-          ? 'max-w-[840px] min-h-[620px] lg:h-[640px] overflow-y-auto lg:overflow-hidden'
+          ? 'max-w-[840px] min-h-[620px] overflow-y-auto'
           : step === 'gcash_qr'
           ? 'max-w-[480px] overflow-y-auto'
           : step === 'gcash_proof'
@@ -781,8 +1094,8 @@ export function BookingModal({
                     {currentMonthDays.map((d) => {
                       const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                       const isSelected = selectedDate === dateStr;
-                      const isPast = dateStr < todayStr;
-                      const isToday = dateStr === todayStr;
+                      const isPast = dateStr < nowInTz.dateStr;
+                      const isToday = dateStr === nowInTz.dateStr;
 
                       if (isPast) {
                         return (
@@ -797,7 +1110,10 @@ export function BookingModal({
                           <div key={dateStr} className="flex items-center justify-center">
                             <button
                               type="button"
-                              onClick={() => setSelectedDate(dateStr)}
+                              onClick={() => {
+                                setSelectedDate(dateStr);
+                                setErrorMsg('');
+                              }}
                               className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-pink-500 text-white font-bold flex items-center justify-center shadow-md shadow-pink-500/30 transition-transform active:scale-95 text-xs sm:text-sm"
                             >
                               {d}
@@ -811,7 +1127,10 @@ export function BookingModal({
                           <div key={dateStr} className="flex items-center justify-center">
                             <button
                               type="button"
-                              onClick={() => setSelectedDate(dateStr)}
+                              onClick={() => {
+                                setSelectedDate(dateStr);
+                                setErrorMsg('');
+                              }}
                               className="h-8 w-8 sm:h-9 sm:w-9 rounded-full border border-pink-400 text-pink-500 font-semibold flex items-center justify-center hover:bg-pink-50 transition-colors text-xs sm:text-sm"
                             >
                               {d}
@@ -824,7 +1143,10 @@ export function BookingModal({
                         <div key={dateStr} className="flex items-center justify-center">
                           <button
                             type="button"
-                            onClick={() => setSelectedDate(dateStr)}
+                            onClick={() => {
+                              setSelectedDate(dateStr);
+                              setErrorMsg('');
+                            }}
                             className="h-8 w-8 sm:h-9 sm:w-9 rounded-full text-neutral-700 font-medium hover:bg-pink-50 hover:text-pink-600 transition-colors flex items-center justify-center text-xs sm:text-sm"
                           >
                             {d}
@@ -858,12 +1180,31 @@ export function BookingModal({
                 {/* 4-Column Time Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-2.5 sm:gap-x-3 gap-y-2.5 sm:gap-y-3">
                   {TIME_SLOTS.map((slot) => {
+                    const isPast = isTimeSlotInPast(slot, selectedDate, customerTimezone);
                     const isSelected = selectedTime === slot;
+
+                    if (isPast) {
+                      return (
+                        <button
+                          key={slot}
+                          type="button"
+                          disabled={true}
+                          title="This time slot has already passed"
+                          className="rounded-xl py-2.5 px-2 sm:px-3 text-xs sm:text-[13px] font-semibold text-center whitespace-nowrap bg-neutral-100 text-neutral-400 border border-neutral-200/50 cursor-not-allowed opacity-50 select-none"
+                        >
+                          {slot}
+                        </button>
+                      );
+                    }
+
                     return (
                       <button
                         key={slot}
                         type="button"
-                        onClick={() => setSelectedTime(slot)}
+                        onClick={() => {
+                          setSelectedTime(slot);
+                          setErrorMsg('');
+                        }}
                         className={`rounded-xl py-2.5 px-2 sm:px-3 text-xs sm:text-[13px] font-semibold text-center whitespace-nowrap transition-all ${
                           isSelected
                             ? 'bg-pink-500 text-white font-bold shadow-md shadow-pink-500/25 border border-pink-500 scale-[1.02]'
@@ -875,6 +1216,14 @@ export function BookingModal({
                     );
                   })}
                 </div>
+
+                {/* Notice if all slots for selected date have passed */}
+                {selectedDate === nowInTz.dateStr && !getFirstAvailableSlot(TIME_SLOTS, selectedDate, customerTimezone) && (
+                  <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-800 text-xs font-medium flex items-center gap-2">
+                    <AlertTriangle size={16} className="shrink-0 text-amber-600" />
+                    <span>All appointment slots for today have ended. Please select an upcoming date on the calendar.</span>
+                  </div>
+                )}
               </div>
 
               {/* COLUMN 3: PREFERENCES / BOOKING SUMMARY */}
@@ -930,7 +1279,7 @@ export function BookingModal({
                           {formatSummaryDate(selectedDate)}
                         </span>
                         <span className="font-bold text-pink-500 block text-xs sm:text-sm mt-0.5">
-                          {selectedTime}
+                          {selectedTime || 'Select a time'}
                         </span>
                       </div>
                     </div>
@@ -1030,6 +1379,110 @@ export function BookingModal({
                   </div>
                 </div>
 
+                {/* HAIRSTYLE REFERENCE IMAGE — Displayed directly after Email Address row & before Special Instructions */}
+                {showHairstyleUpload && (
+                  <div className="transition-all">
+                    <label className="mb-0.5 block text-[11px] font-bold uppercase tracking-wider text-pink-500">
+                      HAIRSTYLE REFERENCE IMAGE
+                    </label>
+                    <p className="text-xs text-neutral-500 mb-2 leading-relaxed">
+                      Upload an image of the hairstyle you want us to create.
+                    </p>
+
+                    {!hairstyleFile || !hairstylePreviewUrl ? (
+                      <label
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsDraggingHairstyle(true);
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsDraggingHairstyle(false);
+                        }}
+                        onDrop={handleHairstyleDrop}
+                        className={`flex flex-col sm:flex-row items-center justify-between gap-3 border-2 border-dashed rounded-xl p-3.5 sm:p-4 cursor-pointer transition-all text-center sm:text-left group ${
+                          isDraggingHairstyle
+                            ? 'border-pink-500 bg-pink-50/60'
+                            : 'border-pink-200 hover:border-pink-400 bg-white hover:bg-pink-50/30'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row items-center gap-3 min-w-0">
+                          <div className="h-10 w-10 rounded-full bg-pink-50 flex items-center justify-center text-pink-500 shrink-0 group-hover:scale-105 transition-transform">
+                            <Upload size={18} />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs sm:text-sm font-semibold text-neutral-800 block">
+                              Click to upload or drag and drop.
+                            </span>
+                            <span className="text-[11px] text-neutral-400 block mt-0.5">
+                              Supported formats: PNG, JPG, JPEG
+                            </span>
+                          </div>
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-pink-500 text-white text-[11px] font-bold uppercase tracking-wider shadow-xs group-hover:bg-pink-600 transition-colors shrink-0">
+                          <Image size={13} />
+                          <span>Choose Image</span>
+                        </span>
+                        <input
+                          type="file"
+                          accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                          onChange={handleHairstyleFileChange}
+                          className="hidden"
+                        />
+                      </label>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3.5 rounded-xl border border-pink-200/80 bg-white p-3 shadow-2xs">
+                        <div className="flex items-center gap-3 w-full sm:w-auto min-w-0">
+                          <img
+                            src={hairstylePreviewUrl}
+                            alt="Hairstyle Reference Preview"
+                            className="h-16 w-16 sm:h-20 sm:w-20 rounded-lg object-cover border border-pink-100 shrink-0 shadow-2xs"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-[11px]">
+                              <CheckCircle2 size={13} className="shrink-0" />
+                              <span>Hairstyle Reference Uploaded</span>
+                            </div>
+                            <p className="text-xs font-semibold text-neutral-800 truncate mt-0.5" title={hairstyleFile.name}>
+                              Filename: {hairstyleFile.name}
+                            </p>
+                            <p className="text-[11px] text-neutral-400 mt-0.5">
+                              {(hairstyleFile.size / (1024 * 1024)).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-neutral-100 shrink-0">
+                          <label className="px-3 py-1.5 rounded-lg border border-pink-200 bg-pink-50/50 hover:bg-pink-100/70 text-pink-600 text-[11px] font-bold uppercase tracking-wider cursor-pointer transition-colors">
+                            Replace
+                            <input
+                              type="file"
+                              accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                              onChange={handleHairstyleFileChange}
+                              className="hidden"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handleRemoveHairstyleImage}
+                            className="px-3 py-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-red-50 hover:border-red-200 text-neutral-500 hover:text-red-600 text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {hairstyleError && (
+                      <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200/80 px-3 py-2 text-xs font-semibold text-red-600">
+                        <AlertCircle size={14} className="shrink-0" />
+                        <span>{hairstyleError}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* SPECIAL INSTRUCTIONS / NOTES */}
                 <div>
                   <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-pink-500">
@@ -1057,6 +1510,12 @@ export function BookingModal({
                     <span className="font-medium">Staff Member:</span>
                     <span className="font-bold text-neutral-900">{assignedStaffName}</span>
                   </div>
+                  {showHairstyleUpload && hairstyleFile && (
+                    <div className="flex justify-between items-center text-neutral-700">
+                      <span className="font-medium">Hairstyle Reference:</span>
+                      <span className="font-bold text-emerald-600 truncate max-w-[200px]">{hairstyleFile.name}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center border-t border-pink-200/60 pt-1.5 text-sm">
                     <span className="font-bold text-neutral-900">Total Price:</span>
                     <span className="font-bold text-pink-500">₱{totalAmount.toLocaleString()}</span>

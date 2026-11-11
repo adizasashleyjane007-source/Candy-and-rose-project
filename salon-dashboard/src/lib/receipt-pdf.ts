@@ -14,6 +14,9 @@ export interface ReceiptPDFOptions {
   timeStr?: string;
   serviceName?: string;
   price?: number;
+  originalSubtotal?: number;
+  loyaltyDiscountAmount?: number;
+  loyaltyRewardDescription?: string | null;
   paymentMethod?: string;
   cashReceived?: number;
   change?: number;
@@ -38,10 +41,19 @@ export function buildReceiptPDFDoc(options: ReceiptPDFOptions): jsPDF {
     timeStr,
     serviceName = "Salon Service",
     price = 0,
+    originalSubtotal,
+    loyaltyDiscountAmount = 0,
+    loyaltyRewardDescription,
     paymentMethod = "Cash",
     cashReceived,
     change,
   } = options;
+
+  const subtotalVal =
+    originalSubtotal !== undefined && originalSubtotal > 0
+      ? originalSubtotal
+      : price + (loyaltyDiscountAmount || 0);
+  const discountVal = Math.max(0, Number(loyaltyDiscountAmount) || 0);
 
   const doc = new jsPDF({
     unit: "mm",
@@ -172,7 +184,7 @@ export function buildReceiptPDFDoc(options: ReceiptPDFOptions): jsPDF {
   doc.setTextColor(0);
   doc.setFont("helvetica", "normal");
   doc.text(serviceName, margin + 2, y);
-  drawCurrency(price.toLocaleString(), pageWidth - margin - 2, y, {
+  drawCurrency(subtotalVal.toLocaleString(), pageWidth - margin - 2, y, {
     align: "right",
   });
   y += 8;
@@ -186,12 +198,28 @@ export function buildReceiptPDFDoc(options: ReceiptPDFOptions): jsPDF {
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(80);
-  doc.text("Sub-total:", margin + 2, y);
+  doc.text("Subtotal:", margin + 2, y);
   doc.setTextColor(0);
-  drawCurrency(price.toLocaleString(), pageWidth - margin - 2, y, {
+  drawCurrency(subtotalVal.toLocaleString(), pageWidth - margin - 2, y, {
     align: "right",
   });
   y += 5;
+
+  if (discountVal > 0) {
+    doc.setTextColor(pink[0], pink[1], pink[2]);
+    doc.setFont("helvetica", "bold");
+    const discLabel = loyaltyRewardDescription
+      ? `Loyalty Discount (${loyaltyRewardDescription}):`
+      : "Loyalty Discount:";
+    doc.setFontSize(8);
+    doc.text(discLabel, margin + 2, y);
+    doc.text(`- P ${discountVal.toLocaleString()}`, pageWidth - margin - 2, y, {
+      align: "right",
+    });
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    y += 5;
+  }
 
   doc.setTextColor(80);
   doc.text("Tax (0%):", margin + 2, y);

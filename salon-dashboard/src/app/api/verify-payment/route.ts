@@ -52,20 +52,18 @@ export async function POST(req: Request) {
 
     // Determine checkout session id: passed explicitly or fetched from billing record notes
     let activeSessionId = sessionId;
-    if (!activeSessionId) {
-      const { data: pendingBill } = await supabase
-        .from("billing")
-        .select("notes")
-        .eq("appointment_id", appointmentId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    const { data: pendingBill } = await supabase
+      .from("billing")
+      .select("notes, loyalty_reward_id, original_amount, loyalty_discount_amount, loyalty_reward_description")
+      .eq("appointment_id", appointmentId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-      if (pendingBill?.notes) {
-        const match = pendingBill.notes.match(/paymongo_session_id:(cs_[a-zA-Z0-9_-]+)/);
-        if (match) {
-          activeSessionId = match[1];
-        }
+    if (!activeSessionId && pendingBill?.notes) {
+      const match = pendingBill.notes.match(/paymongo_session_id:(cs_[a-zA-Z0-9_-]+)/);
+      if (match) {
+        activeSessionId = match[1];
       }
     }
 
@@ -132,11 +130,29 @@ export async function POST(req: Request) {
       0;
     const amountInPHP = amountInCentavos > 0 ? amountInCentavos / 100 : (apt.price || 0);
 
+    const metaRewardId =
+      attributes?.metadata?.loyalty_reward_id || pendingBill?.loyalty_reward_id || null;
+    const metaOriginalAmount = attributes?.metadata?.original_amount
+      ? Number(attributes.metadata.original_amount)
+      : pendingBill?.original_amount ?? undefined;
+    const metaDiscountAmount = attributes?.metadata?.loyalty_discount_amount
+      ? Number(attributes.metadata.loyalty_discount_amount)
+      : pendingBill?.loyalty_discount_amount ?? undefined;
+    const metaRewardDesc =
+      attributes?.metadata?.loyalty_reward_description ||
+      pendingBill?.loyalty_reward_description ||
+      null;
+
     const fulfillment = await fulfillPaymentSuccess({
       appointmentId,
       amount: amountInPHP,
       paymentMethod: "GCash",
       notes: `Paid via PayMongo Checkout (${activeSessionId})`,
+      loyaltyRewardId: metaRewardId || null,
+      originalAmount: metaOriginalAmount !== undefined ? Number(metaOriginalAmount) : undefined,
+      loyaltyDiscountAmount:
+        metaDiscountAmount !== undefined ? Number(metaDiscountAmount) : undefined,
+      loyaltyRewardDescription: metaRewardDesc,
     });
 
     if (!fulfillment.success) {

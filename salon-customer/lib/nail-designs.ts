@@ -19,6 +19,7 @@ export interface NailDesignItem {
   primary_color?: string;
   secondary_color?: string;
   texture?: string;
+  visibility?: 'public' | 'private';
 }
 
 export const DEFAULT_NAIL_INCLUSIONS = [

@@ -3,7 +3,8 @@
 import Header from "@/components/Header";
 import { useState, useEffect, useRef } from "react";
 import { addNotification } from "@/lib/notifications";
-import { SettingsDB, ArchiveDB, ArchivedRecord, PromotionsDB, Promotion } from "@/lib/db";
+import { SettingsDB, ArchiveDB, ArchivedRecord, PromotionsDB, Promotion, Services, type Service } from "@/lib/db";
+import { LoyaltyDB, buildRewardDescription, type LoyaltyRewardSettings, type LoyaltyRewardType } from "@/lib/loyalty";
 import {
     Store,
     Clock,
@@ -35,7 +36,9 @@ import {
     AlertCircle,
     Calendar,
     Image as ImageIcon,
-    Check
+    Check,
+    Star,
+    Gift
 } from "lucide-react";
 import Pagination from "@/components/Pagination";
 
@@ -159,10 +162,24 @@ export default function SettingsPage() {
     const [operatingHours, setOperatingHours] = useState<OperatingHours>(defaultOperatingHours);
     const [notifications, setNotifications] = useState<NotificationSettings>(defaultNotifications);
     const [toast, setToast] = useState<string | null>(null);
-    const [activeSection, setActiveSection] = useState<"salon" | "hours" | "notifications" | "payments" | "archive">("salon");
+    const [activeSection, setActiveSection] = useState<"salon" | "hours" | "notifications" | "payments" | "loyalty" | "archive">("salon");
     const [salonErrors, setSalonErrors] = useState<Partial<Record<keyof SalonInfo, string>>>({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+
+    // Loyalty Reward Configuration State
+    const [loyaltySettings, setLoyaltySettings] = useState<LoyaltyRewardSettings>({
+        id: "",
+        top_limit: 5,
+        reward_type: "percentage_discount",
+        reward_value: 20,
+        free_service_id: null,
+        free_service_name: null,
+        reward_description: "20% OFF",
+        validity_days: 31,
+        is_active: true,
+    });
+    const [availableServices, setAvailableServices] = useState<Service[]>([]);
 
     // Archive State
     const [archiveItems, setArchiveItems] = useState<ArchivedRecord[]>([]);
@@ -247,12 +264,17 @@ export default function SettingsPage() {
         const loadAllSettings = async () => {
             try {
                 setLoading(true);
-                const [si, oh, ns, pm] = await Promise.all([
+                const [si, oh, ns, pm, ls, svcs] = await Promise.all([
                     SettingsDB.get("salon_info"),
                     SettingsDB.get("operating_hours"),
                     SettingsDB.get("notification_preferences"),
-                    SettingsDB.listPaymentMethods()
+                    SettingsDB.listPaymentMethods(),
+                    LoyaltyDB.getSettings().catch(() => null),
+                    Services.list().catch(() => [])
                 ]);
+
+                if (ls) setLoyaltySettings(ls);
+                if (svcs) setAvailableServices(svcs);
 
                 if (si) {
                     setSalonInfo({
@@ -433,13 +455,72 @@ export default function SettingsPage() {
         }));
     };
 
+    const handleSaveLoyaltySettings = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            setSaving(true);
+            let finalValue = Number(loyaltySettings.reward_value) || 0;
+            let freeServiceName = loyaltySettings.free_service_name || null;
+
+            if (loyaltySettings.reward_type === "percentage_discount") {
+                if (finalValue <= 0 || finalValue > 100) {
+                    showToast("Percentage discount must be between 1% and 100%.");
+                    setSaving(false);
+                    return;
+                }
+            } else if (loyaltySettings.reward_type === "fixed_amount") {
+                if (finalValue <= 0) {
+                    showToast("Fixed discount amount must be greater than ₱0.");
+                    setSaving(false);
+                    return;
+                }
+            } else if (loyaltySettings.reward_type === "free_service") {
+                const matchedSvc = availableServices.find(s => s.id === loyaltySettings.free_service_id);
+                if (!matchedSvc && !freeServiceName) {
+                    showToast("Please select a service for the Free Service reward.");
+                    setSaving(false);
+                    return;
+                }
+                if (matchedSvc) {
+                    freeServiceName = matchedSvc.name;
+                    finalValue = Number(matchedSvc.price) || 0;
+                }
+            }
+
+            const saved = await LoyaltyDB.saveSettings({
+                ...loyaltySettings,
+                top_limit: 5,
+                reward_value: finalValue,
+                free_service_name: freeServiceName,
+                validity_days: Math.max(1, Number(loyaltySettings.validity_days) || 31),
+            });
+            setLoyaltySettings(saved);
+
+            // Sync current month's Top 5 rewards with updated settings
+            const now = new Date();
+            await LoyaltyDB.syncTop5ForMonth(now.getFullYear(), now.getMonth());
+
+            showToast("Loyalty reward settings saved successfully!");
+            addNotification(
+                "Loyalty Settings Updated",
+                `Top 5 Customer reward updated to ${saved.reward_description}.`,
+                "system"
+            );
+        } catch (error) {
+            console.error("Failed to save loyalty settings:", error);
+            showToast("Failed to save loyalty reward settings.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const days = Object.keys(operatingHours) as (keyof OperatingHours)[];
     const sectionTabs = [
         { key: "salon" as const, label: "Salon Info", icon: Store },
         { key: "hours" as const, label: "Operating Hours", icon: Clock },
         { key: "notifications" as const, label: "Notifications", icon: Bell },
         { key: "payments" as const, label: "Payment Methods", icon: CreditCard },
-
+        { key: "loyalty" as const, label: "Loyalty Rewards", icon: Star },
         { key: "archive" as const, label: "Archive", icon: Archive },
     ];
 
@@ -1094,6 +1175,268 @@ export default function SettingsPage() {
                             onPageChange={setCurrentPage}
                         />
                     </div>
+                )}
+
+                {activeSection === "loyalty" && (
+                    <form onSubmit={handleSaveLoyaltySettings} className="space-y-6">
+                        <div className="bg-white rounded-3xl p-8 shadow-sm border border-pink-100 relative">
+                            {saving && (
+                                <div className="absolute inset-0 bg-white/50 z-10 rounded-3xl flex items-center justify-center">
+                                    <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+                                </div>
+                            )}
+
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-pink-50">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-11 h-11 rounded-2xl bg-pink-100 flex items-center justify-center">
+                                        <Star className="w-5 h-5 text-pink-500 fill-pink-500" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-gray-900">Loyalty Reward Configuration</h3>
+                                        <p className="text-sm text-gray-500">Configure the monthly reward automatically granted to your Top 5 Customers</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 bg-pink-50/60 px-4 py-2.5 rounded-2xl border border-pink-100">
+                                    <span className="text-xs font-bold text-gray-700">Enable Top 5 Loyalty System</span>
+                                    <ToggleSwitch
+                                        id="loyalty-active-toggle"
+                                        enabled={loyaltySettings.is_active}
+                                        onChange={(val) => setLoyaltySettings((prev) => ({ ...prev, is_active: val }))}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Top Customers */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">
+                                        Top Customers
+                                    </label>
+                                    <div className="w-full px-4 py-3.5 bg-pink-50/40 border border-pink-100 rounded-2xl font-bold text-gray-900 flex items-center justify-between">
+                                        <span>Top 5 Customers (Monthly Ranking)</span>
+                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-pink-500 text-white">Top 5</span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1.5 pl-1">
+                                        Automatically ranked based on total completed &amp; paid transactions each month.
+                                    </p>
+                                </div>
+
+                                {/* Validity Period */}
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">
+                                        Validity (Days / Following Month)
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={365}
+                                            value={loyaltySettings.validity_days}
+                                            onChange={(e) =>
+                                                setLoyaltySettings((prev) => ({
+                                                    ...prev,
+                                                    validity_days: parseInt(e.target.value, 10) || 31,
+                                                }))
+                                            }
+                                            className="w-full px-4 py-3.5 bg-gray-50 border border-pink-100 rounded-2xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                                        />
+                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">
+                                            days (valid through following month)
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1.5 pl-1">
+                                        Rewards remain valid until the end of the following calendar month.
+                                    </p>
+                                </div>
+
+                                {/* Reward Type Selection */}
+                                <div className="md:col-span-2">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5 pl-1">
+                                        Reward Type
+                                    </label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                                        {[
+                                            {
+                                                type: "percentage_discount" as LoyaltyRewardType,
+                                                title: "Percentage Discount",
+                                                subtitle: "e.g. 20% off total bill",
+                                                icon: Percent,
+                                            },
+                                            {
+                                                type: "fixed_amount" as LoyaltyRewardType,
+                                                title: "Fixed Amount Discount",
+                                                subtitle: "e.g. ₱200 off total bill",
+                                                icon: Banknote,
+                                            },
+                                            {
+                                                type: "free_service" as LoyaltyRewardType,
+                                                title: "Free Service",
+                                                subtitle: "e.g. Free Basic Haircut",
+                                                icon: Gift,
+                                            },
+                                        ].map((opt) => {
+                                            const SelectedIcon = opt.icon;
+                                            const isSelected = loyaltySettings.reward_type === opt.type;
+                                            return (
+                                                <button
+                                                    key={opt.type}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setLoyaltySettings((prev) => {
+                                                            let nextVal = prev.reward_value;
+                                                            if (opt.type === "percentage_discount" && (nextVal <= 0 || nextVal > 100)) {
+                                                                nextVal = 20;
+                                                            } else if (opt.type === "fixed_amount" && nextVal <= 100) {
+                                                                nextVal = 200;
+                                                            }
+                                                            return {
+                                                                ...prev,
+                                                                reward_type: opt.type,
+                                                                reward_value: nextVal,
+                                                            };
+                                                        })
+                                                    }
+                                                    className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
+                                                        isSelected
+                                                            ? "bg-pink-50/80 border-pink-500 ring-2 ring-pink-500/20 shadow-xs"
+                                                            : "bg-gray-50/60 border-gray-200 hover:bg-pink-50/30 hover:border-pink-200"
+                                                    }`}
+                                                >
+                                                    <div
+                                                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                                                            isSelected ? "bg-pink-500 text-white" : "bg-white text-gray-500 border border-gray-200"
+                                                        }`}
+                                                    >
+                                                        <SelectedIcon className="w-4 h-4" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-sm text-gray-900">{opt.title}</div>
+                                                        <div className="text-xs text-gray-500 mt-0.5">{opt.subtitle}</div>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Reward Value / Service Input */}
+                                <div className="md:col-span-2">
+                                    {loyaltySettings.reward_type === "percentage_discount" && (
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">
+                                                Reward Value / Percentage (%)
+                                            </label>
+                                            <div className="relative max-w-md">
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={100}
+                                                    value={loyaltySettings.reward_value}
+                                                    onChange={(e) =>
+                                                        setLoyaltySettings((prev) => ({
+                                                            ...prev,
+                                                            reward_value: parseFloat(e.target.value) || 0,
+                                                        }))
+                                                    }
+                                                    className="w-full px-4 py-3.5 bg-gray-50 border border-pink-100 rounded-2xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                                                    placeholder="20"
+                                                />
+                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-extrabold text-pink-600">
+                                                    % OFF
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {loyaltySettings.reward_type === "fixed_amount" && (
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">
+                                                Reward Value / Fixed Discount Amount (₱)
+                                            </label>
+                                            <div className="relative max-w-md">
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    value={loyaltySettings.reward_value}
+                                                    onChange={(e) =>
+                                                        setLoyaltySettings((prev) => ({
+                                                            ...prev,
+                                                            reward_value: parseFloat(e.target.value) || 0,
+                                                        }))
+                                                    }
+                                                    className="w-full px-4 py-3.5 bg-gray-50 border border-pink-100 rounded-2xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                                                    placeholder="200"
+                                                />
+                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-extrabold text-pink-600">
+                                                    ₱ OFF
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {loyaltySettings.reward_type === "free_service" && (
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">
+                                                Reward Service Selection
+                                            </label>
+                                            <div className="max-w-md">
+                                                <select
+                                                    value={loyaltySettings.free_service_id || ""}
+                                                    onChange={(e) => {
+                                                        const svcId = e.target.value;
+                                                        const svc = availableServices.find((s) => s.id === svcId);
+                                                        setLoyaltySettings((prev) => ({
+                                                            ...prev,
+                                                            free_service_id: svcId || null,
+                                                            free_service_name: svc?.name || null,
+                                                            reward_value: Number(svc?.price) || 0,
+                                                        }));
+                                                    }}
+                                                    className="w-full px-4 py-3.5 bg-gray-50 border border-pink-100 rounded-2xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-400 cursor-pointer"
+                                                >
+                                                    <option value="">-- Select a Free Salon Service --</option>
+                                                    {availableServices.map((svc) => (
+                                                        <option key={svc.id} value={svc.id}>
+                                                            {svc.name} (₱{Number(svc.price || 0).toLocaleString()})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Live Preview Banner */}
+                            <div className="mt-6 p-5 rounded-2xl bg-pink-50/70 border border-pink-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-white border border-pink-200 flex items-center justify-center text-lg shadow-2xs">
+                                        ⭐
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold uppercase tracking-wider text-pink-600">
+                                            Active Reward Preview
+                                        </p>
+                                        <p className="text-base font-extrabold text-gray-900">
+                                            {buildRewardDescription(
+                                                loyaltySettings.reward_type,
+                                                loyaltySettings.reward_value,
+                                                loyaltySettings.free_service_name
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-pink-500 text-white font-semibold hover:bg-pink-600 shadow-lg shadow-pink-200 transition-all active:scale-95 cursor-pointer"
+                                >
+                                    <Save className="w-4 h-4" />
+                                    Save Reward Settings
+                                </button>
+                            </div>
+                        </div>
+                    </form>
                 )}
             </div>
 

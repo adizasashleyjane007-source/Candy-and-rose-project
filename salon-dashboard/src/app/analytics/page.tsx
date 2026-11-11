@@ -51,8 +51,9 @@ export default function AnalyticsPage() {
         };
     }, [isDropdownOpen]);
 
-    // Handle report generation and download
+    // Handle PDF report generation and download
     const handleDownloadReport = async (category: ReportCategory) => {
+        if (isGenerating) return;
         setIsDropdownOpen(false);
         setIsGenerating(true);
         setActiveReportName(category);
@@ -80,9 +81,9 @@ export default function AnalyticsPage() {
                 isError: false
             });
         } catch (error: any) {
-            console.error("Failed to generate report:", error);
+            console.error("Failed to generate PDF report:", error);
             setToastMessage({
-                text: error?.message || "Failed to download report. Please try again.",
+                text: error?.message || "Failed to generate PDF report. Please try again.",
                 isError: true
             });
         } finally {
@@ -177,8 +178,9 @@ export default function AnalyticsPage() {
                                     {/* 1. Appointment */}
                                     <button
                                         type="button"
+                                        disabled={isGenerating}
                                         onClick={() => handleDownloadReport("appointment")}
-                                        className="w-full block px-3.5 py-2.5 rounded-xl text-left text-gray-700 hover:text-pink-600 hover:bg-pink-50/70 transition-all cursor-pointer group/item"
+                                        className="w-full block px-3.5 py-2.5 rounded-xl text-left text-gray-700 hover:text-pink-600 hover:bg-pink-50/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group/item"
                                     >
                                         <p className="text-sm font-semibold leading-tight text-gray-900 group-hover/item:text-pink-600">
                                             Appointment
@@ -191,8 +193,9 @@ export default function AnalyticsPage() {
                                     {/* 2. Inventory */}
                                     <button
                                         type="button"
+                                        disabled={isGenerating}
                                         onClick={() => handleDownloadReport("inventory")}
-                                        className="w-full block px-3.5 py-2.5 rounded-xl text-left text-gray-700 hover:text-pink-600 hover:bg-pink-50/70 transition-all cursor-pointer group/item"
+                                        className="w-full block px-3.5 py-2.5 rounded-xl text-left text-gray-700 hover:text-pink-600 hover:bg-pink-50/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group/item"
                                     >
                                         <p className="text-sm font-semibold leading-tight text-gray-900 group-hover/item:text-pink-600">
                                             Inventory
@@ -205,8 +208,9 @@ export default function AnalyticsPage() {
                                     {/* 3. Billing */}
                                     <button
                                         type="button"
+                                        disabled={isGenerating}
                                         onClick={() => handleDownloadReport("billing")}
-                                        className="w-full block px-3.5 py-2.5 rounded-xl text-left text-gray-700 hover:text-pink-600 hover:bg-pink-50/70 transition-all cursor-pointer group/item"
+                                        className="w-full block px-3.5 py-2.5 rounded-xl text-left text-gray-700 hover:text-pink-600 hover:bg-pink-50/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group/item"
                                     >
                                         <p className="text-sm font-semibold leading-tight text-gray-900 group-hover/item:text-pink-600">
                                             Billing
@@ -219,8 +223,9 @@ export default function AnalyticsPage() {
                                     {/* 4. Nail Design Booked */}
                                     <button
                                         type="button"
+                                        disabled={isGenerating}
                                         onClick={() => handleDownloadReport("nail_design")}
-                                        className="w-full block px-3.5 py-2.5 rounded-xl text-left text-gray-700 hover:text-pink-600 hover:bg-pink-50/70 transition-all cursor-pointer group/item"
+                                        className="w-full block px-3.5 py-2.5 rounded-xl text-left text-gray-700 hover:text-pink-600 hover:bg-pink-50/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group/item"
                                     >
                                         <p className="text-sm font-semibold leading-tight text-gray-900 group-hover/item:text-pink-600">
                                             Nail Design Booked

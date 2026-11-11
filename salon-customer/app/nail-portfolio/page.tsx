@@ -18,7 +18,8 @@ export default function NailPortfolioPage() {
         setLoading(true);
         const { data, error } = await supabase
           .from('nail_designs')
-          .select('*')
+          .select('id, name, description, price, image_url, preview_url, category, inclusions, is_trending, art_data, visibility, created_at')
+          .neq('visibility', 'private')
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -28,7 +29,11 @@ export default function NailPortfolioPage() {
         }
 
         if (data && data.length > 0) {
-          const mapped: NailDesignItem[] = data.map((item: any, index: number) => {
+          const publicRows = data.filter((item: any) => {
+            const vis = String(item.visibility || item.art_data?.visibility || 'public').toLowerCase();
+            return vis !== 'private';
+          });
+          const mapped: NailDesignItem[] = publicRows.map((item: any, index: number) => {
             const rawId = item.id ? item.id.substring(0, 8).toUpperCase() : `NAIL${String(index + 1).padStart(2, '0')}`;
             const priceVal = item.price !== null && item.price !== undefined ? Number(item.price) : 500;
 

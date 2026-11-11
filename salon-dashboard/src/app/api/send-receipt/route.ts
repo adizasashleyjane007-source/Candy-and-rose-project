@@ -148,7 +148,19 @@ export async function POST(request: Request) {
 
     const paymentMethod = billingRecord?.payment_method || appointment.payment_method || "Cash";
     const servicePrice = Number(appointment.price || appointment.services?.price || 0);
-    const totalPaid = Number(billingRecord?.amount || servicePrice);
+    const totalPaid = Number(billingRecord?.amount ?? servicePrice);
+    const loyaltyDiscountAmount = Number(
+      billingRecord?.loyalty_discount_amount ?? appointment.loyalty_discount_amount ?? 0
+    );
+    const originalSubtotal = Number(
+      billingRecord?.original_amount ??
+        appointment.original_amount ??
+        (loyaltyDiscountAmount > 0 ? totalPaid + loyaltyDiscountAmount : totalPaid)
+    );
+    const loyaltyRewardDescription =
+      billingRecord?.loyalty_reward_description ||
+      appointment.loyalty_reward_description ||
+      null;
     const cashReceived = Number(billingRecord?.cash_received || totalPaid);
     const changeAmount = Math.max(0, cashReceived - totalPaid);
 
@@ -207,6 +219,19 @@ export async function POST(request: Request) {
               <td style="padding: 6px 0; color: #6b7280;">Payment Method:</td>
               <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827; text-transform: uppercase;">${paymentMethod}</td>
             </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #6b7280;">Subtotal:</td>
+              <td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">PHP ${originalSubtotal.toFixed(2)}</td>
+            </tr>
+            ${
+              loyaltyDiscountAmount > 0
+                ? `
+            <tr>
+              <td style="padding: 6px 0; color: #db2777; font-weight: 600;">Loyalty Discount${loyaltyRewardDescription ? ` (${loyaltyRewardDescription})` : ""}:</td>
+              <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #db2777;">- PHP ${loyaltyDiscountAmount.toFixed(2)}</td>
+            </tr>`
+                : ""
+            }
             <tr>
               <td style="padding: 6px 0; color: #6b7280;">Total Paid:</td>
               <td style="padding: 6px 0; text-align: right; font-weight: 700; color: #db2777; font-size: 16px;">PHP ${totalPaid.toFixed(2)}</td>
@@ -271,6 +296,9 @@ export async function POST(request: Request) {
       timeStr: appointmentTime,
       serviceName,
       price: totalPaid,
+      originalSubtotal,
+      loyaltyDiscountAmount,
+      loyaltyRewardDescription,
       paymentMethod,
       cashReceived,
       change: changeAmount,

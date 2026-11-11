@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { 
   User, Mail, Phone, Lock, Eye, EyeOff,
-  CheckCircle2, AlertCircle, ArrowRight, Check, X
+  CheckCircle2, AlertCircle, ArrowRight, Check, X, Star, Gift
 } from 'lucide-react';
 import bcrypt from 'bcryptjs';
 import SalonLayout from '@/components/salon-layout';
@@ -24,6 +24,71 @@ export default function ProfilePage() {
   const [editPassword, setEditPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordSuccessModal, setShowPasswordSuccessModal] = useState(false);
+  const [loyaltyRewards, setLoyaltyRewards] = useState<any[]>([]);
+  const [loadingRewards, setLoadingRewards] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setLoyaltyRewards([]);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchCustomerLoyaltyRewards = async () => {
+      setLoadingRewards(true);
+      try {
+        let custId = customer?.id || null;
+        const emailLower = user.email?.trim().toLowerCase() || '';
+        const nameTrimmed = (profile?.full_name || profile?.name || customer?.name || '').trim();
+
+        if (!custId && emailLower) {
+          const { data: custRow } = await supabase
+            .from('customers')
+            .select('id')
+            .or(`user_id.eq.${user.id},email.ilike.${emailLower}`)
+            .maybeSingle();
+          if (custRow?.id) custId = custRow.id;
+        }
+
+        const orFilters: string[] = [];
+        if (custId) orFilters.push(`customer_id.eq.${custId}`);
+        if (emailLower) orFilters.push(`customer_email.ilike.${emailLower}`);
+        if (nameTrimmed) orFilters.push(`customer_name.ilike.${nameTrimmed}`);
+
+        if (orFilters.length === 0) {
+          if (isMounted) setLoyaltyRewards([]);
+          return;
+        }
+
+        const { data: rewards } = await supabase
+          .from('loyalty_rewards')
+          .select('*')
+          .or(orFilters.join(','))
+          .order('created_at', { ascending: false });
+
+        if (isMounted && rewards) {
+          const now = Date.now();
+          const normalized = rewards.map((r: any) => {
+            const isExp = r.valid_until && new Date(r.valid_until).getTime() < now;
+            return {
+              ...r,
+              effectiveStatus: r.status === 'AVAILABLE' && isExp ? 'EXPIRED' : r.status,
+            };
+          });
+          setLoyaltyRewards(normalized);
+        }
+      } catch (err) {
+        console.warn('Could not load loyalty rewards:', err);
+      } finally {
+        if (isMounted) setLoadingRewards(false);
+      }
+    };
+
+    fetchCustomerLoyaltyRewards();
+    return () => {
+      isMounted = false;
+    };
+  }, [user, profile, customer]);
 
   useEffect(() => {
     if (!showPasswordSuccessModal) return;
@@ -154,7 +219,95 @@ export default function ProfilePage() {
             </h1>
           </div>
 
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-2xl mx-auto space-y-6">
+            {/* TOP 5 CUSTOMER LOYALTY REWARD CARD (READ-ONLY) */}
+            {loyaltyRewards.length > 0 && (() => {
+              const primaryReward =
+                loyaltyRewards.find((r) => r.effectiveStatus === 'AVAILABLE') ||
+                loyaltyRewards[0];
+              const validUntilFormatted = primaryReward.valid_until
+                ? new Date(primaryReward.valid_until).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })
+                : 'N/A';
+              const statusLabel = primaryReward.effectiveStatus || primaryReward.status || 'AVAILABLE';
+
+              return (
+                <section className="bg-gradient-to-br from-pink-50/90 via-white to-rose-50/80 rounded-2xl sm:rounded-3xl border border-pink-200/90 p-5 sm:p-8 shadow-sm relative overflow-hidden">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-pink-100 pb-4 mb-5">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-pink-600 mb-1">
+                        LOYALTY REWARD
+                      </p>
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-600 text-white text-xs font-bold tracking-wide shadow-xs">
+                        <span>⭐ Top 5 Customer</span>
+                        {primaryReward.rank_position ? (
+                          <span className="text-pink-100">• Rank #{primaryReward.rank_position}</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex items-center self-start sm:self-center px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest border ${
+                        statusLabel === 'AVAILABLE'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : statusLabel === 'USED'
+                            ? 'bg-zinc-100 text-zinc-600 border-zinc-200'
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}
+                    >
+                      Status: {statusLabel}
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-zinc-700 font-medium leading-relaxed mb-5">
+                    Congratulations! You are one of Candy and Rose Salon&apos;s Top 5 Customers
+                    {primaryReward.ranking_period_label ? ` for ${primaryReward.ranking_period_label}` : ''}.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 bg-white/90 rounded-2xl border border-pink-100 p-4">
+                    <div>
+                      <span className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                        Reward
+                      </span>
+                      <span className="mt-1 block text-base font-extrabold text-pink-600">
+                        {primaryReward.reward_description || '20% OFF'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                        Valid until
+                      </span>
+                      <span className="mt-1 block text-sm font-bold text-zinc-800">
+                        {validUntilFormatted}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                        Status
+                      </span>
+                      <span
+                        className={`mt-1 inline-block text-sm font-extrabold ${
+                          statusLabel === 'AVAILABLE'
+                            ? 'text-emerald-600'
+                            : statusLabel === 'USED'
+                              ? 'text-zinc-600'
+                              : 'text-rose-600'
+                        }`}
+                      >
+                        {statusLabel}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="mt-4 text-[11px] text-zinc-500">
+                    Present your account at the salon reception during checkout to redeem your Top 5 Loyalty Reward.
+                  </p>
+                </section>
+              );
+            })()}
+
             {/* COLUMN 1: PROFILE EDIT */}
             <section className="bg-white rounded-2xl sm:rounded-3xl border border-zinc-200/80 p-5 sm:p-8 shadow-sm">
               <div className="flex items-center gap-3.5 border-b border-zinc-100 pb-5 mb-6">

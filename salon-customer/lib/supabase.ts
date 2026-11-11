@@ -76,6 +76,10 @@ export type Appointment = {
   payment_status?: 'Pending' | 'Paid' | 'Cancelled' | string | null;
   source?: string;
   notes?: string | null;
+  design_id?: string | null;
+  design_name?: string | null;
+  design_image?: string | null;
+  hairstyle_reference_image?: string | null;
   created_at?: string;
   customers?: { name: string; email?: string; phone?: string };
   staff?: { name: string };
