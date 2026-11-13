@@ -25,12 +25,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
     }
 
-    // 2. If already marked Completed (e.g. by PayMongo webhook), confirm success idempotently
+    // 2. If already marked Completed, or if this sessionId was already fulfilled as Paid/Partially Paid, confirm success idempotently
     if (apt.status === "Completed") {
       const { data: bill } = await supabase
         .from("billing")
         .select("amount, payment_method, status")
         .eq("appointment_id", appointmentId)
+        .in("status", ["Paid", "Partially Paid"])
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       return NextResponse.json({
@@ -52,18 +55,39 @@ export async function POST(req: Request) {
 
     // Determine checkout session id: passed explicitly or fetched from billing record notes
     let activeSessionId = sessionId;
-    const { data: pendingBill } = await supabase
+    const { data: latestBills } = await supabase
       .from("billing")
-      .select("notes, loyalty_reward_id, original_amount, loyalty_discount_amount, loyalty_reward_description")
+      .select("amount, payment_method, status, notes, loyalty_reward_id, original_amount, loyalty_discount_amount, loyalty_reward_description")
       .eq("appointment_id", appointmentId)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(5);
+
+    const pendingBill = (latestBills || []).find((b: any) => b.status === "Pending") || (latestBills || [])[0] || null;
 
     if (!activeSessionId && pendingBill?.notes) {
       const match = pendingBill.notes.match(/paymongo_session_id:(cs_[a-zA-Z0-9_-]+)/);
       if (match) {
         activeSessionId = match[1];
+      }
+    }
+
+    // Check if the webhook already processed this session into a Paid / Partially Paid billing row
+    if (activeSessionId) {
+      const alreadyPaidBill = (latestBills || []).find(
+        (b: any) =>
+          (b.status === "Paid" || b.status === "Partially Paid") &&
+          typeof b.notes === "string" &&
+          b.notes.includes(activeSessionId)
+      );
+      if (alreadyPaidBill) {
+        return NextResponse.json({
+          verified: true,
+          alreadyCompleted: true,
+          customerName: apt.customers?.name || apt.customer_name || "Valued Customer",
+          serviceName: apt.services?.name || apt.service_name || "Salon Service",
+          amount: Number(alreadyPaidBill.amount) || 0,
+          paymentMethod: alreadyPaidBill.payment_method || "PayMongo",
+        });
       }
     }
 
@@ -128,7 +152,11 @@ export async function POST(req: Request) {
       attributes?.payment_intent?.attributes?.amount ||
       attributes?.line_items?.[0]?.amount ||
       0;
-    const amountInPHP = amountInCentavos > 0 ? amountInCentavos / 100 : (apt.price || 0);
+    const fallbackAmount =
+      Number(apt.downpayment_amount) > 0 && apt.payment_status !== "Paid"
+        ? Number(apt.downpayment_amount)
+        : Number(apt.price || 0);
+    const amountInPHP = amountInCentavos > 0 ? amountInCentavos / 100 : fallbackAmount;
 
     const metaRewardId =
       attributes?.metadata?.loyalty_reward_id || pendingBill?.loyalty_reward_id || null;
@@ -143,11 +171,18 @@ export async function POST(req: Request) {
       pendingBill?.loyalty_reward_description ||
       null;
 
+    const isDownpayment = attributes?.metadata?.payment_type === "downpayment";
+    const resolvedMethod = isDownpayment ? "PayMongo" : "GCash";
+
     const fulfillment = await fulfillPaymentSuccess({
       appointmentId,
       amount: amountInPHP,
-      paymentMethod: "GCash",
-      notes: `Paid via PayMongo Checkout (${activeSessionId})`,
+      paymentMethod: resolvedMethod,
+      paymentType: isDownpayment ? "downpayment" : "full",
+      checkoutSessionId: activeSessionId,
+      notes: isDownpayment
+        ? `Downpayment via PayMongo Checkout (${activeSessionId})`
+        : `Paid via PayMongo Checkout (${activeSessionId})`,
       loyaltyRewardId: metaRewardId || null,
       originalAmount: metaOriginalAmount !== undefined ? Number(metaOriginalAmount) : undefined,
       loyaltyDiscountAmount:
@@ -167,7 +202,7 @@ export async function POST(req: Request) {
       customerName: apt.customers?.name || apt.customer_name || "Valued Customer",
       serviceName: apt.services?.name || apt.service_name || "Salon Service",
       amount: amountInPHP,
-      paymentMethod: "GCash",
+      paymentMethod: resolvedMethod,
     });
   } catch (err: any) {
     console.error("[Verify Payment] Internal server error:", err);

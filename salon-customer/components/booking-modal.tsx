@@ -2,10 +2,15 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, AlertCircle, X, ChevronLeft, ChevronRight, ArrowLeft, Banknote, Check, Upload, Image, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, X, ChevronLeft, ChevronRight, ArrowLeft, Banknote, Check, Upload, Image, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { supabase, type Service, type Staff, parseDurationToMinutes } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import type { NailDesignItem } from '@/lib/nail-designs';
+import {
+  evaluateDownpaymentRules,
+  DEFAULT_DOWNPAYMENT_SETTINGS,
+  type DownpaymentRulesSettings
+} from '@/lib/downpayment';
 import {
   getCustomerTimezone,
   getNowInTimezone,
@@ -324,13 +329,44 @@ export function BookingModal({
   const todayYYYYMMDD = useMemo(() => getTodayYYYYMMDD(), []);
   const sampleFilenameExample = `${sampleCustomerName}_${todayYYYYMMDD}`;
 
+  const [downpaymentSettings, setDownpaymentSettings] = useState<DownpaymentRulesSettings>(DEFAULT_DOWNPAYMENT_SETTINGS);
+
+  useEffect(() => {
+    supabase.from('salon_settings').select('value').eq('key', 'downpayment_rules').maybeSingle().then(({ data }) => {
+      if (data?.value && typeof data.value === 'object') {
+        setDownpaymentSettings({
+          ...DEFAULT_DOWNPAYMENT_SETTINGS,
+          ...data.value,
+          category_mappings: {
+            ...DEFAULT_DOWNPAYMENT_SETTINGS.category_mappings,
+            ...(data.value.category_mappings || {}),
+          },
+        });
+      }
+    });
+  }, []);
+
   if (!open) return null;
 
   // Service details calculations
   const baseTotalAmount = initialServices.reduce((sum, s) => sum + Number(s.price || 0), 0);
   const totalAmount = selectedDesign
     ? (baseTotalAmount > 0 ? baseTotalAmount + selectedDesign.priceNumeric : selectedDesign.priceNumeric)
-    : (baseTotalAmount > 0 ? baseTotalAmount : 2690);
+    : (baseTotalAmount > 0 ? baseTotalAmount : (initialServices.length > 0 ? 0 : 2690));
+
+  const downpaymentEvaluation = useMemo(() => {
+    return evaluateDownpaymentRules(
+      initialServices,
+      selectedTime || '10:00',
+      selectedDate || '',
+      downpaymentSettings
+    );
+  }, [initialServices, selectedTime, selectedDate, downpaymentSettings]);
+
+  const isDpReq = downpaymentEvaluation.required;
+  const payableAmount = (isDpReq && downpaymentEvaluation.downpaymentAmount > 0)
+    ? downpaymentEvaluation.downpaymentAmount
+    : totalAmount;
 
   const durationSummary = initialServices.reduce((acc, s) => acc + (s.duration_min || parseDurationToMinutes(s.duration)), 0) || 50;
 
@@ -934,7 +970,8 @@ export function BookingModal({
         }
       }
 
-      const paymentStatusVal = methodToSave === 'Cash' ? 'Pending' : 'Pending Verification';
+      const paymentStatusVal = isDpReq ? 'Pending Verification' : (methodToSave === 'Cash' ? 'Pending' : 'Pending Verification');
+      const finalStatus = isDpReq ? 'Pending Downpayment' : 'Scheduled';
 
       const appointmentPayload = {
         customer_id: customerRecord.id,
@@ -949,14 +986,17 @@ export function BookingModal({
         time: selectedTime,
         duration: durationText,
         price: totalAmount,
-        status: 'Scheduled',
+        original_amount: totalAmount,
+        status: finalStatus,
         source: 'Online',
         payment_method: methodToSave,
+        payment_status: paymentStatusVal,
         notes: notesWithDesign || null,
         design_id: selectedDesign?.id || null,
         design_name: selectedDesign?.name || null,
         design_image: selectedDesign?.image || null,
         hairstyle_reference_image: uploadedHairstyleUrl || null,
+        downpayment_amount: downpaymentEvaluation.downpaymentAmount || 0,
       };
 
       const { data: createdAppt, error: apptError } = await supabase
@@ -988,6 +1028,11 @@ export function BookingModal({
         screenshotFilename: gcashData?.filename,
         screenshotUrl: gcashData?.previewUrl,
         hairstyleReferenceImage: uploadedHairstyleUrl || null,
+        downpaymentRequired: isDpReq,
+        downpaymentAmount: downpaymentEvaluation.downpaymentAmount,
+        downpaymentStatus: downpaymentEvaluation.downpaymentStatus,
+        downpaymentHoldUntil: downpaymentEvaluation.holdUntil,
+        pricingFlag: downpaymentEvaluation.pricingFlag,
       });
 
       if (methodToSave === 'GCash') {
@@ -1293,6 +1338,33 @@ export function BookingModal({
                       <span className="font-bold text-neutral-900">{durationSummary} mins</span>
                     </div>
                   </div>
+
+                  {downpaymentEvaluation.pricingFlag === 'Needs Staff Pricing' && (
+                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-left">
+                      <div className="flex items-center gap-1.5 text-yellow-800 font-bold text-xs">
+                        <AlertCircle className="w-4 h-4 text-yellow-600 shrink-0" />
+                        <span>Awaiting Staff Pricing</span>
+                      </div>
+                      <p className="text-[11px] text-yellow-700 mt-1">
+                        Total service price is ₱0. Downpayment requirement will be confirmed after review.
+                      </p>
+                    </div>
+                  )}
+
+                  {downpaymentEvaluation.required && (
+                    <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-left">
+                      <div className="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
+                        <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>Downpayment: ₱{downpaymentEvaluation.downpaymentAmount.toLocaleString()} ({downpaymentEvaluation.percentage}%)</span>
+                      </div>
+                      <p className="text-[11px] text-amber-800 mt-1">
+                        {downpaymentEvaluation.reasons.join(', ')}
+                      </p>
+                      <p className="text-[10px] text-amber-700 mt-1">
+                        Slot held for {downpaymentSettings.hold_time_hours}h. Pay deposit to confirm.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* NEXT STEP BUTTON */}
@@ -1585,6 +1657,24 @@ export function BookingModal({
                   <span className="font-bold text-neutral-900">Total Price:</span>
                   <span className="font-bold text-pink-500 text-base">₱{totalAmount.toLocaleString()}</span>
                 </div>
+                {downpaymentEvaluation.required && (
+                  <div className="bg-amber-100/70 p-3 rounded-xl text-xs space-y-1.5 mt-2 text-amber-900">
+                    <div className="flex justify-between font-bold">
+                      <span>Required Downpayment ({downpaymentEvaluation.percentage}%):</span>
+                      <span className="text-pink-600 font-black">₱{downpaymentEvaluation.downpaymentAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-neutral-600">
+                      <span>Remaining Balance at Salon:</span>
+                      <span>₱{(totalAmount - downpaymentEvaluation.downpaymentAmount).toLocaleString()}</span>
+                    </div>
+                    <div className="text-[11px] text-amber-800 font-medium pt-0.5">
+                      Trigger: {downpaymentEvaluation.reasons.join(', ')}
+                    </div>
+                    <div className="text-[10px] text-amber-700 italic">
+                      Slot is held for {downpaymentSettings.hold_time_hours} hours until payment is recorded or verified.
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Payment Options Grid */}
@@ -1742,11 +1832,18 @@ export function BookingModal({
               {/* Exact Amount To Pay Underneath QR Code */}
               <div className="text-center my-2.5">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-0.5">
-                  Amount to Pay
+                  {isDpReq ? 'Downpayment Amount to Pay' : 'Amount to Pay'}
                 </span>
                 <span className="font-serif text-2xl sm:text-3xl font-bold text-pink-600 tracking-tight">
-                  ₱{totalAmount.toLocaleString()}
+                  ₱{payableAmount.toLocaleString()}
                 </span>
+                {isDpReq && (
+                  <div className="mt-1 text-[11px] text-neutral-500 space-x-1.5">
+                    <span>Total Service: <strong>₱{totalAmount.toLocaleString()}</strong></span>
+                    <span>•</span>
+                    <span>Balance on visit: <strong className="text-pink-600">₱{Math.max(0, totalAmount - payableAmount).toLocaleString()}</strong></span>
+                  </div>
+                )}
               </div>
 
               {/* Note */}
@@ -1802,17 +1899,22 @@ export function BookingModal({
               <div className="rounded-2xl border border-pink-100 bg-pink-50/40 p-3.5 mb-4 flex items-center justify-between text-xs sm:text-sm">
                 <div>
                   <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-0.5">
-                    Payment Amount
+                    {isDpReq ? 'Downpayment Amount' : 'Payment Amount'}
                   </span>
                   <span className="font-medium text-neutral-700 block truncate max-w-[240px]">
                     {serviceNames}
                   </span>
+                  {isDpReq && (
+                    <span className="text-[10px] text-pink-600 block mt-0.5 font-medium">
+                      Remaining balance on visit: ₱{Math.max(0, totalAmount - payableAmount).toLocaleString()}
+                    </span>
+                  )}
                 </div>
                 <div className="text-right">
                   <span className="font-serif font-bold text-pink-600 text-lg sm:text-xl block">
-                    ₱{totalAmount.toLocaleString()}
+                    ₱{payableAmount.toLocaleString()}
                   </span>
-                  <span className="text-[10px] text-neutral-400 font-medium">For verification</span>
+                  <span className="text-[10px] text-neutral-400 font-medium">{isDpReq ? 'Deposit amount' : 'For verification'}</span>
                 </div>
               </div>
 
@@ -2027,9 +2129,25 @@ export function BookingModal({
                   </div>
                 )}
 
-                <div className="flex justify-between border-t border-pink-200/60 pt-2 text-sm">
-                  <span className="font-bold text-neutral-900">Total Price</span>
-                  <span className="font-serif font-bold text-pink-600 text-base">₱{totalAmount.toLocaleString()}</span>
+                <div className="border-t border-pink-200/60 pt-2 text-xs space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-bold text-neutral-900">Total Service Price</span>
+                    <span className="font-serif font-bold text-pink-600 text-base">₱{totalAmount.toLocaleString()}</span>
+                  </div>
+                  {isDpReq && (
+                    <>
+                      <div className="flex justify-between text-pink-600 font-semibold pt-1">
+                        <span>Downpayment Deposit:</span>
+                        <span>₱{payableAmount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-neutral-600">
+                        <span>Remaining Balance on Visit:</span>
+                        <span className="font-bold text-neutral-800">
+                          ₱{Math.max(0, totalAmount - payableAmount).toLocaleString()}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -2053,12 +2171,33 @@ export function BookingModal({
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-pink-50 text-pink-500 shadow-sm border border-pink-100">
               <CheckCircle2 size={36} />
             </div>
-            <h2 className="font-serif text-2xl sm:text-3xl text-neutral-900 font-normal">Booking Confirmed</h2>
+            <h2 className="font-serif text-2xl sm:text-3xl text-neutral-900 font-normal">
+              {bookingReceipt.downpaymentRequired ? 'Booking Slot Held' : 'Booking Confirmed'}
+            </h2>
             <p className="mt-1 text-xs sm:text-sm text-neutral-500">
-              Your appointment has been successfully booked.
+              {bookingReceipt.downpaymentRequired
+                ? 'Your appointment slot is held pending downpayment deposit.'
+                : 'Your appointment has been successfully booked.'}
             </p>
 
             <div className="mt-6 rounded-2xl border border-pink-100 bg-pink-50/40 p-5 text-left text-xs space-y-3">
+              {bookingReceipt.downpaymentRequired && (
+                <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs space-y-1 text-amber-900">
+                  <div className="flex justify-between font-bold">
+                    <span>Required Downpayment:</span>
+                    <span className="text-pink-600 font-black">₱{bookingReceipt.downpaymentAmount.toLocaleString()}</span>
+                  </div>
+                  {bookingReceipt.downpaymentHoldUntil && (
+                    <div className="text-[11px] text-amber-800">
+                      Hold Deadline: <strong>{new Date(bookingReceipt.downpaymentHoldUntil).toLocaleString()}</strong>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-amber-700 pt-0.5">
+                    Please submit your payment proof to complete booking before the hold lapses.
+                  </p>
+                </div>
+              )}
+
               <div className="flex justify-between items-center border-b border-pink-100 pb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">Appointment ID</span>
                 <span className="font-mono font-bold text-neutral-800">#{bookingReceipt.id.slice(0, 8)}</span>
@@ -2106,9 +2245,25 @@ export function BookingModal({
                 </div>
               )}
 
-              <div className="flex justify-between border-t border-pink-200/60 pt-2.5 text-sm">
-                <span className="font-bold text-neutral-900">TOTAL PRICE</span>
-                <span className="font-bold text-pink-500 text-base">₱{Number(bookingReceipt.price).toLocaleString()}</span>
+              <div className="border-t border-pink-200/60 pt-2.5 text-xs space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="font-bold text-neutral-900">TOTAL PRICE</span>
+                  <span className="font-bold text-pink-500 text-base">₱{Number(bookingReceipt.price).toLocaleString()}</span>
+                </div>
+                {bookingReceipt.downpaymentRequired && (
+                  <>
+                    <div className="flex justify-between text-pink-600 font-semibold pt-1">
+                      <span>Downpayment Required:</span>
+                      <span>₱{Number(bookingReceipt.downpaymentAmount).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-neutral-600">
+                      <span>Remaining Balance:</span>
+                      <span className="font-bold text-neutral-800">
+                        ₱{Math.max(0, Number(bookingReceipt.price) - Number(bookingReceipt.downpaymentAmount)).toLocaleString()}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

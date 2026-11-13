@@ -115,6 +115,8 @@ export async function POST(req: NextRequest) {
       inventoryId,
       transactionType = "ISSUE",
       quantity,
+      issuedBy,
+      issuedByName,
       issuedTo,
       issuedToId,
       issuedToType,
@@ -170,6 +172,8 @@ export async function POST(req: NextRequest) {
         p_reason: reason || null,
         p_notes: notes || null,
         p_is_negative_adjustment: Boolean(isNegativeAdjustment),
+        p_issued_by: issuedBy || null,
+        p_issued_by_name: issuedByName || null,
       }
     );
 

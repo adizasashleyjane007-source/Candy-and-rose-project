@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import {
   computeMonthlyTop5Customers,
   getRankingPeriodInfo,
+  getManilaDate,
+  getPreviousCompletedMonthManila,
   buildRewardDescription,
   LoyaltyRewardSettings,
   LoyaltyRewardRecord,
@@ -15,25 +18,101 @@ const supabaseKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!;
 
+/**
+ * Authoritative Loyalty Sync Endpoint.
+ *
+ * Supports two calling contexts:
+ * 1. Scheduled Vercel Cron:
+ *    - Authenticated via Authorization: Bearer <CRON_SECRET> or x-cron-secret header.
+ * 2. On-Page Safety Net (Staff / Admin opening Billing, Analytics, Settings):
+ *    - Authenticated via active user session cookies (admin or staff role).
+ *
+ * Behavior:
+ * - Current / Future Month: Read-only preview only. NEVER creates or modifies reward records.
+ * - Previous Completed Calendar Month: Finalizes idempotently.
+ *   - Inserts rewards for top 5 candidates that don't already have one for the period.
+ *   - NEVER modifies, overwrites, or revokes existing rewards (especially USED ones).
+ *   - Auto-expires outdated AVAILABLE rewards.
+ *   - Logs 0-price services to console and sync log.
+ *   - Records audit entry in public.loyalty_sync_logs.
+ */
 export async function POST(req: NextRequest) {
   try {
+    // -------------------------------------------------------------------------
+    // 1. Authentication Check (CRON_SECRET header OR active user session)
+    // -------------------------------------------------------------------------
+    const authHeader = req.headers.get("authorization") || "";
+    const xCronSecret = req.headers.get("x-cron-secret") || "";
+    const bearerToken = authHeader.toLowerCase().startsWith("bearer ")
+      ? authHeader.slice(7).trim()
+      : "";
+
+    const expectedCronSecret = process.env.CRON_SECRET?.trim();
+    let triggeredBy: "cron" | "staff_session" = "staff_session";
+
+    const isCronAuthorized =
+      Boolean(expectedCronSecret) &&
+      (bearerToken === expectedCronSecret || xCronSecret === expectedCronSecret);
+
+    if (isCronAuthorized) {
+      triggeredBy = "cron";
+    } else {
+      // Validate active authenticated user session from cookies
+      try {
+        const sessionClient = await createServerClient();
+        const {
+          data: { user },
+          error: authError,
+        } = await sessionClient.auth.getUser();
+
+        if (authError || !user) {
+          return NextResponse.json(
+            {
+              error:
+                "Unauthorized: A valid staff session or CRON_SECRET header is required.",
+            },
+            { status: 401 }
+          );
+        }
+        triggeredBy = "staff_session";
+      } catch (sessionErr: any) {
+        return NextResponse.json(
+          {
+            error:
+              "Unauthorized: Unable to verify user session and no valid cron secret was supplied.",
+          },
+          { status: 401 }
+        );
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. Timezone & Target Month Resolution (Asia/Manila UTC+8)
+    // -------------------------------------------------------------------------
     const body = await req.json().catch(() => ({}));
-    const now = new Date();
-    const year = typeof body.year === "number" ? body.year : now.getFullYear();
-    const monthIdx =
-      typeof body.monthIdx === "number" ? body.monthIdx : now.getMonth();
+    const manilaNow = getManilaDate();
+    const prevCompleted = getPreviousCompletedMonthManila();
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // If caller specified year/monthIdx, use them; otherwise default to previous completed month
+    const targetYear =
+      typeof body.year === "number" ? body.year : prevCompleted.year;
+    const targetMonthIdx =
+      typeof body.monthIdx === "number" ? body.monthIdx : prevCompleted.monthIdx;
 
-    // 1. Auto-expire any AVAILABLE rewards whose valid_until has passed
-    await supabase
-      .from("loyalty_rewards")
-      .update({ status: "EXPIRED", updated_at: now.toISOString() })
-      .eq("status", "AVAILABLE")
-      .lt("valid_until", now.toISOString());
+    const periodInfo = getRankingPeriodInfo(targetYear, targetMonthIdx);
 
-    // 2. Fetch active loyalty reward settings
-    const { data: settingsRow } = await supabase
+    // Is the target month ongoing or in the future according to Asia/Manila?
+    const isCurrentOrFuture =
+      targetYear > manilaNow.year ||
+      (targetYear === manilaNow.year && targetMonthIdx >= manilaNow.monthIdx);
+
+    // Use admin client (service-role) for database operations
+    const adminSupabase = createAdminClient(supabaseUrl, supabaseKey);
+
+    // -------------------------------------------------------------------------
+    // 3. Load Loyalty Settings
+    // -------------------------------------------------------------------------
+    const { data: settingsRow } = await adminSupabase
       .from("loyalty_reward_settings")
       .select("*")
       .order("updated_at", { ascending: false })
@@ -65,59 +144,118 @@ export async function POST(req: NextRequest) {
           is_active: true,
         };
 
-    // 3. Load appointments, billing, and customers for ranking calculation
-    const [{ data: appts }, { data: bills }, { data: customers }] =
-      await Promise.all([
-        supabase.from("appointments").select("*"),
-        supabase.from("billing").select("*"),
-        supabase.from("customers").select("*"),
-      ]);
-
-    const top5 = computeMonthlyTop5Customers(
-      appts || [],
-      bills || [],
-      customers || [],
-      year,
-      monthIdx,
-      settings.top_limit || 5
-    );
-
-    const periodInfo = getRankingPeriodInfo(year, monthIdx);
     const rewardDesc = buildRewardDescription(
       settings.reward_type,
       settings.reward_value,
       settings.free_service_name
     );
 
-    // 4. Fetch existing loyalty rewards for this ranking period
-    const { data: existingPeriodRewards } = await supabase
+    // -------------------------------------------------------------------------
+    // 4. Load Appointments, Billing, and Customers for Ranking
+    // -------------------------------------------------------------------------
+    const [{ data: appts }, { data: bills }, { data: customers }] =
+      await Promise.all([
+        adminSupabase.from("appointments").select("*"),
+        adminSupabase.from("billing").select("*"),
+        adminSupabase.from("customers").select("*"),
+      ]);
+
+    const top5 = computeMonthlyTop5Customers(
+      appts || [],
+      bills || [],
+      customers || [],
+      targetYear,
+      targetMonthIdx,
+      settings.top_limit || 5
+    );
+
+    // -------------------------------------------------------------------------
+    // 5. CURRENT / ONGOING MONTH: Read-only preview only. NEVER write records!
+    // -------------------------------------------------------------------------
+    if (isCurrentOrFuture) {
+      return NextResponse.json({
+        top5,
+        rewards: [],
+        settings,
+        periodInfo,
+        preview: true,
+        message:
+          "Current month standings preview. Rewards are only finalized once the calendar month completes.",
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. PREVIOUS COMPLETED MONTH: Finalize Idempotently
+    // -------------------------------------------------------------------------
+    const nowIso = new Date().toISOString();
+
+    // Step 6a: Auto-expire any AVAILABLE rewards whose valid_until has passed
+    let expiredCount = 0;
+    try {
+      const { data: expiredRows } = await adminSupabase
+        .from("loyalty_rewards")
+        .update({ status: "EXPIRED", updated_at: nowIso })
+        .eq("status", "AVAILABLE")
+        .lt("valid_until", nowIso)
+        .select("id");
+      expiredCount = expiredRows?.length || 0;
+    } catch (expireErr) {
+      console.warn("[LOYALTY SYNC] Warning auto-expiring outdated rewards:", expireErr);
+    }
+
+    // Step 6b: Check ₱0 services from catalog to report
+    let zeroPriceServices: Array<{ id: string; name: string }> = [];
+    try {
+      const { data: zeroSvcs } = await adminSupabase
+        .from("services")
+        .select("id, name, price")
+        .eq("price", 0);
+      if (zeroSvcs && zeroSvcs.length > 0) {
+        zeroPriceServices = zeroSvcs.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+        }));
+        console.warn(
+          `[LOYALTY SYNC] Found ${zeroPriceServices.length} services with ₱0 price:`,
+          zeroPriceServices.map((s) => s.name).join(", ")
+        );
+      }
+    } catch (zeroErr) {
+      console.warn("[LOYALTY SYNC] Could not query zero-price services:", zeroErr);
+    }
+
+    // Step 6c: Fetch existing loyalty rewards for this ranking period
+    const { data: existingPeriodRewards } = await adminSupabase
       .from("loyalty_rewards")
       .select("*")
       .eq("ranking_period", periodInfo.rankingPeriod);
 
     const existingMap = new Map<string, LoyaltyRewardRecord>();
     for (const r of existingPeriodRewards || []) {
-      existingMap.set(r.customer_id, r as LoyaltyRewardRecord);
+      if (r.customer_id) {
+        existingMap.set(r.customer_id, r as LoyaltyRewardRecord);
+      }
     }
 
-    const activeTop5CustomerIds = new Set<string>();
-    const syncedRewards: LoyaltyRewardRecord[] = [];
+    let winnersCreated = 0;
+    let winnersSkipped = 0;
+    const finalRewardsList: LoyaltyRewardRecord[] = [];
 
     if (settings.is_active) {
       for (const candidate of top5) {
         let customerId = candidate.customer_id;
 
-        // Ensure a customer record exists if ranked by legacy walk-in name
+        // Ensure a customer record exists if ranked by walk-in name
         if (!customerId && candidate.customer_name) {
           const matchedCust = (customers || []).find(
             (c: any) =>
               (c.name || "").trim().toLowerCase() ===
               candidate.customer_name.trim().toLowerCase()
           );
-          if (matchedCust) {
+          if (matchedCust?.id) {
             customerId = matchedCust.id;
           } else {
-            const { data: createdCust } = await supabase
+            const { data: createdCust } = await adminSupabase
               .from("customers")
               .insert({
                 name: candidate.customer_name.trim(),
@@ -135,47 +273,17 @@ export async function POST(req: NextRequest) {
 
         if (!customerId) continue;
         candidate.customer_id = customerId;
-        activeTop5CustomerIds.add(customerId);
 
         const existing = existingMap.get(customerId);
 
         if (existing) {
-          // Update rank and spend metrics; if still AVAILABLE, sync current reward config
-          const updatePayload: Record<string, any> = {
-            rank_position: candidate.rank,
-            total_spent: candidate.total_spent,
-            completed_transactions: candidate.completed_transactions,
-            customer_name: candidate.customer_name,
-            customer_email:
-              candidate.customer_email || existing.customer_email || null,
-            updated_at: now.toISOString(),
-          };
-
-          if (existing.status === "AVAILABLE") {
-            updatePayload.reward_type = settings.reward_type;
-            updatePayload.reward_value = settings.reward_value;
-            updatePayload.free_service_id = settings.free_service_id;
-            updatePayload.free_service_name = settings.free_service_name;
-            updatePayload.reward_description = rewardDesc;
-          }
-
-          const { data: updatedReward } = await supabase
-            .from("loyalty_rewards")
-            .update(updatePayload)
-            .eq("id", existing.id)
-            .select("*")
-            .single();
-
-          if (updatedReward) {
-            syncedRewards.push(updatedReward as LoyaltyRewardRecord);
-          } else {
-            syncedRewards.push({
-              ...existing,
-              ...updatePayload,
-            } as LoyaltyRewardRecord);
-          }
+          // IDEMPOTENCY: Reward already exists for this customer & ranking_period.
+          // NEVER overwrite or revoke an existing reward (especially USED or already issued).
+          winnersSkipped += 1;
+          finalRewardsList.push(existing);
         } else {
           // Insert new reward for this customer + ranking_period
+          const isAlreadyExpired = new Date(periodInfo.validUntil).getTime() < Date.now();
           const insertPayload = {
             customer_id: customerId,
             customer_name: candidate.customer_name,
@@ -190,22 +298,22 @@ export async function POST(req: NextRequest) {
             free_service_id: settings.free_service_id,
             free_service_name: settings.free_service_name,
             reward_description: rewardDesc,
-            status:
-              new Date(periodInfo.validUntil) < now ? "EXPIRED" : "AVAILABLE",
+            status: isAlreadyExpired ? "EXPIRED" : "AVAILABLE",
             valid_from: periodInfo.validFrom,
             valid_until: periodInfo.validUntil,
           };
 
-          const { data: createdReward } = await supabase
+          const { data: createdReward, error: insertErr } = await adminSupabase
             .from("loyalty_rewards")
             .insert(insertPayload)
             .select("*")
             .single();
 
-          if (createdReward) {
-            syncedRewards.push(createdReward as LoyaltyRewardRecord);
+          if (!insertErr && createdReward) {
+            winnersCreated += 1;
+            finalRewardsList.push(createdReward as LoyaltyRewardRecord);
 
-            // Notify newly qualified Top 5 Customer (in-app notification + email if available)
+            // Notify newly qualified Top 5 Customer
             if (createdReward.status === "AVAILABLE") {
               const validUntilFormatted = new Date(
                 createdReward.valid_until
@@ -213,9 +321,10 @@ export async function POST(req: NextRequest) {
                 month: "long",
                 day: "numeric",
                 year: "numeric",
+                timeZone: "Asia/Manila",
               });
 
-              await supabase.from("notifications").insert({
+              await adminSupabase.from("notifications").insert({
                 title: "⭐ Top 5 Customer Loyalty Reward Issued",
                 message: `Congratulations ${candidate.customer_name}! Ranked #${candidate.rank} for ${periodInfo.rankingPeriodLabel} with ${rewardDesc} (valid until ${validUntilFormatted}).`,
                 type: "loyalty_reward",
@@ -228,7 +337,7 @@ export async function POST(req: NextRequest) {
               ) {
                 try {
                   await sendTrackedEmail({
-                    supabase,
+                    supabase: adminSupabase,
                     to: candidate.customer_email,
                     subject: `⭐ Congratulations! You are a Top 5 Customer at Candy & Rose Salon`,
                     eventType: "loyalty_reward_issued",
@@ -267,35 +376,45 @@ export async function POST(req: NextRequest) {
                 }
               }
 
-              await supabase
+              await adminSupabase
                 .from("loyalty_rewards")
-                .update({ notified_at: now.toISOString() })
+                .update({ notified_at: nowIso })
                 .eq("id", createdReward.id);
             }
           }
         }
       }
+    }
 
-      // 5. Handle edge case: customer dropped out of Top 5 during the active ranking month
-      // Only remove unredeemed (AVAILABLE) rewards for the current month if they were overtaken
-      for (const existing of existingPeriodRewards || []) {
-        if (
-          !activeTop5CustomerIds.has(existing.customer_id) &&
-          existing.status === "AVAILABLE"
-        ) {
-          await supabase.from("loyalty_rewards").delete().eq("id", existing.id);
-        } else if (!activeTop5CustomerIds.has(existing.customer_id)) {
-          // Keep USED/EXPIRED historical records intact
-          syncedRewards.push(existing as LoyaltyRewardRecord);
-        }
-      }
+    // Step 6d: Record audit entry in loyalty_sync_logs
+    try {
+      await adminSupabase.from("loyalty_sync_logs").insert({
+        ranking_period: periodInfo.rankingPeriod,
+        ranking_period_label: periodInfo.rankingPeriodLabel,
+        triggered_by: triggeredBy,
+        winners_created: winnersCreated,
+        winners_skipped: winnersSkipped,
+        rewards_expired: expiredCount,
+        zero_price_services_count: zeroPriceServices.length,
+        zero_price_services: zeroPriceServices,
+        status: "SUCCESS",
+        notes: `Sync completed via ${triggeredBy}. Created: ${winnersCreated}, Skipped existing: ${winnersSkipped}, Expired: ${expiredCount}.`,
+      });
+    } catch (auditErr) {
+      console.warn("[LOYALTY SYNC] Could not write to loyalty_sync_logs table:", auditErr);
     }
 
     return NextResponse.json({
       top5,
-      rewards: syncedRewards,
+      rewards: finalRewardsList,
       settings,
       periodInfo,
+      preview: false,
+      winnersCreated,
+      winnersSkipped,
+      rewardsExpired: expiredCount,
+      zeroPriceServicesCount: zeroPriceServices.length,
+      zeroPriceServices,
     });
   } catch (err: any) {
     console.error("[LOYALTY SYNC ERROR]:", err);
@@ -305,4 +424,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

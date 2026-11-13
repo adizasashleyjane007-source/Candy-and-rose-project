@@ -11,6 +11,8 @@ import {
 import Header from "@/components/Header";
 import { createClient } from "@/lib/supabase/client";
 import { addNotification } from "@/lib/notifications";
+import HandAnalysisCard from "@/components/HandAnalysisCard";
+import type { HandAnalysisApplyPayload } from "@/lib/hand-analysis";
 import {
     detectNailLandmarks,
     DEFAULT_HAND_LANDMARKS,
@@ -1641,6 +1643,24 @@ export default function NailsStudioPage() {
         updateNails(() => ({ shape }));
     };
 
+    // AI Hand Analysis → fills the existing Design Summary state
+    // (skin tone, nail shape and palette shades across all five fingers).
+    const handleApplyHandAnalysis = useCallback((payload: HandAnalysisApplyPayload) => {
+        setSelectedSkinTone(payload.skinTone);
+        setSelectedFinger("ALL");
+        setNailSet((prev) => {
+            const next = { ...prev };
+            FINGER_KEYS.forEach((fk, i) => {
+                next[fk] = {
+                    ...next[fk],
+                    shape: payload.nailShape,
+                    baseColor: payload.colors.length > 0 ? payload.colors[i % payload.colors.length] : next[fk].baseColor,
+                };
+            });
+            return next;
+        });
+    }, []);
+
     const handleSetExtensionLength = useCallback((rawLengthCm: number) => {
         const clamped = clampExtensionCm(rawLengthCm);
         setNailSet((prev) => {
@@ -2248,7 +2268,13 @@ export default function NailsStudioPage() {
                         SECTION 1 (LEFT SIDEBAR): NAIL CUSTOMIZATION TOOLS
                        ──────────────────────────────────────────────────────────────────── */}
                     <div className="lg:col-span-3 space-y-4">
-                        
+
+                        {/* AI Hand Analysis (collapsed by default so the tool tabs stay in place) */}
+                        <HandAnalysisCard
+                            skinTones={SKIN_TONES.map((t) => ({ id: t.id, name: t.name, hex: t.hex }))}
+                            onApply={handleApplyHandAnalysis}
+                        />
+
                         {/* Tab Switcher */}
                         <div className="bg-white p-1.5 rounded-2xl border border-[#F0E8DC] shadow-xs flex items-center justify-between gap-1">
                             <button
@@ -2814,20 +2840,6 @@ export default function NailsStudioPage() {
                             </div>
                         )}
 
-                        {/* Apply Current to All Button */}
-                        <div className="bg-white rounded-2xl border border-[#F0E8DC] p-3 shadow-xs flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Copy className="w-4 h-4 text-[#F72D9B]" />
-                                <span className="text-xs font-semibold text-neutral-800">Apply to All 5 Nails</span>
-                            </div>
-                            <button
-                                onClick={handleApplyCurrentToAll}
-                                className="px-3 py-1.5 rounded-full bg-[#1A1A1A] hover:bg-[#F72D9B] text-white text-[11px] font-bold tracking-wider uppercase transition-colors cursor-pointer"
-                            >
-                                Sync All
-                            </button>
-                        </div>
-
                     </div>
 
                     {/* ────────────────────────────────────────────────────────────────────
@@ -3209,8 +3221,30 @@ export default function NailsStudioPage() {
                     {/* ────────────────────────────────────────────────────────────────────
                         SECTION 3 (RIGHT SIDEBAR): DESIGN SUMMARY, ESTIMATED PRICE, ACTIONS
                        ──────────────────────────────────────────────────────────────────── */}
-                    <div className="lg:col-span-3 space-y-4">
+                    <div className="lg:col-span-3 space-y-4 lg:sticky lg:top-6 lg:self-start">
                         
+                        {/* ─── STANDALONE SYNC ALL CARD ─────────────────────────────────────── */}
+                        <div className="bg-white rounded-3xl border border-[#F0E8DC] p-4 sm:p-5 shadow-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <Copy className="w-4 h-4 text-[#F72D9B] shrink-0" />
+                                    <span className="text-xs sm:text-sm font-semibold text-neutral-800 leading-snug">
+                                        {selectedFinger === "ALL"
+                                            ? "Apply to All 5 Nails"
+                                            : `Apply ${FINGER_DISPLAY_NAMES[selectedFinger]} to All 5 Nails`}
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleApplyCurrentToAll}
+                                    className="w-full sm:w-auto px-4 py-2 rounded-full bg-[#1A1A1A] hover:bg-[#F72D9B] text-white text-[11px] font-bold tracking-wider uppercase transition-colors cursor-pointer shrink-0 text-center whitespace-nowrap"
+                                >
+                                    Sync All
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* ─── DESIGN SUMMARY CARD ─────────────────────────────────────────── */}
                         <div className="bg-white rounded-3xl border border-[#F0E8DC] p-5 sm:p-6 shadow-sm space-y-5">
                             {/* Header */}
                             <div className="border-b border-[#F0E8DC] pb-3.5">

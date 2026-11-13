@@ -4,6 +4,8 @@
  */
 import { createClient } from "@/lib/supabase/client";
 import { calculateCustomerRisk, type CustomerRiskLevel } from "@/lib/customer-risk";
+import type { DownpaymentStatus, DownpaymentRulesSettings } from "@/lib/downpayment";
+import { DEFAULT_DOWNPAYMENT_SETTINGS, computeDownpaymentBalance, determineDownpaymentStatus } from "@/lib/downpayment";
 
 const supabaseClient = createClient();
 const supabase = () => supabaseClient;
@@ -69,12 +71,14 @@ export interface Appointment {
   hairstyle_reference_image?: string | null;
   appointment_date: string;
   appointment_time: string;
+  date?: string | null;
+  time?: string | null;
   source: string;
   price?: number | null;
   duration?: string | null;
   notes?: string | null;
   phone?: string | null;
-  status: 'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled' | 'no_show' | 'No-Show';
+  status: 'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled' | 'no_show' | 'No-Show' | 'Pending Downpayment';
   payment_method?: string | null;
   payment_status?: string | null;
   cancellation_reason?: string | null;
@@ -82,6 +86,18 @@ export interface Appointment {
   original_amount?: number | null;
   loyalty_discount_amount?: number | null;
   loyalty_reward_description?: string | null;
+  downpayment_required?: boolean;
+  downpayment_amount?: number;
+  downpayment_paid?: number;
+  downpayment_status?: DownpaymentStatus;
+  downpayment_reason?: string | null;
+  downpayment_hold_until?: string | null;
+  downpayment_waived_reason?: string | null;
+  downpayment_waived_by?: string | null;
+  downpayment_waived_at?: string | null;
+  pricing_flag?: string | null;
+  downpayment_carried_over?: boolean;
+  downpayment_original_appointment_id?: string | null;
   created_at?: string;
   customers?: { name: string; email?: string; phone?: string };
   staff?: { name: string };
@@ -164,7 +180,22 @@ export interface BillingRecord {
   original_amount?: number | null;
   loyalty_discount_amount?: number | null;
   loyalty_reward_description?: string | null;
+  downpayment_credited?: number | null;
   customers?: { name: string } | null;
+}
+
+export interface AppointmentDownpayment {
+  id?: string;
+  appointment_id: string;
+  amount: number;
+  payment_method: string;
+  reference_number?: string | null;
+  proof_image_url?: string | null;
+  paid_at: string;
+  recorded_by: string;
+  action: "RECORDED" | "REFUNDED" | "FORFEITED" | "TRANSFERRED" | "WAIVED";
+  notes?: string | null;
+  created_at?: string;
 }
 
 export interface Notification {
@@ -435,6 +466,49 @@ export const Services = {
 
 // ─── Appointments ─────────────────────────────────────────────────────────────
 
+const VALID_APPOINTMENT_COLUMNS = new Set([
+  "id",
+  "customer_name",
+  "service_name",
+  "staff_name",
+  "date",
+  "time",
+  "duration",
+  "price",
+  "status",
+  "payment_method",
+  "created_at",
+  "customer_id",
+  "service_id",
+  "staff_id",
+  "appointment_date",
+  "appointment_time",
+  "source",
+  "notes",
+  "design_id",
+  "design_name",
+  "design_image",
+  "cancellation_reason",
+  "payment_status",
+  "hairstyle_reference_image",
+  "loyalty_reward_id",
+  "original_amount",
+  "loyalty_discount_amount",
+  "loyalty_reward_description",
+  "downpayment_amount",
+]);
+
+function sanitizeAppointmentPayload<T extends Record<string, any>>(payload: T): Partial<T> {
+  if (!payload || typeof payload !== "object") return payload;
+  const sanitized: Record<string, any> = {};
+  for (const [key, val] of Object.entries(payload)) {
+    if (VALID_APPOINTMENT_COLUMNS.has(key) && val !== undefined) {
+      sanitized[key] = val;
+    }
+  }
+  return sanitized as Partial<T>;
+}
+
 export const Appointments = {
   async list() {
     const { data, error } = await supabase()
@@ -447,13 +521,46 @@ export const Appointments = {
       `)
       .order("appointment_date", { ascending: false });
     if (error) throw error;
-    return (data || []) as Appointment[];
+
+    const apts = (data || []) as Appointment[];
+
+    // Compute downpayment_paid and downpayment_status from actual paid/partial billing rows
+    try {
+      const { data: paidBills } = await supabase()
+        .from("billing")
+        .select("appointment_id, amount, status")
+        .in("status", ["Paid", "Partially Paid"]);
+
+      if (paidBills && paidBills.length > 0) {
+        const paidByApt = new Map<string, number>();
+        for (const b of paidBills) {
+          if (!b.appointment_id) continue;
+          paidByApt.set(b.appointment_id, (paidByApt.get(b.appointment_id) || 0) + (Number(b.amount) || 0));
+        }
+        return apts.map((apt) => {
+          const reqDp = Number(apt.downpayment_amount || 0);
+          const billedPaid = apt.id ? (paidByApt.get(apt.id) || 0) : 0;
+          const dpPaid = reqDp > 0 ? Math.min(reqDp, billedPaid) : billedPaid;
+          const dpStatus = reqDp > 0 ? determineDownpaymentStatus(reqDp, dpPaid, apt.downpayment_status === "Waived") : (apt.downpayment_status || "Not Required");
+          return {
+            ...apt,
+            downpayment_paid: apt.downpayment_paid ?? dpPaid,
+            downpayment_status: apt.downpayment_status ?? dpStatus,
+          };
+        });
+      }
+    } catch {
+      // Fallback to raw appointments if billing query fails
+    }
+
+    return apts;
   },
 
   async create(payload: Omit<Appointment, "id" | "created_at" | "customers" | "staff" | "services">) {
+    const cleanPayload = sanitizeAppointmentPayload(payload as any);
     const { data, error } = await supabase()
       .from("appointments")
-      .insert(payload)
+      .insert(cleanPayload)
       .select()
       .single();
     if (error) throw error;
@@ -477,9 +584,11 @@ export const Appointments = {
       payload.payment_status = "Cancelled";
     }
 
+    const cleanPayload = sanitizeAppointmentPayload(payload as any);
+
     const { data, error } = await supabase()
       .from("appointments")
-      .update(payload)
+      .update(cleanPayload)
       .eq("id", id)
       .select()
       .single();
@@ -699,6 +808,8 @@ export const InventoryTransactions = {
     inventoryId: string;
     transactionType?: InventoryTransactionType;
     quantity: number;
+    issuedBy?: string | null;
+    issuedByName?: string | null;
     issuedTo?: string | null;
     issuedToId?: string | null;
     issuedToType?: IssuedToType | null;
@@ -1213,22 +1324,28 @@ export async function fulfillPaymentSuccess(input: {
   amount?: number;
   cashReceived?: number;
   paymentMethod?: string;
+  paymentType?: "downpayment" | "full";
+  checkoutSessionId?: string;
   notes?: string;
   loyaltyRewardId?: string | null;
   originalAmount?: number;
   loyaltyDiscountAmount?: number;
   loyaltyRewardDescription?: string | null;
+  downpaymentCredited?: number;
 }) {
   const {
     appointmentId,
     amount,
     cashReceived,
     paymentMethod = "GCash",
+    paymentType,
+    checkoutSessionId,
     notes,
     loyaltyRewardId,
     originalAmount,
     loyaltyDiscountAmount,
     loyaltyRewardDescription,
+    downpaymentCredited,
   } = input;
 
   if (!appointmentId) {
@@ -1323,13 +1440,75 @@ export async function fulfillPaymentSuccess(input: {
         ? cashReceived
         : finalAmount;
 
+    // Fetch all existing billing rows for this appointment to support idempotency & partial/downpayment totals
+    const { data: allBillingRows } = await supabase()
+      .from("billing")
+      .select("*")
+      .eq("appointment_id", appointmentId)
+      .order("created_at", { ascending: false });
+
+    const existingBills = allBillingRows || [];
+    const paidBills = existingBills.filter((b: any) => b.status === "Paid" || b.status === "Partially Paid");
+
+    // Idempotency guard: if this checkoutSessionId was already recorded as Paid/Partially Paid, skip duplicate processing
+    if (checkoutSessionId) {
+      const duplicateBill = paidBills.find(
+        (b: any) => typeof b.notes === "string" && b.notes.includes(checkoutSessionId)
+      );
+      if (duplicateBill) {
+        console.log(`ℹ️ [PAYMENT FULFILLMENT] Duplicate checkout session ${checkoutSessionId} ignored (already processed).`);
+        return {
+          success: true,
+          appointmentId,
+          status: apt.status,
+          alreadyCompleted: true,
+          alreadyProcessed: true,
+          finalAmount: Number(duplicateBill.amount) || finalAmount,
+        };
+      }
+    }
+
+    const totalServicePrice = Number(apt.price ?? computedOriginalAmount ?? 0);
+    const previouslyPaidFromBilling = paidBills.reduce((sum: number, b: any) => sum + (Number(b.amount) || 0), 0);
+    const dpCredited = Math.max(
+      0,
+      Number(downpaymentCredited) || previouslyPaidFromBilling || Number(apt.downpayment_paid) || 0
+    );
+
+    // Distinguish partial / downpayment from full payment
+    const totalCovered = finalAmount + previouslyPaidFromBilling;
+    const isDownpaymentFlow = paymentType === "downpayment";
+    const isPartialPayment =
+      isDownpaymentFlow
+        ? (totalServicePrice <= 0 || totalCovered < totalServicePrice)
+        : (totalServicePrice > 0 && finalAmount < totalServicePrice && totalCovered < totalServicePrice && finalAmount > 0);
+
     const isAlreadyCompleted = apt.status === "Completed";
 
     const aptUpdatePayload: Record<string, any> = {
-      status: "Completed",
       payment_method: paymentMethod || apt.payment_method || "GCash",
-      payment_status: "Paid",
     };
+
+    if (isPartialPayment) {
+      // Partial / downpayment payment: do NOT mark completed!
+      aptUpdatePayload.payment_status = "Partially Paid";
+      // Preserve required downpayment_amount if already set; otherwise store finalAmount
+      if (!Number(apt.downpayment_amount)) {
+        aptUpdatePayload.downpayment_amount = finalAmount;
+      }
+      // If appointment was held pending downpayment, transition to Scheduled once downpayment is covered
+      const requiredDp = Number(apt.downpayment_amount || 0);
+      if (apt.status === "Pending Downpayment" && (requiredDp <= 0 || totalCovered >= requiredDp)) {
+        aptUpdatePayload.status = "Scheduled";
+      }
+    } else {
+      // Full payment: mark Paid and Completed (unless downpayment flow covered full price, still mark Paid)
+      aptUpdatePayload.payment_status = "Paid";
+      aptUpdatePayload.status = isDownpaymentFlow && apt.status === "Pending Downpayment" ? "Scheduled" : "Completed";
+      if (dpCredited > 0 && !Number(apt.downpayment_amount)) {
+        aptUpdatePayload.downpayment_amount = dpCredited;
+      }
+    }
 
     if (verifiedReward) {
       aptUpdatePayload.loyalty_reward_id = verifiedReward.id;
@@ -1339,47 +1518,43 @@ export async function fulfillPaymentSuccess(input: {
       aptUpdatePayload.price = finalAmount;
     }
 
-    // Update appointment status to 'Completed' if not already completed
-    if (!isAlreadyCompleted) {
-      const { error: updateError } = await supabase()
-        .from("appointments")
-        .update(aptUpdatePayload)
-        .eq("id", appointmentId);
+    // Update appointment in database
+    const sanitizedAptUpdate = sanitizeAppointmentPayload(aptUpdatePayload);
+    const { error: updateError } = await supabase()
+      .from("appointments")
+      .update(sanitizedAptUpdate)
+      .eq("id", appointmentId);
 
-      if (updateError) {
-        console.error(`❌ [PAYMENT FULFILLMENT] Failed to update appointment status:`, updateError);
-        return { success: false, error: updateError.message };
-      }
-      console.log(`✅ [PAYMENT FULFILLMENT] Appointment ${appointmentId} status updated to Completed.`);
-    } else {
-      if (apt.payment_status !== "Paid" || verifiedReward) {
-        await supabase()
-          .from("appointments")
-          .update(aptUpdatePayload)
-          .eq("id", appointmentId);
-      }
-      console.log(`ℹ️ [PAYMENT FULFILLMENT] Appointment ${appointmentId} was already Completed.`);
+    if (updateError) {
+      console.error(`❌ [PAYMENT FULFILLMENT] Failed to update appointment status:`, updateError);
+      return { success: false, error: updateError.message };
     }
+    console.log(`✅ [PAYMENT FULFILLMENT] Appointment ${appointmentId} updated: payment_status=${aptUpdatePayload.payment_status}, status=${aptUpdatePayload.status || apt.status}`);
 
-    // Idempotent Billing Record Creation/Update
-    const { data: existingBilling } = await supabase()
-      .from("billing")
-      .select("*")
-      .eq("appointment_id", appointmentId)
-      .limit(1)
-      .maybeSingle();
+    // Find matching Pending billing record (prefer matching checkoutSessionId) so we never overwrite an earlier Partially Paid row
+    const pendingMatch =
+      (checkoutSessionId
+        ? existingBills.find((b: any) => b.status === "Pending" && typeof b.notes === "string" && b.notes.includes(checkoutSessionId))
+        : null) ||
+      existingBills.find((b: any) => b.status === "Pending") ||
+      (!isDownpaymentFlow && existingBills.length === 1 ? existingBills[0] : null);
 
-    let billingId: string | null = existingBilling?.id || null;
+    let billingId: string | null = pendingMatch?.id || null;
 
-    if (!existingBilling) {
+    const billingStatus = isPartialPayment ? "Partially Paid" : "Paid";
+    // Billing amount is the ACTUAL amount paid in this transaction (NOT the full service total)
+    const billingAmountRecorded = finalAmount;
+
+    if (!pendingMatch) {
       const insertBillingPayload: Record<string, any> = {
         appointment_id: appointmentId,
         customer_id: apt.customer_id || verifiedReward?.customer_id || null,
-        amount: finalAmount,
+        amount: billingAmountRecorded,
+        original_amount: computedOriginalAmount || totalServicePrice || null,
         cash_received: finalCashReceived,
         payment_method: paymentMethod || "GCash",
-        status: "Paid",
-        notes: notes || `Payment for ${apt.service_name || "service"}`,
+        status: billingStatus,
+        notes: notes || (isPartialPayment ? `Downpayment deposit for ${apt.service_name || "service"}` : `Payment for ${apt.service_name || "service"}`),
       };
 
       if (verifiedReward) {
@@ -1399,15 +1574,20 @@ export async function fulfillPaymentSuccess(input: {
         console.error(`❌ [PAYMENT FULFILLMENT] Billing insert error:`, billInsertErr);
       } else {
         billingId = insertedBill?.id || null;
-        console.log(`✅ [PAYMENT FULFILLMENT] Billing record created with status Paid.`);
+        console.log(`✅ [PAYMENT FULFILLMENT] Billing record created with status ${billingStatus}, amount ₱${billingAmountRecorded}.`);
       }
-    } else if (existingBilling.status !== "Paid" || verifiedReward) {
+    } else {
       const updateBillingPayload: Record<string, any> = {
-        status: "Paid",
-        amount: finalAmount,
+        status: billingStatus,
+        amount: billingAmountRecorded,
+        original_amount: computedOriginalAmount || totalServicePrice || pendingMatch.original_amount || null,
         cash_received: finalCashReceived,
-        payment_method: paymentMethod || existingBilling.payment_method || "GCash",
+        payment_method: paymentMethod || pendingMatch.payment_method || "GCash",
       };
+
+      if (notes) {
+        updateBillingPayload.notes = notes;
+      }
 
       if (verifiedReward) {
         updateBillingPayload.loyalty_reward_id = verifiedReward.id;
@@ -1419,8 +1599,8 @@ export async function fulfillPaymentSuccess(input: {
       await supabase()
         .from("billing")
         .update(updateBillingPayload)
-        .eq("id", existingBilling.id);
-      console.log(`✅ [PAYMENT FULFILLMENT] Existing billing record updated to Paid.`);
+        .eq("id", pendingMatch.id);
+      console.log(`✅ [PAYMENT FULFILLMENT] Pending billing record updated to ${billingStatus}, amount ₱${billingAmountRecorded}.`);
     }
 
     // Mark loyalty reward as USED only after payment is fulfilled
@@ -1462,4 +1642,228 @@ export async function fulfillPaymentSuccess(input: {
     return { success: false, error: err?.message || "Server fulfillment exception" };
   }
 }
+
+// ─── Downpayment Operations ──────────────────────────────────────────────────
+
+export const DownpaymentDB = {
+  async getRules(): Promise<DownpaymentRulesSettings> {
+    try {
+      const raw = await SettingsDB.get("downpayment_rules");
+      if (raw && typeof raw === "object") {
+        return {
+          ...DEFAULT_DOWNPAYMENT_SETTINGS,
+          ...raw,
+          category_mappings: {
+            ...DEFAULT_DOWNPAYMENT_SETTINGS.category_mappings,
+            ...(raw.category_mappings || {}),
+          },
+        };
+      }
+    } catch (e) {
+      console.warn("Could not load downpayment rules, using default:", e);
+    }
+    return DEFAULT_DOWNPAYMENT_SETTINGS;
+  },
+
+  async saveRules(settings: Partial<DownpaymentRulesSettings>): Promise<DownpaymentRulesSettings> {
+    const current = await this.getRules();
+    const merged: DownpaymentRulesSettings = {
+      ...current,
+      ...settings,
+      category_mappings: {
+        ...current.category_mappings,
+        ...(settings.category_mappings || {}),
+      },
+    };
+    await SettingsDB.set("downpayment_rules", merged, "Downpayment Rules & Configuration");
+    return merged;
+  },
+
+  async listByAppointmentId(appointmentId: string): Promise<AppointmentDownpayment[]> {
+    const { data, error } = await supabase()
+      .from("appointment_downpayments")
+      .select("*")
+      .eq("appointment_id", appointmentId)
+      .order("created_at", { ascending: false });
+    if (error) return [];
+    return (data || []) as AppointmentDownpayment[];
+  },
+
+  async recordPayment(payload: {
+    appointmentId: string;
+    amount: number;
+    paymentMethod: string;
+    referenceNumber?: string | null;
+    proofImageUrl?: string | null;
+    recordedBy: string;
+    notes?: string | null;
+  }): Promise<{ success: boolean; downpayment?: AppointmentDownpayment; appointment?: Appointment; error?: string }> {
+    try {
+      const { appointmentId, amount, paymentMethod, referenceNumber, proofImageUrl, recordedBy, notes } = payload;
+      if (!appointmentId || amount <= 0) {
+        return { success: false, error: "Invalid appointment or payment amount" };
+      }
+
+      const { data: apt, error: aptErr } = await supabase()
+        .from("appointments")
+        .select("*")
+        .eq("id", appointmentId)
+        .single();
+      if (aptErr || !apt) {
+        return { success: false, error: "Appointment not found" };
+      }
+
+      // Append to appointment_downpayments if table exists (non-fatal if absent)
+      let createdDownpayment: any = undefined;
+      try {
+        const { data: dpRow, error: insErr } = await supabase()
+          .from("appointment_downpayments")
+          .insert({
+            appointment_id: appointmentId,
+            amount: Math.round(amount),
+            payment_method: paymentMethod,
+            reference_number: referenceNumber || null,
+            proof_image_url: proofImageUrl || null,
+            recorded_by: recordedBy,
+            action: "RECORDED",
+            notes: notes || null,
+          })
+          .select()
+          .single();
+
+        if (!insErr) {
+          createdDownpayment = dpRow;
+        }
+      } catch {
+        // Optional audit table may not exist in all environments
+      }
+
+      const { data: paidBills } = await supabase()
+        .from("billing")
+        .select("amount")
+        .eq("appointment_id", appointmentId)
+        .in("status", ["Paid", "Partially Paid"]);
+      const currentPaid = (paidBills || []).reduce((sum: number, b: any) => sum + (Number(b.amount) || 0), 0) || Number(apt.downpayment_paid) || 0;
+      const newTotalPaid = Math.round(currentPaid + amount);
+      const reqAmount = Math.round(Number(apt.downpayment_amount) || 0);
+      const newStatus = determineDownpaymentStatus(reqAmount, newTotalPaid);
+      const newAptStatus = (newStatus === "Paid" && apt.status === "Pending Downpayment") ? "Scheduled" : apt.status;
+      const totalPrice = Number(apt.price || 0);
+      const paymentStatus = newTotalPaid >= totalPrice && totalPrice > 0 ? "Paid" : (newTotalPaid > 0 ? "Partially Paid" : "Pending");
+
+      const aptPayload = sanitizeAppointmentPayload({
+        downpayment_amount: reqAmount > 0 ? reqAmount : newTotalPaid,
+        status: newAptStatus,
+        payment_status: paymentStatus,
+        payment_method: paymentMethod || apt.payment_method,
+      });
+
+      const { data: updatedApt, error: upErr } = await supabase()
+        .from("appointments")
+        .update(aptPayload)
+        .eq("id", appointmentId)
+        .select()
+        .single();
+
+      if (upErr) {
+        return { success: false, error: upErr.message };
+      }
+
+      // Record downpayment in billing table with actual amount paid
+      try {
+        await supabase()
+          .from("billing")
+          .insert({
+            appointment_id: appointmentId,
+            customer_id: apt.customer_id || null,
+            amount: amount,
+            original_amount: totalPrice || null,
+            cash_received: amount,
+            payment_method: paymentMethod || "Cash",
+            status: paymentStatus === "Paid" ? "Paid" : "Partially Paid",
+            notes: notes || `Downpayment of ₱${amount.toLocaleString()} recorded (${paymentMethod})${referenceNumber ? ` Ref: ${referenceNumber}` : ""}`,
+          });
+      } catch (bErr) {
+        console.warn("[DownpaymentDB] Billing insert warning:", bErr);
+      }
+
+      return { success: true, downpayment: createdDownpayment, appointment: updatedApt };
+    } catch (e: any) {
+      return { success: false, error: e?.message || "Failed to record downpayment" };
+    }
+  },
+
+  async recordAction(payload: {
+    appointmentId: string;
+    action: "REFUNDED" | "FORFEITED" | "TRANSFERRED" | "WAIVED";
+    amount: number;
+    recordedBy: string;
+    notes?: string | null;
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { appointmentId, action, amount, recordedBy, notes } = payload;
+      const safeAmount = Math.max(0.01, Math.round(amount));
+
+      await supabase()
+        .from("appointment_downpayments")
+        .insert({
+          appointment_id: appointmentId,
+          amount: safeAmount,
+          payment_method: action,
+          recorded_by: recordedBy,
+          action: action,
+          notes: notes || null,
+        });
+
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e?.message || "Failed to record downpayment action" };
+    }
+  },
+
+  async waiveDownpayment(payload: {
+    appointmentId: string;
+    reason: string;
+    waivedBy: string;
+  }): Promise<{ success: boolean; appointment?: Appointment; error?: string }> {
+    try {
+      const { appointmentId, reason, waivedBy } = payload;
+      if (!appointmentId || !reason?.trim()) {
+        return { success: false, error: "A waiver reason is required" };
+      }
+
+      const nowIso = new Date().toISOString();
+
+      await supabase()
+        .from("appointment_downpayments")
+        .insert({
+          appointment_id: appointmentId,
+          amount: 0.01,
+          payment_method: "Waiver",
+          recorded_by: waivedBy,
+          action: "WAIVED",
+          notes: `Waived by ${waivedBy}: ${reason.trim()}`,
+        })
+        .catch(() => {});
+
+      const { data: updatedApt, error } = await supabase()
+        .from("appointments")
+        .update({
+          downpayment_status: "Waived",
+          downpayment_waived_reason: reason.trim(),
+          downpayment_waived_by: waivedBy,
+          downpayment_waived_at: nowIso,
+          status: "Scheduled",
+        })
+        .eq("id", appointmentId)
+        .select()
+        .single();
+
+      if (error) return { success: false, error: error.message };
+      return { success: true, appointment: updatedApt };
+    } catch (e: any) {
+      return { success: false, error: e?.message || "Failed to waive downpayment" };
+    }
+  },
+};
 

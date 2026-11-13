@@ -15,6 +15,27 @@ type Review = {
   review?: string;
   created_at: string;
   review_image?: string | null;
+  staff_id?: string | null;
+  appointment_id?: string | null;
+  staff?: { name?: string | null } | null;
+};
+
+type ReviewableAppointment = {
+  id: string;
+  service_name: string;
+  appointment_date: string;
+  appointment_time: string;
+  staff_id: string | null;
+  staff_name: string | null;
+  staff_role: string | null;
+  has_assigned_staff: boolean;
+  already_reviewed: boolean;
+  existing_review: {
+    id: string;
+    rating: number;
+    review: string;
+    created_at: string;
+  } | null;
 };
 
 export default function TestimonialsPage() {
@@ -29,9 +50,13 @@ export default function TestimonialsPage() {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [submittedStaffName, setSubmittedStaffName] = useState('');
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [eligibleApts, setEligibleApts] = useState<ReviewableAppointment[]>([]);
+  const [loadingApts, setLoadingApts] = useState(false);
+  const [selectedAptId, setSelectedAptId] = useState<string>('');
 
   useEffect(() => {
     fetchReviews();
@@ -44,7 +69,7 @@ export default function TestimonialsPage() {
     try {
       const { data, error } = await supabase
         .from('reviews')
-        .select('*')
+        .select('*, staff:staff_id(name)')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -60,13 +85,43 @@ export default function TestimonialsPage() {
     }
   };
 
+  const fetchEligibleAppointments = async () => {
+    setLoadingApts(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        setEligibleApts([]);
+        return;
+      }
+      const res = await fetch('/api/reviews', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      const list: ReviewableAppointment[] = Array.isArray(data.appointments) ? data.appointments : [];
+      setEligibleApts(list);
+      const firstUnreviewed = list.find(a => !a.already_reviewed && a.has_assigned_staff);
+      setSelectedAptId(firstUnreviewed?.id || list[0]?.id || '');
+    } catch (e) {
+      console.error('Error loading eligible appointments:', e);
+      setEligibleApts([]);
+    } finally {
+      setLoadingApts(false);
+    }
+  };
+
   const handleOpenReview = () => {
     if (!user) {
       window.dispatchEvent(new CustomEvent('open-auth'));
       return;
     }
+    setError('');
+    setRating(0);
+    setHoverRating(0);
+    setReviewText('');
     setSelectedImages([]);
     setShowModal(true);
+    fetchEligibleAppointments();
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,12 +161,19 @@ export default function TestimonialsPage() {
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  const selectedAppointment = eligibleApts.find(a => a.id === selectedAptId) || null;
+  const unreviewedWithStaff = eligibleApts.filter(a => !a.already_reviewed && a.has_assigned_staff);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
+    if (!selectedAppointment || selectedAppointment.already_reviewed || !selectedAppointment.has_assigned_staff) {
+      setError('Please select an eligible completed appointment with an assigned staff member.');
+      return;
+    }
     if (rating === 0) {
-      setError('Please select a rating.');
+      setError('Please rate your staff before submitting your review.');
       return;
     }
     if (reviewText.trim().length < 10) {
@@ -122,17 +184,13 @@ export default function TestimonialsPage() {
       setError('Your review cannot exceed 500 characters.');
       return;
     }
-    
+
     setSubmitting(true);
     try {
-      let custId = customer?.id || null;
-      if (!custId && user?.id) {
-        const { data: custData } = await supabase
-          .from('customers')
-          .select('id')
-          .or(`user_id.eq.${user.id},email.ilike.${user.email?.trim().toLowerCase()}`)
-          .maybeSingle();
-        if (custData) custId = custData.id;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        throw new Error('Please sign in again to submit your review.');
       }
 
       let imageUrl: string | null = null;
@@ -160,20 +218,27 @@ export default function TestimonialsPage() {
         }
       }
 
-      const { data: newReviewData, error } = await supabase.from('reviews').insert([
-        {
-          customer_id: custId,
-          customer_name: name.trim() || user?.email?.split('@')[0] || 'Anonymous',
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          appointmentId: selectedAppointment.id,
           rating,
           review: reviewText.trim(),
-          review_image: imageUrl,
-          status: 'approved',
-        }
-      ]).select('id').single();
+          reviewImage: imageUrl,
+        }),
+      });
 
-      if (error) throw error;
-      
-      await fetchReviews();
+      const resData = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(resData.error || 'Failed to submit review.');
+      }
+
+      setSubmittedStaffName(resData.staffName || selectedAppointment.staff_name || 'our staff');
+      await Promise.all([fetchReviews(), fetchEligibleAppointments()]);
 
       setSuccess(true);
       setTimeout(() => {
@@ -330,57 +395,130 @@ export default function TestimonialsPage() {
             
             {success ? (
               <div className="text-center py-10">
-                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Star size={32} className="fill-green-600" />
+                <div className="w-16 h-16 bg-pink-50 border border-pink-100 text-pink-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Star size={32} className="fill-pink-600 text-pink-600" />
                 </div>
-                <h3 className="font-serif text-2xl text-zinc-900 mb-3">Thank you for sharing your experience!</h3>
-                <p className="text-sm text-zinc-500 font-medium">Your review has been submitted and will appear after approval.</p>
+                <h3 className="font-serif text-2xl text-zinc-900 mb-3">Review Submitted</h3>
+                <p className="text-sm text-zinc-500 font-medium">
+                  Thank you for rating your experience with {submittedStaffName || 'our staff'}!
+                </p>
+              </div>
+            ) : loadingApts ? (
+              <div className="text-center py-12">
+                <p className="text-sm text-zinc-500 font-medium">Loading your completed appointments...</p>
+              </div>
+            ) : eligibleApts.length === 0 ? (
+              <div className="text-center py-10 space-y-3">
+                <h3 className="font-serif text-2xl text-zinc-900">No Completed Appointments Yet</h3>
+                <p className="text-sm text-zinc-500 font-medium max-w-sm mx-auto">
+                  You can rate your staff and share a review once you have a completed appointment at CANDY &amp; ROSE.
+                </p>
+              </div>
+            ) : unreviewedWithStaff.length === 0 ? (
+              <div className="py-6 space-y-4">
+                <h3 className="font-serif text-2xl text-zinc-900">Appointment Already Reviewed</h3>
+                {eligibleApts[0]?.already_reviewed && eligibleApts[0]?.existing_review ? (
+                  <div className="rounded-2xl border border-pink-100 bg-pink-50/50 p-4 space-y-2">
+                    <div className="flex items-center justify-between text-xs text-zinc-600">
+                      <span className="font-bold text-zinc-900">{eligibleApts[0].service_name}</span>
+                      <span>Staff: <strong className="text-zinc-900">{eligibleApts[0].staff_name || 'Assigned Staff'}</strong></span>
+                    </div>
+                    <div className="flex items-center gap-1 text-pink-600">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          size={16}
+                          className={s <= (eligibleApts[0].existing_review?.rating || 0) ? 'fill-pink-600 text-pink-600' : 'text-zinc-300'}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-sm text-zinc-700 italic">&ldquo;{eligibleApts[0].existing_review.review}&rdquo;</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-500 font-medium">
+                    Your completed appointments do not currently have an assigned staff member available to rate.
+                  </p>
+                )}
               </div>
             ) : (
               <>
-                <h3 className="font-serif text-2xl text-zinc-900 mb-6">Leave a Review</h3>
+                <h3 className="font-serif text-2xl text-zinc-900 mb-5">Leave a Review</h3>
                 <form onSubmit={handleSubmit} className="space-y-5">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Name</label>
-                    <input 
-                      type="text" 
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Enter your name"
-                      className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:border-pink-500 outline-none transition-colors"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Rating</label>
-                    <div className="flex gap-2">
+                  {unreviewedWithStaff.length > 1 && (
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">
+                        Completed Appointment
+                      </label>
+                      <select
+                        value={selectedAptId}
+                        onChange={(e) => {
+                          setSelectedAptId(e.target.value);
+                          setError('');
+                        }}
+                        className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm text-zinc-900 bg-white focus:border-pink-500 outline-none transition-colors"
+                      >
+                        {unreviewedWithStaff.map((apt) => (
+                          <option key={apt.id} value={apt.id}>
+                            {apt.service_name} — {apt.appointment_date} ({apt.staff_name})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {selectedAppointment && (
+                    <div className="rounded-2xl border border-pink-100 bg-pink-50/40 p-4 space-y-2 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Service</span>
+                        <span className="font-semibold text-zinc-900 text-right">{selectedAppointment.service_name}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 border-t border-pink-100/80 pt-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Staff</span>
+                        <span className="font-bold text-pink-600 text-right">{selectedAppointment.staff_name}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="rounded-2xl border border-zinc-200 bg-white p-4 text-center space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                      How was your experience with {selectedAppointment?.staff_name || 'our staff'}?
+                    </p>
+                    <div className="flex items-center justify-center gap-2 py-1">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
                           type="button"
+                          aria-label={`${star} out of 5 stars`}
                           onMouseEnter={() => setHoverRating(star)}
                           onMouseLeave={() => setHoverRating(0)}
-                          onClick={() => setRating(star)}
-                          className="p-1 focus:outline-none transition-transform hover:scale-110"
+                          onClick={() => {
+                            setRating(star);
+                            setError('');
+                          }}
+                          className="p-1.5 focus:outline-none transition-transform hover:scale-110 active:scale-95 cursor-pointer"
                         >
-                          <Star 
-                            size={32} 
+                          <Star
+                            size={34}
                             className={`transition-colors ${
-                              (hoverRating || rating) >= star 
-                                ? "fill-pink-600 text-pink-600" 
-                                : "fill-transparent text-pink-200"
-                            }`} 
+                              (hoverRating || rating) >= star
+                                ? "fill-pink-600 text-pink-600"
+                                : "fill-transparent text-zinc-300"
+                            }`}
                           />
                         </button>
                       ))}
                     </div>
+                    <p className="text-xs font-medium text-zinc-500">
+                      {rating > 0 ? `${rating} out of 5 stars` : 'Tap a star to rate'}
+                    </p>
                   </div>
+
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Review</label>
-                    <textarea 
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Share Your Experience</label>
+                    <textarea
                       value={reviewText}
                       onChange={(e) => setReviewText(e.target.value)}
-                      placeholder="Share your experience..."
+                      placeholder="Write your review here..."
                       className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:border-pink-500 outline-none min-h-[120px] resize-none transition-colors"
                       required
                       maxLength={500}

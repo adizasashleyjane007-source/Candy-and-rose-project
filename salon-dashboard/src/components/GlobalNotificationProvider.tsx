@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import {
@@ -8,9 +8,10 @@ import {
   Bell, TrendingUp, Check, AlertTriangle, PhoneCall, UserCheck
 } from "lucide-react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { Appointments, Customers, NotificationsDB, type Appointment } from "@/lib/db";
+import { Appointments, Customers, NotificationsDB, SettingsDB, type Appointment } from "@/lib/db";
 import { addNotification } from "@/lib/notifications";
 import { calculateCustomerRisk, type CustomerRiskSummary } from "@/lib/customer-risk";
+import CustomerIsLateModal from "@/components/CustomerIsLateModal";
 
 // Types for Reminder Summary
 interface SummaryData {
@@ -89,10 +90,54 @@ export default function GlobalNotificationProvider() {
   // --- Late & No-Show Alert System State ---
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [appointmentsList, setAppointmentsList] = useState<Appointment[]>([]);
-  const [minimizedLateIds, setMinimizedLateIds] = useState<Set<string>>(new Set());
   const [acknowledgedNoShowIds, setAcknowledgedNoShowIds] = useState<Set<string>>(new Set());
   const [cancelledConfirmAppt, setCancelledConfirmAppt] = useState<Appointment | null>(null);
   const [phoneNoticeMsg, setPhoneNoticeMsg] = useState<string | null>(null);
+
+  // Dynamic Grace Period & Snooze per appointment state
+  const [gracePeriodMinutes, setGracePeriodMinutes] = useState<number>(30);
+  const [snoozedUntilMap, setSnoozedUntilMap] = useState<Record<string, number>>({});
+  const [currentLateIndex, setCurrentLateIndex] = useState<number>(0);
+
+  // Load grace period setting & restore unexpired snoozes from localStorage on mount
+  useEffect(() => {
+    if (isAuthPage) return;
+
+    SettingsDB.get("grace_period")
+      .then((val) => {
+        const num = Number(val);
+        if (num && !isNaN(num) && num > 0) {
+          setGracePeriodMinutes(num);
+        } else {
+          SettingsDB.get("notification_preferences")
+            .then((np) => {
+              if (np?.gracePeriodMinutes && !isNaN(Number(np.gracePeriodMinutes))) {
+                setGracePeriodMinutes(Number(np.gracePeriodMinutes));
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+
+    if (typeof window !== "undefined") {
+      const map: Record<string, number> = {};
+      const now = Date.now();
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("late_snooze_")) {
+          const aptId = key.replace("late_snooze_", "");
+          const until = parseInt(localStorage.getItem(key) || "0", 10);
+          if (until && until > now) {
+            map[aptId] = until;
+          } else {
+            localStorage.removeItem(key);
+          }
+        }
+      }
+      setSnoozedUntilMap(map);
+    }
+  }, [isAuthPage]);
 
   // Fetch appointments list
   const loadAppointmentsList = useCallback(async () => {
@@ -123,26 +168,18 @@ export default function GlobalNotificationProvider() {
     };
   }, [loadAppointmentsList, isAuthPage]);
 
-  // Helper function to parse scheduled timestamp cleanly
+  // Helper function to parse scheduled timestamp cleanly in Asia/Manila (UTC+8)
   const getScheduledTimestamp = (apt: Appointment): number | null => {
-    const dateVal = apt.appointment_date;
+    const dateVal = apt.appointment_date || apt.date;
     if (!dateVal) return null;
 
-    let year: number, month: number, day: number;
-    if (typeof dateVal === "string" && dateVal.includes("-")) {
-      const cleanDate = dateVal.split("T")[0];
-      const parts = cleanDate.split("-");
-      if (parts.length === 3) {
-        year = parseInt(parts[0], 10);
-        month = parseInt(parts[1], 10) - 1;
-        day = parseInt(parts[2], 10);
-      } else {
-        const d = new Date(dateVal);
-        if (isNaN(d.getTime())) return null;
-        year = d.getFullYear();
-        month = d.getMonth();
-        day = d.getDate();
-      }
+    let year = 0, month = 0, day = 0;
+    const cleanDate = typeof dateVal === "string" ? dateVal.split("T")[0] : "";
+    const parts = cleanDate.split("-");
+    if (parts.length === 3) {
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      day = parseInt(parts[2], 10);
     } else {
       const d = new Date(dateVal);
       if (isNaN(d.getTime())) return null;
@@ -153,7 +190,7 @@ export default function GlobalNotificationProvider() {
 
     let hours = 0;
     let minutes = 0;
-    const timeVal = apt.appointment_time;
+    const timeVal = apt.appointment_time || apt.time;
 
     if (timeVal) {
       const match = timeVal.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
@@ -166,13 +203,17 @@ export default function GlobalNotificationProvider() {
       }
     }
 
-    return new Date(year, month, day, hours, minutes, 0, 0).getTime();
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    const isoString = `${year}-${pad(month + 1)}-${pad(day)}T${pad(hours)}:${pad(minutes)}:00+08:00`;
+    const parsed = Date.parse(isoString);
+    return isNaN(parsed) ? new Date(year, month, day, hours, minutes).getTime() : parsed;
   };
 
-  // Evaluate late & no-show logic for DB status updates
+  // Evaluate late & no-show logic for DB status updates respecting dynamic grace period
   useEffect(() => {
     if (isAuthPage || appointmentsList.length === 0) return;
     const nowMs = currentTime.getTime();
+    const gracePeriodThresholdSecs = gracePeriodMinutes * 60;
 
     for (const apt of appointmentsList) {
       if (!apt.id) continue;
@@ -192,8 +233,8 @@ export default function GlobalNotificationProvider() {
 
       const diffSecs = Math.floor((nowMs - scheduledTs) / 1000);
 
-      // If 30 minutes (1800s) or more have elapsed since scheduled start time:
-      if (diffSecs >= 1800) {
+      // If grace period has elapsed since scheduled start time:
+      if (diffSecs >= gracePeriodThresholdSecs) {
         // Update DB status to 'no_show'
         Appointments.update(apt.id, { status: "no_show" })
           .then(() => {
@@ -209,27 +250,51 @@ export default function GlobalNotificationProvider() {
           .catch((err) => console.error("Failed to auto-update appointment to no_show:", err));
       }
     }
-  }, [currentTime, appointmentsList, isAuthPage]);
+  }, [currentTime, appointmentsList, isAuthPage, gracePeriodMinutes]);
 
   // Derived active late & no-show lists
   const nowMs = currentTime.getTime();
 
-  const lateAppts = appointmentsList.filter((apt) => {
-    if (!apt.id) return false;
-    if (
-      apt.status === "Completed" ||
-      apt.status === "Cancelled" ||
-      apt.status === "In Progress" ||
-      apt.status === "no_show" ||
-      apt.status === "No-Show"
-    ) {
-      return false;
+  // Ordered by scheduled time (earliest first), excluding snoozed or already finished/no-show
+  const lateAppts = useMemo(() => {
+    return appointmentsList
+      .filter((apt) => {
+        if (!apt.id) return false;
+        if (
+          apt.status === "Completed" ||
+          apt.status === "Cancelled" ||
+          apt.status === "In Progress" ||
+          apt.status === "no_show" ||
+          apt.status === "No-Show"
+        ) {
+          return false;
+        }
+        const scheduledTs = getScheduledTimestamp(apt);
+        if (!scheduledTs) return false;
+        const diffSecs = Math.floor((nowMs - scheduledTs) / 1000);
+        if (diffSecs < 0) return false; // not late yet
+
+        // Check if currently snoozed
+        const snoozeUntil = snoozedUntilMap[apt.id] || parseInt(typeof window !== "undefined" ? localStorage.getItem(`late_snooze_${apt.id}`) || "0" : "0", 10);
+        if (snoozeUntil && nowMs < snoozeUntil) {
+          return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        const tsA = getScheduledTimestamp(a) || 0;
+        const tsB = getScheduledTimestamp(b) || 0;
+        return tsA - tsB;
+      });
+  }, [appointmentsList, nowMs, snoozedUntilMap]);
+
+  // Clamp currentLateIndex if lateAppts shrinks
+  useEffect(() => {
+    if (currentLateIndex >= lateAppts.length && lateAppts.length > 0) {
+      setCurrentLateIndex(lateAppts.length - 1);
     }
-    const scheduledTs = getScheduledTimestamp(apt);
-    if (!scheduledTs) return false;
-    const diffSecs = Math.floor((nowMs - scheduledTs) / 1000);
-    return diffSecs >= 0 && diffSecs < 1800;
-  });
+  }, [lateAppts.length, currentLateIndex]);
 
   const noShowAppts = appointmentsList.filter((apt) => {
     if (!apt.id) return false;
@@ -245,44 +310,34 @@ export default function GlobalNotificationProvider() {
     const scheduledTs = getScheduledTimestamp(apt);
     if (!scheduledTs) return false;
     const diffSecs = Math.floor((nowMs - scheduledTs) / 1000);
-    return diffSecs >= 1800;
+    return diffSecs >= (gracePeriodMinutes * 60);
   });
 
-  const activeLateAppt = lateAppts.find((a) => a.id && !minimizedLateIds.has(a.id)) || null;
-  const minimizedLateAppt = lateAppts.find((a) => a.id && minimizedLateIds.has(a.id)) || null;
   const activeNoShowAppt = noShowAppts[0] || null;
 
-  // Calculate metrics for late appointment
-  const getLateMetrics = (apt: Appointment) => {
-    const scheduledTs = getScheduledTimestamp(apt);
-    if (!scheduledTs) return { elapsedStr: "0m 0s", remainingStr: "30:00", remainingSecs: 1800 };
-    const diffSecs = Math.max(0, Math.floor((nowMs - scheduledTs) / 1000));
-    const remainingSecs = Math.max(0, 1800 - diffSecs);
-
-    const elMins = Math.floor(diffSecs / 60);
-    const elSecs = diffSecs % 60;
-    const elapsedStr = `${elMins}m ${elSecs}s elapsed`;
-
-    const remMins = Math.floor(remainingSecs / 60);
-    const remSecs = remainingSecs % 60;
-    const remainingStr = `${remMins.toString().padStart(2, "0")}:${remSecs.toString().padStart(2, "0")}`;
-
-    return { elapsedStr, remainingStr, remainingSecs };
-  };
+  // Snooze late appointment handler (5 or 10 min)
+  const handleLateSnooze = useCallback((aptId: string, minutes: number) => {
+    const until = Date.now() + minutes * 60 * 1000;
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`late_snooze_${aptId}`, String(until));
+    }
+    setSnoozedUntilMap((prev) => ({ ...prev, [aptId]: until }));
+  }, []);
 
   // Mark customer as arrived action
-  const handleMarkArrived = async (apt: Appointment) => {
+  const handleLateMarkArrived = useCallback(async (apt: Appointment) => {
     if (!apt.id) return;
     try {
       await Appointments.update(apt.id, { status: "In Progress" });
-      setMinimizedLateIds((prev) => {
-        const next = new Set(prev);
-        if (apt.id) next.delete(apt.id);
-        return next;
-      });
       if (typeof window !== "undefined") {
+        localStorage.removeItem(`late_snooze_${apt.id}`);
         window.dispatchEvent(new Event("appointmentsUpdated"));
       }
+      setSnoozedUntilMap((prev) => {
+        const next = { ...prev };
+        delete next[apt.id!];
+        return next;
+      });
       showStatus(
         "success",
         "Customer Arrived",
@@ -292,7 +347,52 @@ export default function GlobalNotificationProvider() {
       console.error("Failed to mark customer as arrived:", err);
       showStatus("error", "Status Update Failed", "Could not mark appointment as arrived. Please try again.");
     }
-  };
+  }, []);
+
+  // Mark as No-Show with optional downpayment resolution
+  const handleLateMarkNoShow = useCallback(async (apt: Appointment, downpaymentResolution?: "Forfeited" | "Refunded") => {
+    if (!apt.id) return;
+    try {
+      await Appointments.update(apt.id, {
+        status: "no_show",
+        ...(downpaymentResolution ? { downpayment_status: downpaymentResolution } : {}),
+      });
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(`late_snooze_${apt.id}`);
+        window.dispatchEvent(new Event("appointmentsUpdated"));
+      }
+      setSnoozedUntilMap((prev) => {
+        const next = { ...prev };
+        delete next[apt.id!];
+        return next;
+      });
+      showStatus(
+        "success",
+        "Customer Marked No-Show",
+        `${apt.customer_name || apt.customers?.name || "Customer"} marked as No-Show.${downpaymentResolution ? ` Deposit marked as ${downpaymentResolution}.` : ""}`
+      );
+    } catch (err) {
+      console.error("Failed to mark customer as no-show:", err);
+      showStatus("error", "Status Update Failed", "Could not mark appointment as no-show. Please try again.");
+    }
+  }, []);
+
+  // Live phone number update in state
+  const handleLatePhoneUpdated = useCallback((aptId: string, phone: string) => {
+    setAppointmentsList((prev) =>
+      prev.map((a) =>
+        a.id === aptId
+          ? { ...a, phone, customers: { ...a.customers, name: a.customers?.name || a.customer_name || "", phone } }
+          : a
+      )
+    );
+  }, []);
+
+  // Reschedule handler
+  const handleLateReschedule = useCallback((apt: Appointment) => {
+    handleLateSnooze(apt.id!, 15);
+    router.push(`/appointment?id=${apt.id}&action=reschedule`);
+  }, [handleLateSnooze, router]);
 
   // Contact Customer action
   const handleContactCustomer = (apt: Appointment) => {
@@ -586,14 +686,22 @@ export default function GlobalNotificationProvider() {
       const isWalkIn = detailedAppointment.source === 'Walk-in';
 
       if (!isWalkIn) {
+        const dpAmount = Number(detailedAppointment.downpayment_amount || 0);
+        const totalPrice = Number(detailedAppointment.price || 0);
+        const isDownpaymentRequired = dpAmount > 0 && detailedAppointment.payment_status !== 'Paid';
+        const paymentAmountToSend = isDownpaymentRequired ? dpAmount : totalPrice;
+
         try {
           const checkoutRes = await fetch('/api/create-checkout', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               appointmentId: detailedAppointment.id,
-              amount: detailedAppointment.price,
-              serviceName: detailedAppointment.service_name,
+              amount: paymentAmountToSend,
+              originalAmount: totalPrice,
+              serviceName: isDownpaymentRequired
+                ? `${detailedAppointment.service_name} (Downpayment Deposit)`
+                : detailedAppointment.service_name,
               customerName: detailedAppointment.customer_name,
               email: detailedAppointment.customers?.email,
               phone: detailedAppointment.customers?.phone
@@ -617,6 +725,8 @@ export default function GlobalNotificationProvider() {
             time: formatAMPM(detailedAppointment.appointment_time || ""),
             service: detailedAppointment.service_name,
             price: detailedAppointment.price,
+            downpaymentAmount: isDownpaymentRequired ? dpAmount : 0,
+            remainingBalance: isDownpaymentRequired ? Math.max(0, totalPrice - dpAmount) : 0,
             staff: detailedAppointment.staff_name || detailedAppointment.staff?.name || "Professional",
             checkoutUrl: checkoutUrl
           })
@@ -880,139 +990,23 @@ export default function GlobalNotificationProvider() {
       )}
 
       {/* --- 2. CUSTOMER IS LATE MODAL --- */}
-      {activeLateAppt && !activeNoShowAppt && (
-        <div className="fixed inset-0 z-[12000] flex items-center justify-center p-4 bg-gray-900/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl border border-amber-200 overflow-hidden relative z-10 animate-in zoom-in-95 duration-300">
-            <div className="h-2 w-full bg-gradient-to-r from-amber-400 via-pink-400 to-pink-600" />
-            <div className="p-8 sm:p-10">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
-                    <Clock className="w-7 h-7 text-amber-500 animate-pulse" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-black text-gray-900 tracking-tight">Customer Is Late</h3>
-                    <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">30-Minute Grace Period Active</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => activeLateAppt.id && setMinimizedLateIds((prev) => new Set(prev).add(activeLateAppt.id!))}
-                  className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
-                  title="Minimize Alert"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <p className="text-sm font-medium text-gray-600 leading-relaxed mb-6 bg-amber-50/50 p-4 rounded-2xl border border-amber-100">
-                <span className="font-bold text-gray-900">
-                  {activeLateAppt.customer_name || activeLateAppt.customers?.name || "Customer"}
-                </span>{" "}
-                has not arrived for their scheduled appointment.
-              </p>
-
-              {/* Countdown Display Box */}
-              {(() => {
-                const { elapsedStr, remainingStr } = getLateMetrics(activeLateAppt);
-                return (
-                  <div className="mb-6 bg-gradient-to-br from-amber-50 to-pink-50 border border-amber-200 rounded-3xl p-6 text-center shadow-inner">
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-700 block mb-1">
-                      Remaining Grace Period
-                    </span>
-                    <div className="text-5xl font-black font-mono text-gray-900 tracking-wider my-1">
-                      {remainingStr}
-                    </div>
-                    <span className="text-xs font-semibold text-gray-500 block">
-                      {elapsedStr}
-                    </span>
-                  </div>
-                );
-              })()}
-
-              <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 space-y-3 mb-6">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-xs font-bold text-gray-400 uppercase">Customer Name</span>
-                  <span className="font-bold text-gray-900">
-                    {activeLateAppt.customer_name || activeLateAppt.customers?.name || "N/A"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-xs font-bold text-gray-400 uppercase">Contact Number</span>
-                  <span className="font-bold text-gray-900">
-                    {activeLateAppt.customers?.phone || activeLateAppt.phone || "No contact number recorded"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-xs font-bold text-gray-400 uppercase">Service Booked</span>
-                  <span className="font-bold text-gray-900">
-                    {activeLateAppt.service_name || activeLateAppt.services?.name || "N/A"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-xs font-bold text-gray-400 uppercase">Assigned Staff</span>
-                  <span className="font-bold text-gray-900">
-                    {activeLateAppt.staff_name || activeLateAppt.staff?.name || "Auto-assigned"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-xs font-bold text-gray-400 uppercase">Scheduled Time</span>
-                  <span className="font-bold text-gray-900">
-                    {activeLateAppt.appointment_date} at {formatAMPM(activeLateAppt.appointment_time)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleMarkArrived(activeLateAppt)}
-                  className="flex-1 py-4 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
-                >
-                  <UserCheck className="w-5 h-5" />
-                  Mark Customer as Arrived
-                </button>
-                <button
-                  onClick={() => activeLateAppt.id && setMinimizedLateIds((prev) => new Set(prev).add(activeLateAppt.id!))}
-                  className="py-4 px-6 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-sm transition-all active:scale-95 cursor-pointer"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- 3. FLOATING GRACE-PERIOD BANNER (WHEN MINIMIZED) --- */}
-      {minimizedLateAppt && !activeLateAppt && !activeNoShowAppt && (
-        <div className="fixed bottom-6 right-6 z-[11000] animate-in slide-in-from-bottom-5 duration-300">
-          <div className="bg-white rounded-2xl shadow-2xl border border-amber-300 p-4 flex items-center gap-4 max-w-md">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
-              <Clock className="w-5 h-5 text-amber-500 animate-pulse" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-gray-900 truncate">
-                Customer Is Late: {minimizedLateAppt.customer_name || minimizedLateAppt.customers?.name || "Customer"}
-              </p>
-              <p className="text-[11px] font-mono font-bold text-amber-600">
-                Grace: {getLateMetrics(minimizedLateAppt).remainingStr} remaining
-              </p>
-            </div>
-            <button
-              onClick={() => minimizedLateAppt.id && setMinimizedLateIds((prev) => {
-                const next = new Set(prev);
-                next.delete(minimizedLateAppt.id!);
-                return next;
-              })}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
-            >
-              View Alert
-            </button>
-          </div>
-        </div>
+      {lateAppts.length > 0 && !activeNoShowAppt && (
+        <CustomerIsLateModal
+          lateAppts={lateAppts}
+          currentIndex={Math.min(currentLateIndex, Math.max(0, lateAppts.length - 1))}
+          onNavigate={setCurrentLateIndex}
+          gracePeriodMinutes={gracePeriodMinutes}
+          currentTime={currentTime}
+          onMarkArrived={handleLateMarkArrived}
+          onSnooze={handleLateSnooze}
+          onMarkNoShow={handleLateMarkNoShow}
+          onPhoneUpdated={handleLatePhoneUpdated}
+          onReschedule={handleLateReschedule}
+        />
       )}
 
       {/* 4. Daily Summary */}
-      {dailySummary && !activeNoShowAppt && !activeLateAppt && (
+      {dailySummary && !activeNoShowAppt && lateAppts.length === 0 && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-pink-100 overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="h-2 w-full bg-gradient-to-r from-emerald-400 via-pink-400 to-amber-400" />
@@ -1062,7 +1056,7 @@ export default function GlobalNotificationProvider() {
       )}
 
       {/* 5. Appointment Reminders */}
-      {reminderAppt && !activeNoShowAppt && !activeLateAppt && (
+      {reminderAppt && !activeNoShowAppt && lateAppts.length === 0 && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-pink-100 overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="h-2 w-full bg-gradient-to-r from-pink-400 to-pink-600" />

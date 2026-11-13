@@ -150,13 +150,13 @@ export function WeeklyRevenueChart() {
             </div>
 
             {/* Chart Area */}
-            <div className="flex-1 w-full min-h-0 relative flex flex-col justify-center">
+            <div className="flex-1 w-full min-w-0 min-h-[260px] relative flex flex-col justify-center">
                 {!isMounted || loading ? (
-                    <div className="w-full h-full min-h-[260px] flex items-center justify-center">
+                    <div className="w-full h-[280px] min-h-[260px] flex items-center justify-center">
                         <Loader2 className="w-9 h-9 animate-spin text-pink-300" />
                     </div>
                 ) : (
-                    <div className="w-full h-full min-h-0 flex-1">
+                    <div className="w-full min-w-0 h-[280px]">
                         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={260}>
                             <BarChart data={revenueData} margin={{ top: 10, right: 8, left: 8, bottom: 4 }}>
                                 <XAxis

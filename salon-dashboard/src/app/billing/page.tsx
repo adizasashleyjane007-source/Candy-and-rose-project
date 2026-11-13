@@ -40,6 +40,7 @@ interface PrintingReceiptData {
     subtotal: number;
     loyaltyDiscountAmount?: number;
     loyaltyRewardDescription?: string | null;
+    downpaymentCredited?: number;
     paymentMethod: string;
     isCash: boolean;
     cashReceived: number;
@@ -138,9 +139,8 @@ export default function BillingPage() {
             const appts = await Appointments.list();
             setAppointments(appts);
 
-            // Sync Top 5 Customer Loyalty Rewards in background
-            const now = new Date();
-            LoyaltyDB.syncTop5ForMonth(now.getFullYear(), now.getMonth()).catch(() => {});
+            // Finalize PREVIOUS month Top 5 Customer Loyalty Rewards idempotently in background
+            LoyaltyDB.syncPreviousMonth().catch(() => {});
 
             try {
                 const bills = await Billing.list();
@@ -465,6 +465,12 @@ export default function BillingPage() {
                         <span style="font-family: monospace; font-weight: 700;">-₱${receipt.loyaltyDiscountAmount.toLocaleString()}</span>
                     </div>
                     ` : ''}
+                    ${receipt.downpaymentCredited && receipt.downpaymentCredited > 0 ? `
+                    <div style="display: flex; justify-content: space-between; color: #059669; font-weight: 700;">
+                        <span>Downpayment Credited:</span>
+                        <span style="font-family: monospace; font-weight: 700;">-₱${receipt.downpaymentCredited.toLocaleString()}</span>
+                    </div>
+                    ` : ''}
                     <div style="display: flex; justify-content: space-between; color: #4b5563;">
                         <span>Tax (0%):</span>
                         <span style="font-family: monospace; font-weight: 500; color: #000;">₱0.00</span>
@@ -523,7 +529,8 @@ export default function BillingPage() {
                 ? calculateLoyaltyDiscountForAppointments(apptsForReceipt, availableLoyaltyReward)
                 : null;
         const discountVal = loyaltyCalc && loyaltyCalc.isApplicable ? loyaltyCalc.discountAmount : 0;
-        const totalAmount = Math.max(0, rawSubtotal - discountVal);
+        const dpCredited = apptsForReceipt.reduce((sum, a) => sum + (Number(a.downpayment_amount) || Number(a.downpayment_paid) || 0), 0);
+        const totalAmount = Math.max(0, rawSubtotal - discountVal - dpCredited);
         const paymentMethodName = paymentMethod || "Cash";
         const isCash = paymentMethodName.toLowerCase() === "cash";
         const cashRec = customCash !== undefined ? Math.max(customCash, totalAmount) : (Number(paymentAmount) || totalAmount);
@@ -549,6 +556,7 @@ export default function BillingPage() {
             subtotal: rawSubtotal,
             loyaltyDiscountAmount: discountVal,
             loyaltyRewardDescription: discountVal > 0 ? availableLoyaltyReward?.reward_description : null,
+            downpaymentCredited: dpCredited,
             paymentMethod: paymentMethodName,
             isCash: isCash,
             cashReceived: cashRec,
@@ -572,9 +580,18 @@ export default function BillingPage() {
         const matchesSearch = customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (apt.id || "").toLowerCase().includes(searchQuery.toLowerCase());
 
+        const isPaid = apt.status === 'Completed' || apt.payment_status === 'Paid';
+        const dpPaid = Number(apt.downpayment_amount) || Number(apt.downpayment_paid) || 0;
+        const remaining = Math.max(0, (apt.price || 0) - dpPaid);
+        const isPartiallyPaid = !isPaid && (
+            apt.payment_status === 'Partially Paid' ||
+            (dpPaid > 0 && remaining > 0 && apt.status !== 'Cancelled')
+        );
+
         let matchesStatus = true;
-        if (statusFilter === "Pending") matchesStatus = apt.status === "Scheduled";
-        if (statusFilter === "Paid") matchesStatus = apt.status === "Completed";
+        if (statusFilter === "Pending") matchesStatus = !isPaid && apt.status !== "Cancelled";
+        if (statusFilter === "Partially Paid") matchesStatus = isPartiallyPaid;
+        if (statusFilter === "Paid") matchesStatus = isPaid;
 
         return matchesSearch && matchesStatus;
     });
@@ -585,14 +602,23 @@ export default function BillingPage() {
 
     // Dynamic Summary Metrics
     const totalRevenue = appointments
-        .filter(a => a.status === 'Completed')
-        .reduce((sum, a) => sum + (a.price || 0), 0);
+        .filter(a => a.status === 'Completed' || a.payment_status === 'Paid')
+        .reduce((sum, a) => sum + (a.price || 0), 0)
+        + appointments
+        .filter(a => a.payment_status === 'Partially Paid' && a.status !== 'Completed')
+        .reduce((sum, a) => sum + (Number(a.downpayment_amount) || Number(a.downpayment_paid) || 0), 0);
 
     const pendingRevenue = appointments
-        .filter(a => a.status === 'Scheduled')
-        .reduce((sum, a) => sum + (a.price || 0), 0);
+        .filter(a => a.status !== 'Completed' && a.status !== 'Cancelled')
+        .reduce((sum, a) => {
+            const totalPrice = a.price || 0;
+            const dpPaid = a.payment_status === 'Partially Paid'
+                ? (Number(a.downpayment_amount) || Number(a.downpayment_paid) || 0)
+                : 0;
+            return sum + Math.max(0, totalPrice - dpPaid);
+        }, 0);
 
-    const paidTransactionsCount = appointments.filter(a => a.status === 'Completed').length;
+    const paidTransactionsCount = appointments.filter(a => a.status === 'Completed' || a.payment_status === 'Paid').length;
 
     const handleExportCSV = () => {
         if (filteredAppointments.length === 0) {
@@ -618,11 +644,24 @@ export default function BillingPage() {
             const matchedBill = billingRecords.find(
                 (b) => b.appointment_id === trx.id || b.id === trx.id
             );
-            const isPending = trx.status !== "Completed" && trx.status !== "Cancelled";
+            const isPaid = trx.status === "Completed" || trx.payment_status === "Paid";
+            const dpPaid = Number(trx.downpayment_amount) || Number(trx.downpayment_paid) || 0;
+            const remainingBalance = Math.max(0, (trx.price || 0) - dpPaid);
+            const isPartiallyPaid = !isPaid && (
+                trx.payment_status === "Partially Paid" ||
+                (dpPaid > 0 && remainingBalance > 0 && trx.status !== "Cancelled")
+            );
             const customerName = trx.customers?.name || trx.customer_name || "Unknown";
             const serviceName = trx.service_name || trx.services?.name || "Unknown Service";
             const amount = trx.price ?? matchedBill?.amount ?? 0;
-            const paymentStatus = isPending ? "Pending Payment" : "Paid";
+            const paymentStatus = isPaid
+                ? "Paid"
+                : isPartiallyPaid
+                ? "Partially Paid"
+                : "Pending Payment";
+            const amountDisplay = isPartiallyPaid
+                ? `Total: ₱${Number(amount).toLocaleString()} (Paid: ₱${dpPaid.toLocaleString()}, Balance: ₱${remainingBalance.toLocaleString()})`
+                : `₱${Number(amount).toLocaleString()}`;
             const transactionDate = trx.appointment_date
                 ? `${trx.appointment_date}${trx.appointment_time ? ` ${trx.appointment_time}` : ""}`
                 : matchedBill?.created_at
@@ -633,12 +672,12 @@ export default function BillingPage() {
             const paymentMethodValue =
                 trx.payment_method ||
                 matchedBill?.payment_method ||
-                (isPending ? "Pending" : "Cash");
+                (!isPaid ? "Pending" : "Cash");
 
             return [
                 escapeCSV(customerName),
                 escapeCSV(serviceName),
-                escapeCSV(`₱${Number(amount).toLocaleString()}`),
+                escapeCSV(amountDisplay),
                 escapeCSV(paymentStatus),
                 escapeCSV(transactionDate),
                 escapeCSV(paymentMethodValue),
@@ -672,7 +711,9 @@ export default function BillingPage() {
             name: apt.customer_name || "Valued Customer",
             pendingCount: 1
         });
-        setPaymentAmount(""); 
+        const dp = Number(apt.downpayment_amount) || Number(apt.downpayment_paid) || 0;
+        const balanceDue = Math.max(0, (apt.price || 0) - dp);
+        setPaymentAmount(balanceDue > 0 ? balanceDue.toString() : ""); 
         setPaymentMethod("Cash");
         setSelectedBilling(null);
         setReceiptModalStep('PAYMENT_SUCCESS');
@@ -927,6 +968,7 @@ export default function BillingPage() {
             subtotal: subtotalAmount,
             loyaltyDiscountAmount: discountVal,
             loyaltyRewardDescription: rewardDesc,
+            downpaymentCredited: Number(matchedBill?.downpayment_credited ?? (apt.downpayment_amount || apt.downpayment_paid || 0)),
             paymentMethod: paymentMethodName,
             isCash: isCash,
             cashReceived: cashRec,
@@ -1009,7 +1051,8 @@ export default function BillingPage() {
                 const rawAptPrice = formatPrice(apt.price);
                 const aptDiscount = Math.min(rawAptPrice, remainingDiscount);
                 remainingDiscount = Math.max(0, remainingDiscount - aptDiscount);
-                const finalAptPrice = Math.max(0, rawAptPrice - aptDiscount);
+                const aptDp = Number(apt.downpayment_amount) || Number(apt.downpayment_paid) || 0;
+                const finalAptPrice = Math.max(0, rawAptPrice - aptDiscount - aptDp);
                 const aptCash = i === 0 ? cashRec : finalAptPrice;
 
                 const res = await fulfillPaymentSuccess({
@@ -1023,6 +1066,7 @@ export default function BillingPage() {
                     loyaltyDiscountAmount: i === 0 && applyRewardNow ? loyaltyCalc.discountAmount : 0,
                     loyaltyRewardDescription:
                         i === 0 && applyRewardNow ? availableLoyaltyReward.reward_description : null,
+                    downpaymentCredited: aptDp,
                 });
 
                 if (!res.success) {
@@ -1138,7 +1182,9 @@ export default function BillingPage() {
             ? loyaltyCalc.discountAmount
             : 0;
     const tax = 0; 
-    const totalWithTax = Math.max(0, apptFee - appliedDiscountAmount + tax);
+    const totalDownpaymentCredited = activePaymentAppointments.reduce((sum, a) => sum + (Number(a.downpayment_amount) || Number(a.downpayment_paid) || 0), 0);
+    const totalWithTax = Math.max(0, (apptFee - appliedDiscountAmount) - totalDownpaymentCredited + tax);
+    const excessCredit = Math.max(0, totalDownpaymentCredited - (apptFee - appliedDiscountAmount));
     const isAmountReceivedValid =
         totalWithTax === 0
             ? (paymentAmount === "" || parseFloat(paymentAmount) >= 0)
@@ -1226,7 +1272,7 @@ export default function BillingPage() {
 
                             {filterOpen && (
                                 <div className="absolute z-10 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-pink-100 py-2 right-0">
-                                    {["All", "Pending", "Paid"].map((filterOpt) => (
+                                    {["All", "Pending", "Partially Paid", "Paid"].map((filterOpt) => (
                                         <button
                                             key={filterOpt}
                                             onClick={() => { setStatusFilter(filterOpt); setFilterOpen(false); setCurrentPage(1); }}
@@ -1281,32 +1327,68 @@ export default function BillingPage() {
                                 </thead>
                                 <tbody>
                                     {paginatedAppointments.map((trx) => {
-                                        const isPending = trx.status !== 'Completed' && trx.status !== 'Cancelled';
+                                        const isPaid = trx.status === 'Completed' || trx.payment_status === 'Paid';
+                                        const totalPrice = trx.price || 0;
+                                        const dpPaid = Number(trx.downpayment_amount) || Number(trx.downpayment_paid) || 0;
+                                        const remainingBalance = Math.max(0, totalPrice - dpPaid);
+                                        const isPartiallyPaid = !isPaid && (
+                                            trx.payment_status === 'Partially Paid' ||
+                                            (dpPaid > 0 && remainingBalance > 0 && trx.status !== 'Cancelled')
+                                        );
+                                        const isPending = !isPaid && !isPartiallyPaid && trx.status !== 'Cancelled';
                                         const customerName = trx.customers?.name || trx.customer_name || "Unknown";
-                                        const serviceName = trx.service_name || "Unknown Service";
+                                        const serviceName = trx.service_name || trx.services?.name || "Unknown Service";
+
                                         return (
                                             <tr key={trx.id} className="bg-gray-50/50 hover:bg-pink-50/50 transition-all shadow-sm group">
                                                 <td className="py-2.5 px-4 text-sm font-bold text-gray-900 rounded-l-xl whitespace-nowrap">
                                                     {customerName}
                                                 </td>
                                                 <td className="py-2.5 px-4 text-sm font-medium text-gray-600 whitespace-nowrap">{serviceName}</td>
-                                                <td className="py-2.5 px-4 text-sm font-bold text-gray-900 whitespace-nowrap">₱{(trx.price || 0).toLocaleString()}</td>
+                                                <td className="py-2.5 px-4 text-sm whitespace-nowrap">
+                                                    {isPartiallyPaid ? (
+                                                        <div className="flex flex-col py-0.5">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="font-bold text-gray-900 text-sm">₱{totalPrice.toLocaleString()}</span>
+                                                                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">(Total)</span>
+                                                            </div>
+                                                            <div className="text-[11px] text-gray-500 flex items-center gap-1.5 mt-0.5">
+                                                                <span>Paid: <strong className="text-emerald-600 font-bold">₱{dpPaid.toLocaleString()}</strong></span>
+                                                                <span>•</span>
+                                                                <span>Remaining: <strong className="text-pink-600 font-bold">₱{remainingBalance.toLocaleString()}</strong></span>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="font-bold text-gray-900">₱{totalPrice.toLocaleString()}</span>
+                                                    )}
+                                                </td>
                                                 <td className="py-2.5 px-4 text-sm text-center whitespace-nowrap">
-                                                    <span className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-tight border ${isPending ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
-                                                        {isPending ? "Pending Payment" : "Paid"}
+                                                    <span className={`px-3.5 py-1.5 rounded-full text-xs font-bold tracking-tight border ${
+                                                        isPaid
+                                                            ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                                            : isPartiallyPaid
+                                                            ? 'bg-pink-50 text-pink-600 border-pink-200'
+                                                            : 'bg-amber-50 text-amber-600 border-amber-200'
+                                                    }`}>
+                                                        {isPaid ? "Paid" : isPartiallyPaid ? "Partially Paid" : "Pending Payment"}
                                                     </span>
                                                 </td>
                                                 <td className="py-2.5 px-4 text-sm rounded-r-xl text-center whitespace-nowrap">
                                                     <div className="flex items-center justify-center gap-2">
-                                                        {isPending ? (
-                                                            <button onClick={() => handleOpenPayment(trx)} className="px-4 py-1.5 bg-emerald-500 text-white rounded-lg font-bold shadow-sm hover:bg-emerald-600 transition-all">Pay</button>
+                                                        {!isPaid ? (
+                                                            <button
+                                                                onClick={() => handleOpenPayment(trx)}
+                                                                className="px-4 py-1.5 bg-emerald-500 text-white rounded-lg font-bold shadow-sm hover:bg-emerald-600 transition-all text-xs"
+                                                            >
+                                                                {isPartiallyPaid ? "Pay Balance" : "Pay"}
+                                                            </button>
                                                         ) : (
                                                             <>
-                                                                <button onClick={() => handleViewReceipt(trx)} className="px-3 py-1.5 bg-[#F02D98]/10 text-[#F02D98] rounded-lg border border-[#F02D98]/25 shadow-xs hover:bg-[#F02D98]/20 font-bold transition-all" title="Print Receipt">Receipt</button>
+                                                                <button onClick={() => handleViewReceipt(trx)} className="px-3 py-1.5 bg-[#F02D98]/10 text-[#F02D98] rounded-lg border border-[#F02D98]/25 shadow-xs hover:bg-[#F02D98]/20 font-bold transition-all text-xs" title="Print Receipt">Receipt</button>
                                                                 <button 
                                                                     onClick={() => handleSendReceiptEmail(trx)} 
                                                                     disabled={isSendingEmail === trx.id}
-                                                                    className="px-3 py-1.5 bg-white text-gray-600 rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 font-bold transition-all flex items-center gap-1"
+                                                                    className="px-3 py-1.5 bg-white text-gray-600 rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 font-bold transition-all flex items-center gap-1 text-xs"
                                                                     title="Send to Gmail"
                                                                 >
                                                                     {isSendingEmail === trx.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
@@ -1711,13 +1793,25 @@ export default function BillingPage() {
                                             <span>-₱{appliedDiscountAmount.toLocaleString()}</span>
                                         </div>
                                     )}
+                                    {totalDownpaymentCredited > 0 && (
+                                        <div className="flex justify-between items-center text-sm font-bold text-emerald-600">
+                                            <span>Downpayment Credited:</span>
+                                            <span>-₱{totalDownpaymentCredited.toLocaleString()}</span>
+                                        </div>
+                                    )}
+                                    {excessCredit > 0 && (
+                                        <div className="flex justify-between items-center text-xs font-semibold text-amber-700 bg-amber-50 p-2 rounded-lg">
+                                            <span>Excess DP Credit (To Refund/Credit):</span>
+                                            <span className="font-bold">₱{excessCredit.toLocaleString()}</span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between items-center text-sm font-medium text-gray-600">
                                         <span>Tax (0%):</span>
                                         <span className="text-gray-900 font-bold">₱0.00</span>
                                     </div>
                                     <div className="h-px bg-pink-100 my-1" />
                                     <div className="flex justify-between items-center text-sm font-bold text-gray-900">
-                                        <span className="text-gray-800">{appliedDiscountAmount > 0 ? "Final total:" : "Total Amount:"}</span>
+                                        <span className="text-gray-800">{totalDownpaymentCredited > 0 || appliedDiscountAmount > 0 ? "Balance Due:" : "Total Amount:"}</span>
                                         <span className="text-lg text-pink-600 font-extrabold">₱{totalWithTax.toLocaleString()}</span>
                                     </div>
                                 </div>
@@ -2133,6 +2227,18 @@ export default function BillingPage() {
                                 <span>Sub-total:</span>
                                 <span style={{ fontFamily: "monospace", fontWeight: 500, color: "#000" }}>₱{printingReceipt.subtotal.toLocaleString()}</span>
                             </div>
+                            {printingReceipt.loyaltyDiscountAmount && printingReceipt.loyaltyDiscountAmount > 0 ? (
+                                <div style={{ display: "flex", justifyContent: "space-between", color: "#F02D98", fontWeight: 700 }}>
+                                    <span>Loyalty Discount ({printingReceipt.loyaltyRewardDescription || 'Top 5 Reward'}):</span>
+                                    <span style={{ fontFamily: "monospace", fontWeight: 700 }}>-₱{printingReceipt.loyaltyDiscountAmount.toLocaleString()}</span>
+                                </div>
+                            ) : null}
+                            {printingReceipt.downpaymentCredited && printingReceipt.downpaymentCredited > 0 ? (
+                                <div style={{ display: "flex", justifyContent: "space-between", color: "#059669", fontWeight: 700 }}>
+                                    <span>Downpayment Credited:</span>
+                                    <span style={{ fontFamily: "monospace", fontWeight: 700 }}>-₱{printingReceipt.downpaymentCredited.toLocaleString()}</span>
+                                </div>
+                            ) : null}
                             <div style={{ display: "flex", justifyContent: "space-between", color: "#4b5563" }}>
                                 <span>Tax (0%):</span>
                                 <span style={{ fontFamily: "monospace", fontWeight: 500, color: "#000" }}>₱0.00</span>

@@ -10,7 +10,11 @@ import { addNotification } from "@/lib/notifications";
 
 type Review = {
   id: string;
+  customer_id?: string | null;
   customer_name: string;
+  appointment_id?: string | null;
+  staff_id?: string | null;
+  staff_reviewed?: string;
   rating: number;
   comment?: string;
   review?: string;
@@ -62,16 +66,78 @@ export default function ReviewsPage() {
     setLoading(true);
     setFetchError(null);
     try {
-      const { data, error } = await supabase
-        .from('reviews')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [reviewsRes, aptsRes] = await Promise.all([
+        supabase
+          .from('reviews')
+          .select('*, staff:staff_id(id, name), appointments:appointment_id(id, staff_id, staff_name, staff(id, name))')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('appointments')
+          .select('id, customer_id, customer_name, staff_id, staff_name, appointment_date, status, staff(name)')
+          .order('appointment_date', { ascending: false }),
+      ]);
 
-      if (error) {
-        throw error;
+      if (reviewsRes.error) {
+        throw reviewsRes.error;
       }
 
-      setReviews(data || []);
+      const appointments = aptsRes.error ? [] : (aptsRes.data || []);
+
+      const enrichedReviews: Review[] = (reviewsRes.data || []).map((rev: any) => {
+        // 1. Direct staff relation on review
+        let staffName = (rev.staff?.name || '').trim();
+
+        // 2. Staff from linked appointment
+        if (!staffName && rev.appointments) {
+          const aptStaff = (rev.appointments.staff?.name || rev.appointments.staff_name || '').trim();
+          if (aptStaff && aptStaff.toLowerCase() !== 'auto-assigned') {
+            staffName = aptStaff;
+          }
+        }
+
+        // 3. Fallback for legacy reviews without appointment_id/staff_id: match customer's completed/valid appointment
+        if (!staffName) {
+          const revDate = rev.created_at ? new Date(rev.created_at) : null;
+          const revCustName = (rev.customer_name || '').trim().toLowerCase();
+
+          const matchingApts = appointments.filter((apt: any) => {
+            const st = String(apt.status || '').trim().toLowerCase();
+            if (st === 'cancelled' || st === 'canceled' || st === 'no_show' || st === 'no-show' || st === 'rejected') {
+              return false;
+            }
+            const aptStaff = (apt.staff?.name || apt.staff_name || '').trim();
+            if (!aptStaff || aptStaff.toLowerCase() === 'auto-assigned') return false;
+
+            const matchesCustomer =
+              (rev.customer_id && apt.customer_id && rev.customer_id === apt.customer_id) ||
+              (revCustName && (apt.customer_name || '').trim().toLowerCase() === revCustName);
+            if (!matchesCustomer) return false;
+
+            if (revDate && apt.appointment_date) {
+              const aptDate = new Date(apt.appointment_date);
+              if (!isNaN(aptDate.getTime()) && aptDate > revDate) {
+                return false;
+              }
+            }
+            return true;
+          });
+
+          const bestApt =
+            matchingApts.find((a: any) => String(a.status || '').trim().toLowerCase() === 'completed') ||
+            matchingApts[0];
+
+          if (bestApt) {
+            staffName = (bestApt.staff?.name || bestApt.staff_name || '').trim();
+          }
+        }
+
+        return {
+          ...rev,
+          staff_reviewed: staffName || 'N/A',
+        };
+      });
+
+      setReviews(enrichedReviews);
       setFetchError(null);
     } catch (e: any) {
       console.error("Error fetching reviews:", e);
@@ -119,6 +185,7 @@ export default function ReviewsPage() {
   const filteredReviews = reviews.filter(r => {
     const matchesSearch = 
       (r.customer_name || '').toLowerCase().includes(search.toLowerCase()) || 
+      (r.staff_reviewed || '').toLowerCase().includes(search.toLowerCase()) ||
       (r.review || r.comment || '').toLowerCase().includes(search.toLowerCase()) ||
       (r.rating ? r.rating.toString() : '').includes(search.trim());
 
@@ -457,6 +524,7 @@ export default function ReviewsPage() {
               <thead>
                 <tr>
                   <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Customer</th>
+                  <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Staff Reviewed</th>
                   <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Rating</th>
                   <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Review</th>
                   <th className="pb-2 px-4 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Date</th>
@@ -468,6 +536,13 @@ export default function ReviewsPage() {
                   <tr key={review.id} className="bg-gray-50/50 hover:bg-pink-50/50 transition-all shadow-sm group">
                     <td className="py-2.5 px-4 text-sm font-semibold text-gray-900 rounded-l-xl border border-transparent group-hover:border-pink-200 border-r-0 whitespace-nowrap">
                       {review.customer_name}
+                    </td>
+                    <td className="py-2.5 px-4 text-sm font-medium text-gray-700 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">
+                      {review.staff_reviewed && review.staff_reviewed !== 'N/A' ? (
+                        <span className="font-semibold text-gray-800">{review.staff_reviewed}</span>
+                      ) : (
+                        <span className="text-gray-400">N/A</span>
+                      )}
                     </td>
                     <td className="py-2.5 px-4 text-sm font-medium text-gray-600 border border-transparent group-hover:border-pink-200 border-x-0 whitespace-nowrap">
                       <div className="flex items-center gap-0.5">
@@ -508,7 +583,7 @@ export default function ReviewsPage() {
 
                 {filteredReviews.length === 0 && !loading && !fetchError && (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-gray-500 font-medium">
+                    <td colSpan={6} className="py-8 text-center text-gray-500 font-medium">
                       No reviews found matching your selection.
                     </td>
                   </tr>
@@ -516,7 +591,7 @@ export default function ReviewsPage() {
 
                 {loading && (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-gray-500 font-medium">
+                    <td colSpan={6} className="py-8 text-center text-gray-500 font-medium">
                       Loading reviews...
                     </td>
                   </tr>
@@ -524,7 +599,7 @@ export default function ReviewsPage() {
 
                 {fetchError && (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-red-500 font-medium">
+                    <td colSpan={6} className="py-8 text-center text-red-500 font-medium">
                       <div className="flex flex-col items-center justify-center gap-2 py-4">
                         <span>{fetchError}</span>
                         <button

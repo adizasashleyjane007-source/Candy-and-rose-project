@@ -50,12 +50,17 @@ export default function PendingPaymentsCard() {
         Billing.list().catch(() => [] as BillingRecord[]),
       ]);
 
-      // Map paid billing amounts by appointment_id
+      // Map paid billing amounts by appointment_id, summing all successful payments
       const billingsByApt = new Map<string, number>();
       (allBillings || []).forEach((b) => {
         if (b.appointment_id) {
-          const isPaid = !b.status || b.status.toLowerCase() === "paid";
-          if (isPaid) {
+          const statusLower = (b.status || "").toLowerCase();
+          const isSuccessfulPayment =
+            !b.status ||
+            statusLower === "paid" ||
+            statusLower === "partially paid" ||
+            statusLower === "completed";
+          if (isSuccessfulPayment) {
             const current = billingsByApt.get(b.appointment_id) || 0;
             billingsByApt.set(b.appointment_id, current + Number(b.amount || 0));
           }
@@ -89,11 +94,24 @@ export default function PendingPaymentsCard() {
         }
 
         // 4. Calculate amounts
-        const total = Number(apt.price || apt.services?.price || 0);
+        const total = Number(apt.price || (apt as any).original_amount || apt.services?.price || 0);
         if (total <= 0) continue;
 
+        // Retrieve downpayment recorded on appointment record
+        const aptDownpayment = Number(
+          (apt as any).downpayment_paid ??
+          apt.downpayment_amount ??
+          (apt as any).amount_paid ??
+          (apt as any).paid_amount ??
+          0
+        );
+
+        // Sum of successful billing payments for this appointment
         const billedAmount = billingsByApt.get(apt.id) || 0;
-        const amountPaid = Math.min(total, billedAmount);
+
+        // Total amount paid includes downpayment and/or successful billing payments (supporting multiple payments)
+        const totalAlreadyPaid = Math.max(billedAmount, aptDownpayment);
+        const amountPaid = Math.min(total, totalAlreadyPaid);
         const remainingBalance = Math.max(0, total - amountPaid);
 
         // Exclude fully paid bookings
@@ -106,6 +124,8 @@ export default function PendingPaymentsCard() {
         // - Bookings for today or upcoming (aptTimestamp >= todayMidnight)
         // - Bookings currently "In Progress"
         // - Recently created bookings (within last 3 days)
+        // - Recently scheduled bookings
+        // - Any booking with an active partial payment and remaining balance
         const dateVal = apt.appointment_date || (apt as any).date;
         const aptTimestamp = dateVal ? new Date(dateVal).getTime() : 0;
         const createdTimestamp = apt.created_at ? new Date(apt.created_at).getTime() : aptTimestamp;
@@ -114,15 +134,20 @@ export default function PendingPaymentsCard() {
         const isOngoing = apt.status === "In Progress";
         const isRecentlyCreated = createdTimestamp >= threeDaysAgo;
         const isRecentlyScheduled = aptTimestamp >= threeDaysAgo && apt.status === "Scheduled";
+        const hasActivePayment = amountPaid > 0 && remainingBalance > 0;
 
-        if (!isUpcomingOrToday && !isOngoing && !isRecentlyCreated && !isRecentlyScheduled) {
+        if (!isUpcomingOrToday && !isOngoing && !isRecentlyCreated && !isRecentlyScheduled && !hasActivePayment) {
           // Stale / expired transaction from the past that was never fulfilled
           continue;
         }
 
-        // Determine badge: Partial if some amount paid or status explicitly says Partial
+        // Determine badge: Partial if some amount paid or status explicitly says Partial / Partially Paid
         const paymentStatus: "Pending" | "Partial" =
-          amountPaid > 0 || apt.payment_status === "Partial" ? "Partial" : "Pending";
+          amountPaid > 0 ||
+          apt.payment_status === "Partial" ||
+          apt.payment_status === "Partially Paid"
+            ? "Partial"
+            : "Pending";
 
         const customerName = apt.customers?.name || apt.customer_name || "Valued Client";
         const serviceName = apt.services?.name || apt.service_name || "Salon Service";

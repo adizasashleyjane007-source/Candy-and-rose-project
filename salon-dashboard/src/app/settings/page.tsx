@@ -2,9 +2,11 @@
 
 import Header from "@/components/Header";
 import { useState, useEffect, useRef } from "react";
+import "@fontsource-variable/plus-jakarta-sans";
 import { addNotification } from "@/lib/notifications";
-import { SettingsDB, ArchiveDB, ArchivedRecord, PromotionsDB, Promotion, Services, type Service } from "@/lib/db";
+import { SettingsDB, ArchiveDB, ArchivedRecord, PromotionsDB, Promotion, Services, DownpaymentDB, type Service } from "@/lib/db";
 import { LoyaltyDB, buildRewardDescription, type LoyaltyRewardSettings, type LoyaltyRewardType } from "@/lib/loyalty";
+import { DEFAULT_DOWNPAYMENT_SETTINGS, type DownpaymentRulesSettings } from "@/lib/downpayment";
 import {
     Store,
     Clock,
@@ -38,9 +40,35 @@ import {
     Image as ImageIcon,
     Check,
     Star,
-    Gift
+    Gift,
+    ShieldCheck
 } from "lucide-react";
 import Pagination from "@/components/Pagination";
+
+// Single constant for Loyalty tab typography so the font family can be easily swapped
+const LOYALTY_FONT_FAMILY = '"Plus Jakarta Sans Variable", system-ui, sans-serif';
+
+const rewardTypeOptions: Array<{
+    type: LoyaltyRewardType;
+    title: string;
+    subtitle: string;
+}> = [
+    {
+        type: "percentage_discount",
+        title: "Percentage Discount",
+        subtitle: "e.g. 20% off total bill",
+    },
+    {
+        type: "fixed_amount",
+        title: "Fixed Amount Discount",
+        subtitle: "e.g. ₱200 off total bill",
+    },
+    {
+        type: "free_service",
+        title: "Free Service",
+        subtitle: "e.g. Free Basic Haircut",
+    },
+];
 
 // --- Types ---
 interface SalonInfo {
@@ -75,6 +103,7 @@ interface NotificationSettings {
     cancellationAlert: boolean;
     dailySummary: boolean;
     inventoryLowAlert: boolean;
+    gracePeriodMinutes?: number;
 }
 
 // --- Defaults ---
@@ -103,6 +132,7 @@ const defaultNotifications: NotificationSettings = {
     cancellationAlert: true,
     dailySummary: false,
     inventoryLowAlert: true,
+    gracePeriodMinutes: 30,
 };
 
 // Generate time options in 10-minute increments for dropdowns
@@ -162,10 +192,14 @@ export default function SettingsPage() {
     const [operatingHours, setOperatingHours] = useState<OperatingHours>(defaultOperatingHours);
     const [notifications, setNotifications] = useState<NotificationSettings>(defaultNotifications);
     const [toast, setToast] = useState<string | null>(null);
-    const [activeSection, setActiveSection] = useState<"salon" | "hours" | "notifications" | "payments" | "loyalty" | "archive">("salon");
+    const [activeSection, setActiveSection] = useState<"salon" | "hours" | "notifications" | "payments" | "loyalty" | "downpayment" | "archive">("salon");
     const [salonErrors, setSalonErrors] = useState<Partial<Record<keyof SalonInfo, string>>>({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+
+    // Downpayment Rules Configuration State
+    const [downpaymentRules, setDownpaymentRules] = useState<DownpaymentRulesSettings>(DEFAULT_DOWNPAYMENT_SETTINGS);
+    const [allCatalogCategories, setAllCatalogCategories] = useState<string[]>([]);
 
     // Loyalty Reward Configuration State
     const [loyaltySettings, setLoyaltySettings] = useState<LoyaltyRewardSettings>({
@@ -179,7 +213,54 @@ export default function SettingsPage() {
         validity_days: 31,
         is_active: true,
     });
+    const [savedLoyaltySettings, setSavedLoyaltySettings] = useState<LoyaltyRewardSettings | null>(null);
+    const [loyaltySyncLog, setLoyaltySyncLog] = useState<any>(null);
     const [availableServices, setAvailableServices] = useState<Service[]>([]);
+    const rewardTypeRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+    const hasUnsavedLoyaltyChanges = Boolean(
+        savedLoyaltySettings && (
+            loyaltySettings.is_active !== savedLoyaltySettings.is_active ||
+            loyaltySettings.reward_type !== savedLoyaltySettings.reward_type ||
+            Number(loyaltySettings.reward_value) !== Number(savedLoyaltySettings.reward_value) ||
+            (loyaltySettings.free_service_id || null) !== (savedLoyaltySettings.free_service_id || null)
+        )
+    );
+
+    const handleSelectRewardType = (type: LoyaltyRewardType) => {
+        setLoyaltySettings((prev) => {
+            let nextVal = prev.reward_value;
+            if (type === "percentage_discount" && (nextVal <= 0 || nextVal > 100)) {
+                nextVal = 20;
+            } else if (type === "fixed_amount" && nextVal <= 100) {
+                nextVal = 200;
+            }
+            return {
+                ...prev,
+                reward_type: type,
+                reward_value: nextVal,
+            };
+        });
+    };
+
+    const handleRewardTypeKeyDown = (e: React.KeyboardEvent, index: number) => {
+        let nextIndex = index;
+        if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+            e.preventDefault();
+            nextIndex = (index + 1) % rewardTypeOptions.length;
+        } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+            e.preventDefault();
+            nextIndex = (index - 1 + rewardTypeOptions.length) % rewardTypeOptions.length;
+        } else if (e.key === " " || e.key === "Enter") {
+            e.preventDefault();
+            handleSelectRewardType(rewardTypeOptions[index].type);
+            return;
+        } else {
+            return;
+        }
+        handleSelectRewardType(rewardTypeOptions[nextIndex].type);
+        rewardTypeRefs.current[nextIndex]?.focus();
+    };
 
     // Archive State
     const [archiveItems, setArchiveItems] = useState<ArchivedRecord[]>([]);
@@ -264,17 +345,32 @@ export default function SettingsPage() {
         const loadAllSettings = async () => {
             try {
                 setLoading(true);
-                const [si, oh, ns, pm, ls, svcs] = await Promise.all([
+                const [si, oh, ns, pm, ls, svcs, latestLog, dpRules] = await Promise.all([
                     SettingsDB.get("salon_info"),
                     SettingsDB.get("operating_hours"),
                     SettingsDB.get("notification_preferences"),
                     SettingsDB.listPaymentMethods(),
                     LoyaltyDB.getSettings().catch(() => null),
-                    Services.list().catch(() => [])
+                    Services.list().catch(() => []),
+                    LoyaltyDB.getLatestSyncLog().catch(() => null),
+                    DownpaymentDB.getRules().catch(() => DEFAULT_DOWNPAYMENT_SETTINGS),
                 ]);
 
-                if (ls) setLoyaltySettings(ls);
-                if (svcs) setAvailableServices(svcs);
+                if (ls) {
+                    setLoyaltySettings(ls);
+                    setSavedLoyaltySettings(ls);
+                }
+                if (latestLog) {
+                    setLoyaltySyncLog(latestLog);
+                }
+                if (dpRules) {
+                    setDownpaymentRules(dpRules);
+                }
+                if (svcs) {
+                    setAvailableServices(svcs);
+                    const cats = Array.from(new Set(svcs.map((s: any) => s.category).filter(Boolean))) as string[];
+                    setAllCatalogCategories(cats);
+                }
 
                 if (si) {
                     setSalonInfo({
@@ -369,7 +465,8 @@ export default function SettingsPage() {
         try {
             setSaving(true);
             await SettingsDB.set("notification_preferences", notifications, "Notification Preferences");
-            showToast("Notification preferences saved!");
+            await SettingsDB.set("grace_period", notifications.gracePeriodMinutes || 30, "Customer Late Grace Period");
+            showToast("Notification preferences and grace period saved!");
             if (notifications.appointmentReminder) {
                 addNotification("Reminders Enabled", `Appointment reminders set to ${notifications.reminderHoursBefore}h before booking.`, "appointment");
             }
@@ -495,10 +592,12 @@ export default function SettingsPage() {
                 validity_days: Math.max(1, Number(loyaltySettings.validity_days) || 31),
             });
             setLoyaltySettings(saved);
+            setSavedLoyaltySettings(saved);
 
-            // Sync current month's Top 5 rewards with updated settings
-            const now = new Date();
-            await LoyaltyDB.syncTop5ForMonth(now.getFullYear(), now.getMonth());
+            // Finalize PREVIOUS month Top 5 rewards idempotently
+            await LoyaltyDB.syncPreviousMonth().catch(() => {});
+            const refreshedLog = await LoyaltyDB.getLatestSyncLog().catch(() => null);
+            if (refreshedLog) setLoyaltySyncLog(refreshedLog);
 
             showToast("Loyalty reward settings saved successfully!");
             addNotification(
@@ -514,6 +613,26 @@ export default function SettingsPage() {
         }
     };
 
+    const handleSaveDownpaymentRules = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            setSaving(true);
+            const saved = await DownpaymentDB.saveRules(downpaymentRules);
+            setDownpaymentRules(saved);
+            showToast("Downpayment rules saved successfully!");
+            addNotification(
+                "Downpayment Rules Updated",
+                "Downpayment rules, cutoff time, and category mappings have been updated.",
+                "system"
+            );
+        } catch (error) {
+            console.error("Failed to save downpayment rules:", error);
+            showToast("Failed to save downpayment rules.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const days = Object.keys(operatingHours) as (keyof OperatingHours)[];
     const sectionTabs = [
         { key: "salon" as const, label: "Salon Info", icon: Store },
@@ -521,6 +640,7 @@ export default function SettingsPage() {
         { key: "notifications" as const, label: "Notifications", icon: Bell },
         { key: "payments" as const, label: "Payment Methods", icon: CreditCard },
         { key: "loyalty" as const, label: "Loyalty Rewards", icon: Star },
+        { key: "downpayment" as const, label: "Downpayment Rules", icon: ShieldCheck },
         { key: "archive" as const, label: "Archive", icon: Archive },
     ];
 
@@ -764,6 +884,29 @@ export default function SettingsPage() {
                                             )}
                                         </div>
                                         <ToggleSwitch id="toggle-appointment-reminder" enabled={notifications.appointmentReminder} onChange={(val) => setNotifications({ ...notifications, appointmentReminder: val })} />
+                                    </div>
+                                </div>
+
+                                <div className="rounded-2xl border p-5 transition-all bg-white border-pink-100">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex-1">
+                                            <p className="text-sm font-bold text-gray-900">Customer Late Grace Period</p>
+                                            <p className="text-xs text-gray-500 mt-0.5">Grace period duration before an overdue customer is considered late or no-show.</p>
+                                            <div className="mt-4 flex items-center gap-3">
+                                                <select
+                                                    value={notifications.gracePeriodMinutes || 30}
+                                                    onChange={(e) => setNotifications({ ...notifications, gracePeriodMinutes: Number(e.target.value) })}
+                                                    className="px-3 py-1.5 rounded-xl border border-pink-200 bg-white text-pink-600 text-sm font-bold"
+                                                >
+                                                    <option value={15}>15 minutes</option>
+                                                    <option value={20}>20 minutes</option>
+                                                    <option value={30}>30 minutes (Default)</option>
+                                                    <option value={45}>45 minutes</option>
+                                                    <option value={60}>60 minutes</option>
+                                                </select>
+                                                <span className="text-xs font-semibold text-gray-500">active countdown duration</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1179,25 +1322,36 @@ export default function SettingsPage() {
 
                 {activeSection === "loyalty" && (
                     <form onSubmit={handleSaveLoyaltySettings} className="space-y-6">
-                        <div className="bg-white rounded-3xl p-8 shadow-sm border border-pink-100 relative">
+                        <div
+                            style={{ fontFamily: LOYALTY_FONT_FAMILY }}
+                            className="bg-white rounded-[28px] p-6 sm:p-8 shadow-xs border border-pink-100/80 relative"
+                        >
                             {saving && (
-                                <div className="absolute inset-0 bg-white/50 z-10 rounded-3xl flex items-center justify-center">
-                                    <Loader2 className="w-8 h-8 animate-spin text-pink-500" />
+                                <div className="absolute inset-0 bg-white/60 z-10 rounded-[28px] flex items-center justify-center backdrop-blur-[1px]">
+                                    <Loader2 className="w-7 h-7 animate-spin text-pink-500" />
                                 </div>
                             )}
 
+                            {/* Card Header (flush left title, no star icon box) */}
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-pink-50">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-11 h-11 rounded-2xl bg-pink-100 flex items-center justify-center">
-                                        <Star className="w-5 h-5 text-pink-500 fill-pink-500" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-gray-900">Loyalty Reward Configuration</h3>
-                                        <p className="text-sm text-gray-500">Configure the monthly reward automatically granted to your Top 5 Customers</p>
-                                    </div>
+                                <div>
+                                    <h3 className="text-xl font-serif font-bold text-gray-900 leading-tight">
+                                        Loyalty Reward Configuration
+                                    </h3>
+                                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                                        Configure the monthly reward automatically granted to your Top 5 Customers
+                                    </p>
+                                    {loyaltySyncLog && (
+                                        <div className="flex items-center gap-2 mt-2.5">
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                <span>Last Finalized: <strong>{loyaltySyncLog.ranking_period_label || loyaltySyncLog.ranking_period}</strong></span>
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex items-center gap-3 bg-pink-50/60 px-4 py-2.5 rounded-2xl border border-pink-100">
-                                    <span className="text-xs font-bold text-gray-700">Enable Top 5 Loyalty System</span>
+                                <div className="flex items-center gap-3 bg-pink-50/60 px-4 py-2.5 rounded-2xl border border-pink-100 shrink-0 self-start sm:self-auto">
+                                    <span className="text-xs font-semibold text-gray-700">Enable Top 5 Loyalty System</span>
                                     <ToggleSwitch
                                         id="loyalty-active-toggle"
                                         enabled={loyaltySettings.is_active}
@@ -1206,113 +1360,93 @@ export default function SettingsPage() {
                                 </div>
                             </div>
 
+                            {/* Main Form Fields: Consistent 24px Gaps */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Top Customers */}
+                                {/* Top Customers Field */}
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">
+                                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 pl-0.5">
                                         Top Customers
                                     </label>
-                                    <div className="w-full px-4 py-3.5 bg-pink-50/40 border border-pink-100 rounded-2xl font-bold text-gray-900 flex items-center justify-between">
-                                        <span>Top 5 Customers (Monthly Ranking)</span>
-                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-pink-500 text-white">Top 5</span>
+                                    <div className="w-full px-4 py-3 bg-gray-50/80 border border-pink-100/80 rounded-2xl flex items-center justify-between">
+                                        <span className="font-semibold text-sm sm:text-base text-gray-900 truncate pr-2">
+                                            Top 5 Customers (Monthly Ranking)
+                                        </span>
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-pink-100 text-pink-700 border border-pink-200/80 shrink-0">
+                                            Top 5
+                                        </span>
                                     </div>
-                                    <p className="text-xs text-gray-400 mt-1.5 pl-1">
+                                    <p className="text-xs text-gray-400 mt-1.5 pl-0.5">
                                         Automatically ranked based on total completed &amp; paid transactions each month.
                                     </p>
                                 </div>
 
-                                {/* Validity Period */}
+                                {/* Validity & Expiration Field (Single authoritative rule) */}
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">
-                                        Validity (Days / Following Month)
+                                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 pl-0.5">
+                                        Reward Expiration Rule
                                     </label>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            min={1}
-                                            max={365}
-                                            value={loyaltySettings.validity_days}
-                                            onChange={(e) =>
-                                                setLoyaltySettings((prev) => ({
-                                                    ...prev,
-                                                    validity_days: parseInt(e.target.value, 10) || 31,
-                                                }))
-                                            }
-                                            className="w-full px-4 py-3.5 bg-gray-50 border border-pink-100 rounded-2xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-400"
-                                        />
-                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">
-                                            days (valid through following month)
+                                    <div className="w-full px-4 py-3 bg-gray-50/80 border border-pink-100/80 rounded-2xl flex items-center justify-between">
+                                        <span className="font-semibold text-sm sm:text-base text-gray-900 truncate pr-2">
+                                            End of Following Month
+                                        </span>
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-pink-100 text-pink-700 border border-pink-200/80 shrink-0">
+                                            Asia/Manila (UTC+8)
                                         </span>
                                     </div>
-                                    <p className="text-xs text-gray-400 mt-1.5 pl-1">
-                                        Rewards remain valid until the end of the following calendar month.
+                                    <p className="text-xs text-gray-400 mt-1.5 pl-0.5">
+                                        Rewards remain valid through 23:59:59 PHT on the last day of the calendar month following the ranking period.
                                     </p>
                                 </div>
 
-                                {/* Reward Type Selection */}
+                                {/* Reward Type Selection: Clean Selectable Segmented Card Group */}
                                 <div className="md:col-span-2">
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5 pl-1">
+                                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2.5 pl-0.5">
                                         Reward Type
                                     </label>
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                                        {[
-                                            {
-                                                type: "percentage_discount" as LoyaltyRewardType,
-                                                title: "Percentage Discount",
-                                                subtitle: "e.g. 20% off total bill",
-                                                icon: Percent,
-                                            },
-                                            {
-                                                type: "fixed_amount" as LoyaltyRewardType,
-                                                title: "Fixed Amount Discount",
-                                                subtitle: "e.g. ₱200 off total bill",
-                                                icon: Banknote,
-                                            },
-                                            {
-                                                type: "free_service" as LoyaltyRewardType,
-                                                title: "Free Service",
-                                                subtitle: "e.g. Free Basic Haircut",
-                                                icon: Gift,
-                                            },
-                                        ].map((opt) => {
-                                            const SelectedIcon = opt.icon;
+                                    <div
+                                        role="radiogroup"
+                                        aria-label="Reward Type"
+                                        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+                                    >
+                                        {rewardTypeOptions.map((opt, idx) => {
                                             const isSelected = loyaltySettings.reward_type === opt.type;
                                             return (
                                                 <button
                                                     key={opt.type}
+                                                    ref={(el) => { rewardTypeRefs.current[idx] = el; }}
                                                     type="button"
-                                                    onClick={() =>
-                                                        setLoyaltySettings((prev) => {
-                                                            let nextVal = prev.reward_value;
-                                                            if (opt.type === "percentage_discount" && (nextVal <= 0 || nextVal > 100)) {
-                                                                nextVal = 20;
-                                                            } else if (opt.type === "fixed_amount" && nextVal <= 100) {
-                                                                nextVal = 200;
-                                                            }
-                                                            return {
-                                                                ...prev,
-                                                                reward_type: opt.type,
-                                                                reward_value: nextVal,
-                                                            };
-                                                        })
-                                                    }
-                                                    className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
+                                                    role="radio"
+                                                    aria-checked={isSelected}
+                                                    tabIndex={isSelected ? 0 : -1}
+                                                    onClick={() => handleSelectRewardType(opt.type)}
+                                                    onKeyDown={(e) => handleRewardTypeKeyDown(e, idx)}
+                                                    className={`p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer relative flex flex-col justify-between focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2 ${
                                                         isSelected
-                                                            ? "bg-pink-50/80 border-pink-500 ring-2 ring-pink-500/20 shadow-xs"
-                                                            : "bg-gray-50/60 border-gray-200 hover:bg-pink-50/30 hover:border-pink-200"
+                                                            ? "bg-pink-50/80 border-pink-400 ring-1 ring-pink-400/40 shadow-xs"
+                                                            : "bg-white/70 border-gray-200 hover:border-pink-200 hover:bg-pink-50/20 hover:-translate-y-0.5 shadow-2xs"
                                                     }`}
                                                 >
-                                                    <div
-                                                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                                                            isSelected ? "bg-pink-500 text-white" : "bg-white text-gray-500 border border-gray-200"
-                                                        }`}
-                                                    >
-                                                        <SelectedIcon className="w-4 h-4" />
+                                                    <div className="flex items-start justify-between gap-2 w-full">
+                                                        <span className="font-semibold text-sm text-gray-900 leading-snug">
+                                                            {opt.title}
+                                                        </span>
+                                                        {/* Top-right filled radio dot (not an icon) */}
+                                                        <div
+                                                            aria-hidden="true"
+                                                            className={`w-4 h-4 rounded-full border shrink-0 mt-0.5 flex items-center justify-center transition-colors ${
+                                                                isSelected
+                                                                    ? "border-pink-500 bg-white"
+                                                                    : "border-gray-300 bg-white"
+                                                            }`}
+                                                        >
+                                                            {isSelected && (
+                                                                <span className="w-2 h-2 rounded-full bg-pink-500" />
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <div className="font-bold text-sm text-gray-900">{opt.title}</div>
-                                                        <div className="text-xs text-gray-500 mt-0.5">{opt.subtitle}</div>
-                                                    </div>
+                                                    <p className="text-xs text-gray-500 mt-2 font-normal leading-relaxed">
+                                                        {opt.subtitle}
+                                                    </p>
                                                 </button>
                                             );
                                         })}
@@ -1323,7 +1457,7 @@ export default function SettingsPage() {
                                 <div className="md:col-span-2">
                                     {loyaltySettings.reward_type === "percentage_discount" && (
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">
+                                            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 pl-0.5">
                                                 Reward Value / Percentage (%)
                                             </label>
                                             <div className="relative max-w-md">
@@ -1338,19 +1472,22 @@ export default function SettingsPage() {
                                                             reward_value: parseFloat(e.target.value) || 0,
                                                         }))
                                                     }
-                                                    className="w-full px-4 py-3.5 bg-gray-50 border border-pink-100 rounded-2xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                                                    className="w-full pl-4 pr-20 py-3 bg-gray-50/80 border border-pink-100/80 rounded-2xl font-semibold text-sm sm:text-base text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/40 focus:border-pink-400 transition-all"
                                                     placeholder="20"
                                                 />
-                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-extrabold text-pink-600">
+                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-semibold text-xs sm:text-sm text-pink-600 pointer-events-none">
                                                     % OFF
                                                 </span>
                                             </div>
+                                            <p className="text-xs text-gray-400 mt-1.5 pl-0.5">
+                                                Discount applied automatically at checkout to the customer&apos;s total bill.
+                                            </p>
                                         </div>
                                     )}
 
                                     {loyaltySettings.reward_type === "fixed_amount" && (
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">
+                                            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 pl-0.5">
                                                 Reward Value / Fixed Discount Amount (₱)
                                             </label>
                                             <div className="relative max-w-md">
@@ -1364,19 +1501,22 @@ export default function SettingsPage() {
                                                             reward_value: parseFloat(e.target.value) || 0,
                                                         }))
                                                     }
-                                                    className="w-full px-4 py-3.5 bg-gray-50 border border-pink-100 rounded-2xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                                                    className="w-full pl-4 pr-20 py-3 bg-gray-50/80 border border-pink-100/80 rounded-2xl font-semibold text-sm sm:text-base text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/40 focus:border-pink-400 transition-all"
                                                     placeholder="200"
                                                 />
-                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-extrabold text-pink-600">
+                                                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-semibold text-xs sm:text-sm text-pink-600 pointer-events-none">
                                                     ₱ OFF
                                                 </span>
                                             </div>
+                                            <p className="text-xs text-gray-400 mt-1.5 pl-0.5">
+                                                Fixed peso amount deducted directly from the customer&apos;s invoice.
+                                            </p>
                                         </div>
                                     )}
 
                                     {loyaltySettings.reward_type === "free_service" && (
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 pl-1">
+                                            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 pl-0.5">
                                                 Reward Service Selection
                                             </label>
                                             <div className="max-w-md">
@@ -1392,7 +1532,7 @@ export default function SettingsPage() {
                                                             reward_value: Number(svc?.price) || 0,
                                                         }));
                                                     }}
-                                                    className="w-full px-4 py-3.5 bg-gray-50 border border-pink-100 rounded-2xl font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-400 cursor-pointer"
+                                                    className="w-full px-4 py-3 bg-gray-50/80 border border-pink-100/80 rounded-2xl font-semibold text-sm sm:text-base text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/40 focus:border-pink-400 transition-all cursor-pointer truncate"
                                                 >
                                                     <option value="">-- Select a Free Salon Service --</option>
                                                     {availableServices.map((svc) => (
@@ -1402,37 +1542,326 @@ export default function SettingsPage() {
                                                     ))}
                                                 </select>
                                             </div>
+                                            <p className="text-xs text-gray-400 mt-1.5 pl-0.5">
+                                                Selected service will be fully complimentary for eligible Top 5 customers.
+                                            </p>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Live Preview Banner */}
-                            <div className="mt-6 p-5 rounded-2xl bg-pink-50/70 border border-pink-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-white border border-pink-200 flex items-center justify-center text-lg shadow-2xs">
-                                        ⭐
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-bold uppercase tracking-wider text-pink-600">
-                                            Active Reward Preview
-                                        </p>
-                                        <p className="text-base font-extrabold text-gray-900">
-                                            {buildRewardDescription(
-                                                loyaltySettings.reward_type,
-                                                loyaltySettings.reward_value,
-                                                loyaltySettings.free_service_name
-                                            )}
-                                        </p>
-                                    </div>
+                            {/* Live Preview Banner: Subtle pink gradient ONLY here, no star icon box */}
+                            <div className="mt-6 p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-pink-50/90 via-pink-50/50 to-white border border-pink-200/70 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-pink-600">
+                                        Active Reward Preview
+                                    </p>
+                                    <p className="text-base sm:text-lg font-bold text-gray-900 mt-1">
+                                        {buildRewardDescription(
+                                            loyaltySettings.reward_type,
+                                            loyaltySettings.reward_value,
+                                            loyaltySettings.free_service_name
+                                        )}
+                                    </p>
                                 </div>
+
+                                <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+                                    {hasUnsavedLoyaltyChanges && (
+                                        <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 px-3 py-1 rounded-full inline-flex items-center gap-1.5 animate-in fade-in duration-200">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                            Unsaved changes
+                                        </span>
+                                    )}
+                                    <button
+                                        type="submit"
+                                        disabled={saving}
+                                        className="px-6 py-2.5 rounded-full bg-pink-500 hover:bg-pink-600 active:bg-pink-700 text-white font-semibold text-xs uppercase tracking-wide shadow-md shadow-pink-200/50 hover:shadow-lg hover:shadow-pink-300/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] cursor-pointer inline-flex items-center justify-center gap-2"
+                                    >
+                                        {saving ? (
+                                            <>
+                                                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                <span>Saving...</span>
+                                            </>
+                                        ) : (
+                                            <span>Save Reward Settings</span>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                )}
+
+                {activeSection === "downpayment" && (
+                    <form onSubmit={handleSaveDownpaymentRules} className="space-y-6">
+                        <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-xs border border-pink-100/80 relative">
+                            {saving && (
+                                <div className="absolute inset-0 bg-white/60 z-10 rounded-[28px] flex items-center justify-center backdrop-blur-[1px]">
+                                    <Loader2 className="w-7 h-7 animate-spin text-pink-500" />
+                                </div>
+                            )}
+
+                            {/* Header */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-pink-50">
+                                <div>
+                                    <h3 className="text-xl font-serif font-bold text-gray-900 leading-tight">
+                                        Downpayment Rules &amp; Policy
+                                    </h3>
+                                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                                        Configure automatic downpayment requirements, hold times, and category mappings
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-3 bg-pink-50/60 px-4 py-2.5 rounded-2xl border border-pink-100 shrink-0 self-start sm:self-auto">
+                                    <span className="text-xs font-semibold text-gray-700">Enable Downpayment System</span>
+                                    <ToggleSwitch
+                                        id="downpayment-active-toggle"
+                                        enabled={downpaymentRules.is_enabled}
+                                        onChange={(val) => setDownpaymentRules((prev) => ({ ...prev, is_enabled: val }))}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Core Parameters */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 pl-0.5">
+                                        Downpayment Percentage
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={100}
+                                            value={downpaymentRules.downpayment_percentage}
+                                            onChange={(e) =>
+                                                setDownpaymentRules((prev) => ({
+                                                    ...prev,
+                                                    downpayment_percentage: Math.min(100, Math.max(1, parseInt(e.target.value, 10) || 50)),
+                                                }))
+                                            }
+                                            className="w-full pl-4 pr-12 py-3 bg-gray-50/80 border border-pink-100/80 rounded-2xl font-semibold text-sm sm:text-base text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/40 focus:border-pink-400 transition-all"
+                                        />
+                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400 pointer-events-none">
+                                            %
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1.5 pl-0.5">
+                                        Percentage of the total service fee required to confirm the booking (default: 50%).
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 pl-0.5">
+                                        Unpaid Hold Time
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={168}
+                                            value={downpaymentRules.hold_time_hours}
+                                            onChange={(e) =>
+                                                setDownpaymentRules((prev) => ({
+                                                    ...prev,
+                                                    hold_time_hours: Math.max(1, parseInt(e.target.value, 10) || 24),
+                                                }))
+                                            }
+                                            className="w-full pl-4 pr-16 py-3 bg-gray-50/80 border border-pink-100/80 rounded-2xl font-semibold text-sm sm:text-base text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/40 focus:border-pink-400 transition-all"
+                                        />
+                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-500 pointer-events-none">
+                                            hours
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1.5 pl-0.5">
+                                        Slot is held until earlier of (now + hold time) and (start time − 2 hours).
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 pl-0.5">
+                                        Early Appointment Cutoff
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="time"
+                                            value={downpaymentRules.early_cutoff_time || "10:00"}
+                                            onChange={(e) =>
+                                                setDownpaymentRules((prev) => ({
+                                                    ...prev,
+                                                    early_cutoff_time: e.target.value || "10:00",
+                                                }))
+                                            }
+                                            className="w-full px-4 py-3 bg-gray-50/80 border border-pink-100/80 rounded-2xl font-semibold text-sm sm:text-base text-gray-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/40 focus:border-pink-400 transition-all"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1.5 pl-0.5">
+                                        Bookings for Hair or Nail starting before this time trigger Rule B (default: 10:00 AM).
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Rules Toggles */}
+                            <div className="space-y-4 mb-8">
+                                <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-2">
+                                    Trigger Rules
+                                </h4>
+
+                                {/* Rule A */}
+                                <div className="p-4 rounded-2xl bg-pink-50/40 border border-pink-100/80 flex items-start justify-between gap-4">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wide bg-pink-100 text-pink-700">
+                                                Rule A
+                                            </span>
+                                            <h5 className="font-bold text-sm text-gray-900">Hair + Make-up Combination</h5>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Requires downpayment when the customer selects both a Hair service and a Make-up service in the same booking.
+                                        </p>
+                                    </div>
+                                    <ToggleSwitch
+                                        id="rule-a-toggle"
+                                        enabled={downpaymentRules.rule_a_hair_makeup_enabled}
+                                        onChange={(val) => setDownpaymentRules((prev) => ({ ...prev, rule_a_hair_makeup_enabled: val }))}
+                                    />
+                                </div>
+
+                                {/* Rule B */}
+                                <div className="p-4 rounded-2xl bg-pink-50/40 border border-pink-100/80 flex items-start justify-between gap-4">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wide bg-pink-100 text-pink-700">
+                                                Rule B
+                                            </span>
+                                            <h5 className="font-bold text-sm text-gray-900">Early Morning Hair or Nail Booking</h5>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Requires downpayment if a booking contains a Hair or Nail service and starts before the early appointment cutoff ({downpaymentRules.early_cutoff_time || "10:00 AM"}).
+                                        </p>
+                                    </div>
+                                    <ToggleSwitch
+                                        id="rule-b-toggle"
+                                        enabled={downpaymentRules.rule_b_early_hair_nail_enabled}
+                                        onChange={(val) => setDownpaymentRules((prev) => ({ ...prev, rule_b_early_hair_nail_enabled: val }))}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Category Mappings */}
+                            <div className="mb-8">
+                                <div className="mb-4">
+                                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+                                        Catalog Category Mappings
+                                    </h4>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                        Map each existing category to Hair, Make-up, Nail, or leave Unmapped.
+                                    </p>
+                                </div>
+
+                                <div className="divide-y divide-pink-50 border border-pink-100 rounded-2xl overflow-hidden bg-white">
+                                    {(allCatalogCategories.length > 0 ? allCatalogCategories : ["HAIR CARE", "HAIRCUT & STYLING", "TREATMENTS & SERVICES", "Makeup", "Nails", "NAIL ART", "ADDITIONAL SERVICES", "Massage"]).map((catName) => {
+                                        const cleanCat = catName.trim();
+                                        const isHair = (downpaymentRules.category_mappings?.hair_categories || []).some((c) => c.toLowerCase() === cleanCat.toLowerCase());
+                                        const isMakeup = (downpaymentRules.category_mappings?.makeup_categories || []).some((c) => c.toLowerCase() === cleanCat.toLowerCase());
+                                        const isNail = (downpaymentRules.category_mappings?.nail_categories || []).some((c) => c.toLowerCase() === cleanCat.toLowerCase());
+                                        const isNone = !isHair && !isMakeup && !isNail;
+
+                                        const setCategoryType = (type: "hair" | "makeup" | "nail" | "none") => {
+                                            setDownpaymentRules((prev) => {
+                                                const hair = (prev.category_mappings?.hair_categories || []).filter((c) => c.toLowerCase() !== cleanCat.toLowerCase());
+                                                const makeup = (prev.category_mappings?.makeup_categories || []).filter((c) => c.toLowerCase() !== cleanCat.toLowerCase());
+                                                const nail = (prev.category_mappings?.nail_categories || []).filter((c) => c.toLowerCase() !== cleanCat.toLowerCase());
+
+                                                if (type === "hair") hair.push(cleanCat);
+                                                if (type === "makeup") makeup.push(cleanCat);
+                                                if (type === "nail") nail.push(cleanCat);
+
+                                                return {
+                                                    ...prev,
+                                                    category_mappings: {
+                                                        hair_categories: hair,
+                                                        makeup_categories: makeup,
+                                                        nail_categories: nail,
+                                                    },
+                                                };
+                                            });
+                                        };
+
+                                        return (
+                                            <div key={cleanCat} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-pink-50/20 transition-colors">
+                                                <div>
+                                                    <span className="font-bold text-sm text-gray-900">{cleanCat}</span>
+                                                    <p className="text-[11px] text-gray-400">
+                                                        {isHair ? "Mapped as Hair Service" : isMakeup ? "Mapped as Make-up Service" : isNail ? "Mapped as Nail Service" : "Not Mapped"}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setCategoryType("hair")}
+                                                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                                                            isHair
+                                                                ? "bg-pink-500 text-white shadow-xs"
+                                                                : "bg-gray-100 text-gray-600 hover:bg-pink-50 hover:text-pink-600"
+                                                        }`}
+                                                    >
+                                                        Hair
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setCategoryType("makeup")}
+                                                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                                                            isMakeup
+                                                                ? "bg-purple-600 text-white shadow-xs"
+                                                                : "bg-gray-100 text-gray-600 hover:bg-purple-50 hover:text-purple-600"
+                                                        }`}
+                                                    >
+                                                        Make-up
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setCategoryType("nail")}
+                                                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                                                            isNail
+                                                                ? "bg-rose-500 text-white shadow-xs"
+                                                                : "bg-gray-100 text-gray-600 hover:bg-rose-50 hover:text-rose-600"
+                                                        }`}
+                                                    >
+                                                        Nail
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setCategoryType("none")}
+                                                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                                                            isNone
+                                                                ? "bg-gray-400 text-white shadow-xs"
+                                                                : "bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-700"
+                                                        }`}
+                                                    >
+                                                        Unmapped
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Submit Button */}
+                            <div className="pt-6 border-t border-pink-50 flex justify-end">
                                 <button
                                     type="submit"
                                     disabled={saving}
-                                    className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-pink-500 text-white font-semibold hover:bg-pink-600 shadow-lg shadow-pink-200 transition-all active:scale-95 cursor-pointer"
+                                    className="px-6 py-2.5 rounded-full bg-pink-500 hover:bg-pink-600 active:bg-pink-700 text-white font-semibold text-xs uppercase tracking-wide shadow-md shadow-pink-200/50 hover:shadow-lg hover:shadow-pink-300/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] cursor-pointer inline-flex items-center justify-center gap-2"
                                 >
-                                    <Save className="w-4 h-4" />
-                                    Save Reward Settings
+                                    {saving ? (
+                                        <>
+                                            <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <span>Saving...</span>
+                                        </>
+                                    ) : (
+                                        <span>Save Downpayment Rules</span>
+                                    )}
                                 </button>
                             </div>
                         </div>

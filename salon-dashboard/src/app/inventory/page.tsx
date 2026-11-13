@@ -38,12 +38,80 @@ import {
     InventoryTransactions,
     Services,
     Appointments,
+    StaffDB,
     type InventoryItem,
     type InventoryTransaction,
     type InventoryTransactionType,
     type Appointment,
+    type Staff,
 } from "@/lib/db";
 import { createClient } from "@/lib/supabase/client";
+
+// Segmented control tabs configuration for the Issue/Movement modal
+const TABS: Array<{
+    id: InventoryTransactionType;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    activeColor: string;
+    dotColor: string;
+    borderColor: string;
+    ringColor: string;
+    defaultReason: string;
+}> = [
+    {
+        id: "ISSUE",
+        label: "Issue",
+        icon: Send,
+        activeColor: "text-pink-600",
+        dotColor: "bg-pink-500",
+        borderColor: "border-pink-200/80",
+        ringColor: "focus-visible:ring-pink-400",
+        defaultReason: "Service Use",
+    },
+    {
+        id: "RETURN",
+        label: "Return",
+        icon: RotateCcw,
+        activeColor: "text-blue-600",
+        dotColor: "bg-blue-500",
+        borderColor: "border-blue-200/80",
+        ringColor: "focus-visible:ring-blue-400",
+        defaultReason: "Return to Stock",
+    },
+    {
+        id: "RESTOCK",
+        label: "Restock",
+        icon: Package,
+        activeColor: "text-emerald-600",
+        dotColor: "bg-emerald-500",
+        borderColor: "border-emerald-200/80",
+        ringColor: "focus-visible:ring-emerald-400",
+        defaultReason: "Restock",
+    },
+    {
+        id: "ADJUSTMENT",
+        label: "Adjustment",
+        icon: ClipboardList,
+        activeColor: "text-amber-600",
+        dotColor: "bg-amber-500",
+        borderColor: "border-amber-200/80",
+        ringColor: "focus-visible:ring-amber-400",
+        defaultReason: "Stock Adjustment",
+    },
+];
+
+function getPaginationPages(currentPage: number, totalPages: number): (number | string)[] {
+    if (totalPages <= 7) {
+        return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 4) {
+        return [1, 2, 3, 4, 5, "...", totalPages];
+    }
+    if (currentPage >= totalPages - 3) {
+        return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+}
 
 export default function InventoryPage() {
     const [searchQuery, setSearchQuery] = useState("");
@@ -55,6 +123,15 @@ export default function InventoryPage() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
+    // Staff and Administrator list for "Issued by"
+    interface StaffOption {
+        id: string;
+        name: string;
+        role: string;
+        isAdmin: boolean;
+    }
+    const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
+
     // Issuance & Adjustment Modal States
     const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
     const [isSubmittingIssue, setIsSubmittingIssue] = useState(false);
@@ -63,6 +140,8 @@ export default function InventoryPage() {
         inventoryId: string;
         transactionType: InventoryTransactionType;
         quantity: string;
+        issuedById: string;
+        issuedByName: string;
         appointmentId: string;
         reason: string;
         notes: string;
@@ -71,11 +150,68 @@ export default function InventoryPage() {
         inventoryId: "",
         transactionType: "ISSUE",
         quantity: "1",
+        issuedById: "",
+        issuedByName: "",
         appointmentId: "",
         reason: "Service Use",
         notes: "",
         isNegativeAdjustment: false,
     });
+
+    // Segmented tabs control refs & keyboard navigation state
+    const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+    const activeTabIndex = Math.max(0, TABS.findIndex((t) => t.id === issueForm.transactionType));
+    const activeTabDef = TABS[activeTabIndex] || TABS[0];
+
+    const handleTabKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+            e.preventDefault();
+            const nextIdx = (activeTabIndex + 1) % TABS.length;
+            const nextTab = TABS[nextIdx];
+            setIssueForm((prev) => ({
+                ...prev,
+                transactionType: nextTab.id,
+                reason: nextTab.defaultReason,
+            }));
+            tabRefs.current[nextIdx]?.focus();
+        } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+            e.preventDefault();
+            const prevIdx = (activeTabIndex - 1 + TABS.length) % TABS.length;
+            const prevTab = TABS[prevIdx];
+            setIssueForm((prev) => ({
+                ...prev,
+                transactionType: prevTab.id,
+                reason: prevTab.defaultReason,
+            }));
+            tabRefs.current[prevIdx]?.focus();
+        } else if (e.key === "Home") {
+            e.preventDefault();
+            const firstTab = TABS[0];
+            setIssueForm((prev) => ({
+                ...prev,
+                transactionType: firstTab.id,
+                reason: firstTab.defaultReason,
+            }));
+            tabRefs.current[0]?.focus();
+        } else if (e.key === "End") {
+            e.preventDefault();
+            const lastTab = TABS[TABS.length - 1];
+            setIssueForm((prev) => ({
+                ...prev,
+                transactionType: lastTab.id,
+                reason: lastTab.defaultReason,
+            }));
+            tabRefs.current[TABS.length - 1]?.focus();
+        }
+    };
+
+    const handleSelectTab = (tab: typeof TABS[number]) => {
+        setIssueForm((prev) => ({
+            ...prev,
+            transactionType: tab.id,
+            reason: tab.defaultReason,
+        }));
+    };
 
     // Item Detail & Stock Movement Modal State
     const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
@@ -116,7 +252,7 @@ export default function InventoryPage() {
     const [txTypeFilter, setTxTypeFilter] = useState("ALL");
     const [txDateFilter, setTxDateFilter] = useState("ALL");
     const [txPage, setTxPage] = useState(1);
-    const txItemsPerPage = 6;
+    const [txItemsPerPage, setTxItemsPerPage] = useState(10);
 
     const [formData, setFormData] = useState({
         product: "",
@@ -128,23 +264,23 @@ export default function InventoryPage() {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [invData, svcData, txData, apptData] = await Promise.all([
+            const supabase = createClient();
+            const [invData, svcData, txData, apptData, staffData] = await Promise.all([
                 Inventory.list(),
                 Services.list(),
                 InventoryTransactions.list().catch(() => ({ transactions: [], currentUser: null })),
                 Appointments.list().catch(() => []),
+                StaffDB.list().catch(() => []),
             ]);
             setInventory(invData);
             setServices(svcData);
             setTransactions(txData.transactions || []);
             setAppointmentsList(apptData || []);
 
-            if (txData.currentUser) {
-                setAuthenticatedUser(txData.currentUser);
-            } else {
+            let authUser = txData.currentUser;
+            if (!authUser) {
                 // Fallback client session lookup
                 try {
-                    const supabase = createClient();
                     const { data: { user } } = await supabase.auth.getUser();
                     if (user) {
                         const { data: profile } = await supabase
@@ -152,20 +288,48 @@ export default function InventoryPage() {
                             .select("name, email, role")
                             .eq("id", user.id)
                             .maybeSingle();
-                        setAuthenticatedUser({
+                        authUser = {
                             id: user.id,
                             name:
                                 profile?.name?.trim() ||
                                 user.user_metadata?.full_name ||
                                 user.user_metadata?.name ||
                                 user.email?.split("@")[0] ||
-                                "Admin User",
+                                "Arvin",
                             email: profile?.email || user.email || "",
                             role: profile?.role || "Administrator",
-                        });
+                        };
                     }
                 } catch {}
             }
+            if (authUser) {
+                setAuthenticatedUser(authUser);
+            }
+
+            // Build staff options: Arvin (Administrator) first, then active Staff (alphabetically)
+            const adminName =
+                authUser?.name && authUser.name !== "Admin User"
+                    ? authUser.name
+                    : "Arvin";
+
+            const adminOption: StaffOption = {
+                id: authUser?.id || "admin-arvin",
+                name: adminName,
+                role: "Administrator",
+                isAdmin: true,
+            };
+
+            const staffList: StaffOption[] = (staffData || [])
+                .filter((s: Staff) => (s.employment_status || "Active") !== "Inactive")
+                .map((s: Staff): StaffOption => ({
+                    id: s.id || s.name,
+                    name: s.name?.trim() || "Staff",
+                    role: s.role || "Staff",
+                    isAdmin: false,
+                }))
+                .sort((a: StaffOption, b: StaffOption) => a.name.localeCompare(b.name));
+
+            setStaffOptions([adminOption, ...staffList]);
         } catch (error) {
             console.error("Failed to load inventory data:", error);
         } finally {
@@ -248,6 +412,17 @@ export default function InventoryPage() {
         setItemToDelete(null);
     };
 
+    // Lock page scroll behind the modal while open
+    useEffect(() => {
+        if (isIssueModalOpen) {
+            const original = document.body.style.overflow;
+            document.body.style.overflow = "hidden";
+            return () => {
+                document.body.style.overflow = original;
+            };
+        }
+    }, [isIssueModalOpen]);
+
     // Open Issue Inventory Modal
     const handleOpenIssueModal = (
         preselectedItem?: InventoryItem,
@@ -260,10 +435,19 @@ export default function InventoryPage() {
             inventory[0] ||
             null;
 
+        const defaultStaff = authenticatedUser
+            ? staffOptions.find((s) => s.id === authenticatedUser.id) || {
+                  id: authenticatedUser.id,
+                  name: authenticatedUser.name && authenticatedUser.name !== "Admin User" ? authenticatedUser.name : "Arvin",
+              }
+            : staffOptions[0];
+
         setIssueForm({
             inventoryId: firstAvailable?.id || "",
             transactionType: defaultTxType,
             quantity: "1",
+            issuedById: defaultStaff?.id || authenticatedUser?.id || "",
+            issuedByName: defaultStaff?.name || authenticatedUser?.name || "",
             appointmentId: "",
             reason:
                 defaultTxType === "RETURN"
@@ -301,6 +485,11 @@ export default function InventoryPage() {
             return;
         }
 
+        if (!issueForm.issuedById) {
+            setIssueError("Please select who issued this item.");
+            return;
+        }
+
         const qty = parseInt(issueForm.quantity, 10);
         if (isNaN(qty) || qty <= 0) {
             setIssueError("Quantity must be a positive whole number greater than zero.");
@@ -321,12 +510,17 @@ export default function InventoryPage() {
             else if (issueForm.reason === "Expired") effectiveType = "EXPIRED";
         }
 
+        const selectedStaffObj = staffOptions.find((s) => s.id === issueForm.issuedById);
+        const effectiveIssuedByName = selectedStaffObj?.name || issueForm.issuedByName || authenticatedUser?.name || "Staff";
+
         setIsSubmittingIssue(true);
         try {
             const result = await InventoryTransactions.record({
                 inventoryId: issueForm.inventoryId,
                 transactionType: effectiveType,
                 quantity: qty,
+                issuedBy: issueForm.issuedById,
+                issuedByName: effectiveIssuedByName,
                 appointmentId: issueForm.appointmentId || null,
                 reason: issueForm.reason,
                 notes: issueForm.notes.trim() || null,
@@ -576,65 +770,80 @@ export default function InventoryPage() {
         })
         .reduce((sum, t) => sum + (Number(t.quantity) || 0), 0);
 
-    // Filtered Inventory Transactions History
-    const filteredTransactions = transactions.filter((tx) => {
-        if (txItemFilter !== "ALL" && tx.inventory_id !== txItemFilter) return false;
+    // Filtered Inventory Transactions History (stably sorted newest first)
+    const filteredTransactions = transactions
+        .filter((tx) => {
+            if (txItemFilter !== "ALL" && tx.inventory_id !== txItemFilter) return false;
 
-        // Top "Search products..." field filters history by product name / service category
-        if (searchQuery.trim()) {
-            const pq = searchQuery.trim().toLowerCase();
-            const invItem = inventory.find((i) => i.id === tx.inventory_id);
-            const productName = (tx.inventory?.name || invItem?.name || "").toLowerCase();
-            const productCategory = (tx.inventory?.category || invItem?.category || "").toLowerCase();
-            if (!productName.includes(pq) && !productCategory.includes(pq)) return false;
-        }
-        if (txTypeFilter !== "ALL" && tx.transaction_type !== txTypeFilter) return false;
-
-        if (txDateFilter !== "ALL" && tx.created_at) {
-            const txDate = new Date(tx.created_at);
-            if (txDateFilter === "TODAY" && txDate.toDateString() !== todayDateStr) return false;
-            if (
-                txDateFilter === "THIS_MONTH" &&
-                (txDate.getMonth() !== currentMonth || txDate.getFullYear() !== currentYear)
-            ) {
-                return false;
+            // Top "Search products..." field filters history by product name / service category
+            if (searchQuery.trim()) {
+                const pq = searchQuery.trim().toLowerCase();
+                const invItem = inventory.find((i) => i.id === tx.inventory_id);
+                const productName = (tx.inventory?.name || invItem?.name || "").toLowerCase();
+                const productCategory = (tx.inventory?.category || invItem?.category || "").toLowerCase();
+                if (!productName.includes(pq) && !productCategory.includes(pq)) return false;
             }
-        }
+            if (txTypeFilter !== "ALL" && tx.transaction_type !== txTypeFilter) return false;
 
-        if (txSearchQuery.trim()) {
-            const q = txSearchQuery.trim().toLowerCase();
-            const itemName = (
-                tx.inventory?.name ||
-                inventory.find((i) => i.id === tx.inventory_id)?.name ||
-                ""
-            ).toLowerCase();
-            const issuedBy = (tx.issued_by_name || "").toLowerCase();
-            const issuedTo = (tx.issued_to || "").toLowerCase();
-            const reason = (tx.reason || "").toLowerCase();
-            const notes = (tx.notes || "").toLowerCase();
-            const apptRef = tx.appointment_id ? `appt-${tx.appointment_id.slice(0, 8).toLowerCase()}` : "";
-
-            if (
-                !itemName.includes(q) &&
-                !issuedBy.includes(q) &&
-                !issuedTo.includes(q) &&
-                !reason.includes(q) &&
-                !notes.includes(q) &&
-                !apptRef.includes(q)
-            ) {
-                return false;
+            if (txDateFilter !== "ALL" && tx.created_at) {
+                const txDate = new Date(tx.created_at);
+                if (txDateFilter === "TODAY" && txDate.toDateString() !== todayDateStr) return false;
+                if (
+                    txDateFilter === "THIS_MONTH" &&
+                    (txDate.getMonth() !== currentMonth || txDate.getFullYear() !== currentYear)
+                ) {
+                    return false;
+                }
             }
-        }
 
-        return true;
-    });
+            if (txSearchQuery.trim()) {
+                const q = txSearchQuery.trim().toLowerCase();
+                const itemName = (
+                    tx.inventory?.name ||
+                    inventory.find((i) => i.id === tx.inventory_id)?.name ||
+                    ""
+                ).toLowerCase();
+                const issuedBy = (tx.issued_by_name || "").toLowerCase();
+                const reason = (tx.reason || "").toLowerCase();
+                const notes = (tx.notes || "").toLowerCase();
+                const apptRef = tx.appointment_id ? `appt-${tx.appointment_id.slice(0, 8).toLowerCase()}` : "";
+
+                if (
+                    !itemName.includes(q) &&
+                    !issuedBy.includes(q) &&
+                    !reason.includes(q) &&
+                    !notes.includes(q) &&
+                    !apptRef.includes(q)
+                ) {
+                    return false;
+                }
+            }
+
+            return true;
+        })
+        .sort((a, b) => {
+            const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            if (timeB !== timeA) return timeB - timeA;
+            return (b.id || "").localeCompare(a.id || "");
+        });
 
     const totalTxPages = Math.max(1, Math.ceil(filteredTransactions.length / txItemsPerPage));
-    const safeTxPage = Math.min(txPage, totalTxPages);
+    const safeTxPage = Math.min(Math.max(1, txPage), totalTxPages);
     const paginatedTransactions = filteredTransactions.slice(
         (safeTxPage - 1) * txItemsPerPage,
         safeTxPage * txItemsPerPage
     );
+    const totalTxItems = filteredTransactions.length;
+    const txStartItem = totalTxItems === 0 ? 0 : (safeTxPage - 1) * txItemsPerPage + 1;
+    const txEndItem = Math.min(safeTxPage * txItemsPerPage, totalTxItems);
+
+    // Keep txPage in valid range when data refreshes or filter changes
+    useEffect(() => {
+        if (totalTxPages > 0 && txPage > totalTxPages) {
+            setTxPage(totalTxPages);
+        }
+    }, [totalTxPages, txPage]);
 
     const categoryOptions = Array.from(new Set(services.map((s: any) => s.category || s.service || "General")));
 
@@ -795,18 +1004,13 @@ export default function InventoryPage() {
                 {/* ─── Inventory History / Transaction History Section (Requirements 8, 13, 14) ─── */}
                 <div className="mt-10 bg-white rounded-3xl p-5 sm:p-8 shadow-sm border border-pink-200">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-pink-100">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-pink-100 text-pink-600 flex items-center justify-center shrink-0">
-                                <History className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-900 tracking-tight">
-                                    Inventory Transaction &amp; Issuance History
-                                </h3>
-                                <p className="text-xs sm:text-sm text-gray-500 font-medium">
-                                    Complete audit trail of stock issuances, restocks, returns, and adjustments
-                                </p>
-                            </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900 tracking-tight">
+                                Inventory Transaction &amp; Issuance History
+                            </h3>
+                            <p className="text-xs sm:text-sm text-gray-500 font-medium mt-0.5">
+                                Complete audit trail of stock issuances, restocks, returns, and adjustments
+                            </p>
                         </div>
 
                         {/* Reporting Summary Pills (Requirement 14) */}
@@ -829,7 +1033,7 @@ export default function InventoryPage() {
                     {/* History Filters & Correction Action Row */}
                     <div className="mt-5 mb-4 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 flex-1">
-                            {/* Search Issued By / Issued To / Item / Appt */}
+                            {/* Search Issued By / Item / Appt */}
                             <div className="relative">
                                 <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                                 <input
@@ -839,7 +1043,7 @@ export default function InventoryPage() {
                                         setTxSearchQuery(e.target.value);
                                         setTxPage(1);
                                     }}
-                                    placeholder="Filter by staff, recipient, item, APPT..."
+                                    placeholder="Filter by staff, item, ..."
                                     className="w-full pl-9 pr-3 py-2 text-xs font-medium bg-gray-50 border border-pink-100 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pink-400"
                                 />
                             </div>
@@ -916,7 +1120,6 @@ export default function InventoryPage() {
                                     <th className="pb-2 px-3 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap text-center">Action</th>
                                     <th className="pb-2 px-3 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap text-center">Quantity</th>
                                     <th className="pb-2 px-3 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Issued By</th>
-                                    <th className="pb-2 px-3 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Issued To</th>
                                     <th className="pb-2 px-3 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Purpose</th>
                                     <th className="pb-2 px-3 text-xs font-bold text-pink-500 uppercase tracking-wider whitespace-nowrap">Reference</th>
                                 </tr>
@@ -984,12 +1187,6 @@ export default function InventoryPage() {
                                                     <span>{tx.issued_by_name || "Authorized Staff"}</span>
                                                 </div>
                                             </td>
-                                            <td className="py-3 px-3 font-medium text-gray-800">
-                                                <div className="font-bold text-gray-900">{tx.issued_to || "—"}</div>
-                                                {tx.issued_to_type && (
-                                                    <div className="text-[10px] text-gray-400">{tx.issued_to_type}</div>
-                                                )}
-                                            </td>
                                             <td className="py-3 px-3 text-gray-700">
                                                 <div className="font-semibold text-gray-800">{tx.reason || "—"}</div>
                                                 {tx.notes && (
@@ -1024,7 +1221,7 @@ export default function InventoryPage() {
                                 })}
                                 {paginatedTransactions.length === 0 && (
                                     <tr>
-                                        <td colSpan={8} className="py-12 text-center text-gray-400 font-medium text-sm">
+                                        <td colSpan={7} className="py-12 text-center text-gray-400 font-medium text-sm">
                                             No inventory transactions recorded matching your filter criteria.
                                         </td>
                                     </tr>
@@ -1033,27 +1230,149 @@ export default function InventoryPage() {
                         </table>
                     </div>
 
-                    {totalTxPages > 1 && (
-                        <div className="mt-4">
-                            <Pagination
-                                currentPage={safeTxPage}
-                                totalPages={totalTxPages}
-                                onPageChange={setTxPage}
-                            />
+                    {/* Pagination Bar Directly Below Table Separated by a Thin Divider */}
+                    <div className="pt-4 mt-3 border-t border-pink-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        {/* Left side: Showing X-Y of Z transactions */}
+                        <div className="text-xs text-gray-500 font-medium">
+                            {totalTxItems === 0 ? (
+                                <span>No transactions found</span>
+                            ) : (
+                                <span>
+                                    Showing <span className="font-semibold text-gray-800">{txStartItem}-{txEndItem}</span> of{" "}
+                                    <span className="font-semibold text-gray-800">{totalTxItems}</span>{" "}
+                                    {totalTxItems === 1 ? "transaction" : "transactions"}
+                                </span>
+                            )}
                         </div>
-                    )}
+
+                        {/* Right side: Rows-per-page dropdown + Previous/Next + Numbered pages */}
+                        <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 w-full sm:w-auto">
+                            {/* Rows per page dropdown */}
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-gray-500 font-medium whitespace-nowrap">Rows per page:</span>
+                                <select
+                                    value={txItemsPerPage}
+                                    onChange={(e) => {
+                                        setTxItemsPerPage(Number(e.target.value));
+                                        setTxPage(1);
+                                    }}
+                                    className="h-8 px-2.5 text-xs font-semibold bg-white border border-pink-100 rounded-full text-gray-700 hover:border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-400 cursor-pointer transition-all"
+                                    aria-label="Rows per page"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={25}>25</option>
+                                    <option value={50}>50</option>
+                                </select>
+                            </div>
+
+                            {/* Previous Button (text only, no arrow icon) */}
+                            <button
+                                type="button"
+                                disabled={safeTxPage <= 1}
+                                onClick={() => setTxPage((p) => Math.max(1, p - 1))}
+                                className="h-8 px-3.5 rounded-full text-xs font-semibold border border-pink-100 bg-white text-gray-700 hover:bg-pink-50 hover:text-pink-600 hover:border-pink-200 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400"
+                            >
+                                Previous
+                            </button>
+
+                            {/* Mobile Current Page Indicator (middle page numbers hidden on mobile) */}
+                            <div className="flex items-center gap-1 sm:hidden">
+                                <span
+                                    aria-current="page"
+                                    className="min-w-8 h-8 px-2.5 rounded-full text-xs font-bold flex items-center justify-center bg-pink-500 text-white shadow-xs"
+                                >
+                                    {safeTxPage}
+                                </span>
+                                <span className="text-xs text-gray-400">/ {totalTxPages}</span>
+                            </div>
+
+                            {/* Desktop Numbered Page Buttons with Ellipses */}
+                            <div className="hidden sm:flex items-center gap-1">
+                                {getPaginationPages(safeTxPage, totalTxPages).map((p, idx) => {
+                                    if (typeof p === "string") {
+                                        return (
+                                            <span
+                                                key={`ellipsis-${idx}`}
+                                                className="w-8 h-8 flex items-center justify-center text-xs text-gray-400 select-none"
+                                            >
+                                                &hellip;
+                                            </span>
+                                        );
+                                    }
+                                    const isActive = p === safeTxPage;
+                                    return (
+                                        <button
+                                            key={p}
+                                            type="button"
+                                            onClick={() => setTxPage(p)}
+                                            aria-current={isActive ? "page" : undefined}
+                                            className={`min-w-8 h-8 px-2 rounded-full text-xs font-semibold transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 ${
+                                                isActive
+                                                    ? "bg-pink-500 text-white shadow-xs font-bold"
+                                                    : "text-gray-700 bg-white border border-pink-100 hover:bg-pink-50 hover:text-pink-600 hover:border-pink-200"
+                                            }`}
+                                        >
+                                            {p}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Next Button (text only, no arrow icon) */}
+                            <button
+                                type="button"
+                                disabled={safeTxPage >= totalTxPages || totalTxItems === 0}
+                                onClick={() => setTxPage((p) => Math.min(totalTxPages, p + 1))}
+                                className="h-8 px-3.5 rounded-full text-xs font-semibold border border-pink-100 bg-white text-gray-700 hover:bg-pink-50 hover:text-pink-600 hover:border-pink-200 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* ─── Issue Inventory / Stock Movement Modal (Requirements 1, 2, 3, 5, 9, 13) ─── */}
+            {/* ─── Issue Inventory / Stock Movement Modal (Requirements 1, 2, 3, 4) ─── */}
             {isIssueModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-                    <div className="bg-white rounded-2xl w-full max-w-[min(940px,94vw)] shadow-2xl relative animate-in zoom-in-95 duration-200 border border-pink-100 my-auto">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-400 to-pink-500 rounded-t-2xl"></div>
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget && !isSubmittingIssue) setIsIssueModalOpen(false);
+                    }}
+                >
+                    <div className="bg-white rounded-[28px] w-full max-w-[540px] shadow-2xl relative animate-in zoom-in-95 duration-200 border border-pink-100 my-auto max-h-[90vh] [max-height:90dvh] flex flex-col overflow-hidden font-sans">
+                        {/* Custom thin pill scrollbar styles for modal inner scroll */}
+                        <style dangerouslySetInnerHTML={{ __html: `
+                            .inventory-modal-scroll {
+                                scrollbar-width: thin;
+                                scrollbar-color: rgba(244, 114, 182, 0.45) transparent;
+                            }
+                            .inventory-modal-scroll::-webkit-scrollbar {
+                                width: 6px;
+                            }
+                            .inventory-modal-scroll::-webkit-scrollbar-track {
+                                background: transparent;
+                                margin: 8px 0;
+                            }
+                            .inventory-modal-scroll::-webkit-scrollbar-thumb {
+                                background-color: rgba(244, 114, 182, 0.45);
+                                border-radius: 9999px;
+                            }
+                            .inventory-modal-scroll::-webkit-scrollbar-thumb:hover {
+                                background-color: rgba(236, 72, 153, 0.7);
+                            }
+                            .inventory-modal-scroll::-webkit-scrollbar-button {
+                                display: none;
+                                width: 0;
+                                height: 0;
+                            }
+                        ` }} />
 
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between gap-4 px-6 sm:px-8 pt-6 pb-4 border-b border-pink-100">
-                            <h3 className="text-2xl font-black text-gray-900 leading-tight">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-400 to-pink-500 rounded-t-[28px] z-10"></div>
+
+                        {/* Modal Header (Pinned at top) */}
+                        <div className="flex items-center justify-between gap-3 px-6 sm:px-8 pt-6 pb-3.5 border-b border-pink-100 shrink-0 bg-white">
+                            <h3 className="text-lg sm:text-xl font-serif font-bold text-gray-900 leading-tight">
                                 {issueForm.transactionType === "ISSUE"
                                     ? "Issue Inventory"
                                     : issueForm.transactionType === "RETURN"
@@ -1065,234 +1384,269 @@ export default function InventoryPage() {
                             <button
                                 type="button"
                                 onClick={() => setIsIssueModalOpen(false)}
-                                className="p-2 -mr-2 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full transition-all cursor-pointer shrink-0"
+                                className="p-1.5 -mr-1.5 text-gray-400 hover:text-pink-500 hover:bg-pink-50 rounded-full transition-all cursor-pointer shrink-0"
                                 aria-label="Close"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <form onSubmit={handleConfirmIssueInventory} className="p-6 sm:p-8 space-y-5 sm:space-y-6">
-                            {/* Transaction Mode Tabs (Issue vs Return/Restock/Adjustment) */}
-                            <div className="grid grid-cols-4 gap-2 bg-gray-100 p-1.5 rounded-xl">
-                                {(["ISSUE", "RETURN", "RESTOCK", "ADJUSTMENT"] as InventoryTransactionType[]).map((mode) => (
-                                    <button
-                                        key={mode}
-                                        type="button"
-                                        onClick={() =>
-                                            setIssueForm((prev) => ({
-                                                ...prev,
-                                                transactionType: mode,
-                                                reason:
-                                                    mode === "ISSUE"
-                                                        ? "Service Use"
-                                                        : mode === "RETURN"
-                                                            ? "Return to Stock"
-                                                            : mode === "RESTOCK"
-                                                                ? "Restock"
-                                                                : "Stock Adjustment",
-                                            }))
-                                        }
-                                        className={`py-2 rounded-lg text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${
-                                            issueForm.transactionType === mode
-                                                ? "bg-white text-pink-600 shadow-xs"
-                                                : "text-gray-500 hover:text-gray-800"
-                                        }`}
-                                    >
-                                        {mode}
-                                    </button>
-                                ))}
-                            </div>
+                        {/* Modal Form: Scrollable body + Pinned footer */}
+                        <form onSubmit={handleConfirmIssueInventory} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                            {/* Scrollable Form Body */}
+                            <div
+                                id="inventory-tabpanel"
+                                role="tabpanel"
+                                aria-labelledby={`inventory-tab-${issueForm.transactionType.toLowerCase()}`}
+                                className="px-6 sm:px-8 py-5 overflow-y-auto space-y-4 flex-1 inventory-modal-scroll"
+                            >
+                                {/* Segmented Control Tabs */}
+                                <div
+                                    role="tablist"
+                                    aria-label="Transaction Type"
+                                    className="relative grid grid-cols-4 bg-gray-100/90 border border-gray-200/60 p-1 rounded-2xl select-none"
+                                    onKeyDown={handleTabKeyDown}
+                                >
+                                    {/* Animated sliding indicator pill */}
+                                    <div
+                                        aria-hidden="true"
+                                        className={`absolute top-1 bottom-1 rounded-xl bg-white shadow-sm border transition-all duration-200 ease-out pointer-events-none ${activeTabDef.borderColor}`}
+                                        style={{
+                                            width: "calc(25% - 2px)",
+                                            left: `calc(${activeTabIndex * 25}% + 1px)`,
+                                        }}
+                                    />
 
-                            {/* Authenticated Issued By Banner */}
-                            <div className="px-4 py-3 rounded-xl bg-pink-50/60 border border-pink-100 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <ShieldCheck className="w-5 h-5 text-pink-600 shrink-0" />
-                                    <div>
-                                        <span className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                            Issued By (Authenticated Account)
-                                        </span>
-                                        <span className="text-xs sm:text-sm font-extrabold text-gray-900">
-                                            {authenticatedUser?.name || "Authenticated Admin"}
-                                            {authenticatedUser?.role ? ` (${authenticatedUser.role})` : ""}
-                                        </span>
-                                    </div>
+                                    {TABS.map((tab, idx) => {
+                                        const Icon = tab.icon;
+                                        const isActive = issueForm.transactionType === tab.id;
+                                        return (
+                                            <button
+                                                key={tab.id}
+                                                ref={(el) => { tabRefs.current[idx] = el; }}
+                                                role="tab"
+                                                id={`inventory-tab-${tab.id.toLowerCase()}`}
+                                                aria-controls="inventory-tabpanel"
+                                                aria-selected={isActive}
+                                                tabIndex={isActive ? 0 : -1}
+                                                type="button"
+                                                onClick={() => handleSelectTab(tab)}
+                                                className={`relative z-10 py-2 px-1 rounded-xl text-xs font-semibold transition-colors duration-150 flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 ${tab.ringColor} cursor-pointer ${
+                                                    isActive ? tab.activeColor : "text-gray-500 hover:text-gray-800"
+                                                }`}
+                                            >
+                                                <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? tab.activeColor : "text-gray-400"}`} />
+                                                <span className="truncate">{tab.label}</span>
+                                                {isActive && (
+                                                    <span
+                                                        aria-hidden="true"
+                                                        className={`w-1.5 h-1.5 rounded-full ${tab.dotColor} shrink-0 animate-in fade-in zoom-in-75 duration-150`}
+                                                    />
+                                                )}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
-                                <span className="text-xs font-bold text-pink-600 bg-white px-3 py-1 rounded-full border border-pink-100 shadow-xs">
-                                    Auto-Verified
-                                </span>
-                            </div>
 
-                            {/* Inventory Item & Available Stock */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                                <div className="space-y-2">
-                                    <label className="block text-xs font-black text-gray-500 uppercase tracking-wider pl-1">
-                                        Inventory Item *
+                                {/* Required "Issued by" Dropdown */}
+                                <div className="space-y-1.5">
+                                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide pl-0.5">
+                                        Issued By *
                                     </label>
                                     <select
                                         required
-                                        value={issueForm.inventoryId}
-                                        onChange={(e) =>
+                                        value={issueForm.issuedById}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            const found = staffOptions.find((s) => s.id === val);
                                             setIssueForm((prev) => ({
                                                 ...prev,
-                                                inventoryId: e.target.value,
-                                            }))
-                                        }
-                                        className="w-full h-11 sm:h-12 px-4 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none font-bold text-sm text-gray-900 cursor-pointer"
+                                                issuedById: val,
+                                                issuedByName: found ? found.name : "",
+                                            }));
+                                        }}
+                                        className="w-full h-9 sm:h-10 px-3 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none font-semibold text-xs sm:text-sm text-gray-800 cursor-pointer"
                                     >
-                                        <option value="">Select existing inventory item</option>
-                                        {inventory.map((inv) => (
-                                            <option key={inv.id} value={inv.id}>
-                                                {inv.name} ({inv.unit || "units"}) — {inv.quantity || 0} in stock
+                                        <option value="">Select staff / administrator</option>
+                                        {staffOptions.map((opt) => (
+                                            <option key={opt.id} value={opt.id}>
+                                                {opt.name} ({opt.role})
                                             </option>
                                         ))}
                                     </select>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="block text-xs font-black text-gray-500 uppercase tracking-wider pl-1">
-                                        Available Stock
-                                    </label>
-                                    <div className="w-full h-11 sm:h-12 px-4 bg-gray-100 border border-gray-200 rounded-xl font-black text-sm text-gray-900 flex items-center justify-between">
-                                        <span>{selectedIssueItem ? `${availableStockForSelected}` : "—"}</span>
-                                        <span className="text-xs font-semibold text-gray-500">
-                                            {selectedIssueItem?.unit || "unit(s)"}
-                                        </span>
+                                {/* Inventory Item & Available Stock */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide pl-0.5">
+                                            Inventory Item *
+                                        </label>
+                                        <select
+                                            required
+                                            value={issueForm.inventoryId}
+                                            onChange={(e) =>
+                                                setIssueForm((prev) => ({
+                                                    ...prev,
+                                                    inventoryId: e.target.value,
+                                                }))
+                                            }
+                                            className="w-full h-9 sm:h-10 px-3 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none font-semibold text-xs sm:text-sm text-gray-800 cursor-pointer"
+                                        >
+                                            <option value="">Select existing item</option>
+                                            {inventory.map((inv) => (
+                                                <option key={inv.id} value={inv.id}>
+                                                    {inv.name} ({inv.unit || "units"}) — {inv.quantity || 0} in stock
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide pl-0.5">
+                                            Available Stock
+                                        </label>
+                                        <div className="w-full h-9 sm:h-10 px-3 bg-gray-100 border border-gray-200 rounded-xl font-semibold text-xs sm:text-sm text-gray-800 flex items-center justify-between">
+                                            <span>{selectedIssueItem ? `${availableStockForSelected}` : "—"}</span>
+                                            <span className="text-[11px] font-medium text-gray-500">
+                                                {selectedIssueItem?.unit || "unit(s)"}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Quantity & Purpose/Reason */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                                <div className="space-y-2">
-                                    <label className="block text-xs font-black text-gray-500 uppercase tracking-wider pl-1">
-                                        {issueForm.transactionType === "ISSUE"
-                                            ? "Quantity to Issue *"
-                                            : "Quantity *"}
-                                    </label>
-                                    <input
-                                        type="number"
-                                        required
-                                        min={1}
-                                        max={isDeductiveTransaction ? Math.max(1, availableStockForSelected) : undefined}
-                                        value={issueForm.quantity}
-                                        onChange={(e) =>
-                                            setIssueForm((prev) => ({
-                                                ...prev,
-                                                quantity: e.target.value,
-                                            }))
-                                        }
-                                        className="w-full h-11 sm:h-12 px-4 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none font-bold text-sm text-gray-900"
-                                        placeholder="1"
-                                    />
-                                    {issueForm.transactionType === "ADJUSTMENT" && (
-                                        <label className="flex items-center gap-2 text-xs text-gray-600 font-semibold pt-1 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={issueForm.isNegativeAdjustment}
-                                                onChange={(e) =>
-                                                    setIssueForm((prev) => ({
-                                                        ...prev,
-                                                        isNegativeAdjustment: e.target.checked,
-                                                    }))
-                                                }
-                                                className="rounded text-pink-500 focus:ring-pink-400"
-                                            />
-                                            <span>Deduct from stock (negative adjustment)</span>
+                                {/* Quantity & Purpose/Reason */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide pl-0.5">
+                                            {issueForm.transactionType === "ISSUE"
+                                                ? "Quantity to Issue *"
+                                                : "Quantity *"}
                                         </label>
-                                    )}
+                                        <input
+                                            type="number"
+                                            required
+                                            min={1}
+                                            max={isDeductiveTransaction ? Math.max(1, availableStockForSelected) : undefined}
+                                            value={issueForm.quantity}
+                                            onChange={(e) =>
+                                                setIssueForm((prev) => ({
+                                                    ...prev,
+                                                    quantity: e.target.value,
+                                                }))
+                                            }
+                                            className="w-full h-9 sm:h-10 px-3 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none font-semibold text-xs sm:text-sm text-gray-800"
+                                            placeholder="1"
+                                        />
+                                        {issueForm.transactionType === "ADJUSTMENT" && (
+                                            <label className="flex items-center gap-2 text-[11px] text-gray-600 font-semibold pt-0.5 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={issueForm.isNegativeAdjustment}
+                                                    onChange={(e) =>
+                                                        setIssueForm((prev) => ({
+                                                            ...prev,
+                                                            isNegativeAdjustment: e.target.checked,
+                                                        }))
+                                                    }
+                                                    className="rounded text-pink-500 focus:ring-pink-400"
+                                                />
+                                                <span>Deduct from stock</span>
+                                            </label>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide pl-0.5">
+                                            Purpose / Reason *
+                                        </label>
+                                        <select
+                                            value={issueForm.reason}
+                                            onChange={(e) =>
+                                                setIssueForm((prev) => ({
+                                                    ...prev,
+                                                    reason: e.target.value,
+                                                }))
+                                            }
+                                            className="w-full h-9 sm:h-10 px-3 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none font-semibold text-xs sm:text-sm text-gray-800 cursor-pointer"
+                                        >
+                                            <option value="Service Use">Service Use</option>
+                                            <option value="Salon Use">Salon Use</option>
+                                            <option value="Damaged">Damaged</option>
+                                            <option value="Expired">Expired</option>
+                                            <option value="Return to Stock">Return to Stock</option>
+                                            <option value="Restock">Restock</option>
+                                            <option value="Stock Adjustment">Stock Adjustment</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="block text-xs font-black text-gray-500 uppercase tracking-wider pl-1">
-                                        Purpose / Reason *
+                                {/* Related Appointment Connection */}
+                                <div className="space-y-1.5">
+                                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide pl-0.5">
+                                        Related Appointment (Optional)
                                     </label>
                                     <select
-                                        value={issueForm.reason}
+                                        value={issueForm.appointmentId}
+                                        onChange={(e) => {
+                                            setIssueForm((prev) => ({
+                                                ...prev,
+                                                appointmentId: e.target.value,
+                                            }));
+                                        }}
+                                        className="w-full h-9 sm:h-10 px-3 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none font-semibold text-xs text-gray-800 cursor-pointer truncate"
+                                    >
+                                        <option value="">— None (Not linked to a specific appointment) —</option>
+                                        {eligibleAppointments.slice(0, 40).map((apt) => {
+                                            const shortRef = apt.id
+                                                ? `APPT-${apt.id.replace(/-/g, "").slice(0, 6).toUpperCase()}`
+                                                : "APPT";
+                                            const custName = apt.customers?.name || apt.customer_name || "Customer";
+                                            const svcName = apt.services?.name || apt.service_name || "Service";
+                                            return (
+                                                <option key={apt.id} value={apt.id}>
+                                                    {shortRef} • {custName} — {svcName} ({apt.appointment_date})
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+
+                                {/* Notes */}
+                                <div className="space-y-1.5">
+                                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide pl-0.5">
+                                        Notes (Optional)
+                                    </label>
+                                    <textarea
+                                        rows={2}
+                                        value={issueForm.notes}
                                         onChange={(e) =>
                                             setIssueForm((prev) => ({
                                                 ...prev,
-                                                reason: e.target.value,
+                                                notes: e.target.value,
                                             }))
                                         }
-                                        className="w-full h-11 sm:h-12 px-4 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none font-bold text-sm text-gray-900 cursor-pointer"
-                                    >
-                                        <option value="Service Use">Service Use</option>
-                                        <option value="Salon Use">Salon Use</option>
-                                        <option value="Damaged">Damaged</option>
-                                        <option value="Expired">Expired</option>
-                                        <option value="Return to Stock">Return to Stock</option>
-                                        <option value="Restock">Restock</option>
-                                        <option value="Stock Adjustment">Stock Adjustment</option>
-                                        <option value="Other">Other</option>
-                                    </select>
+                                        placeholder="Add remarks or specifics..."
+                                        className="w-full h-16 px-3 py-2 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none font-medium text-xs text-gray-800 resize-none"
+                                    />
                                 </div>
+
+                                {issueError && (
+                                    <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
+                                        <AlertCircle className="w-4 h-4 shrink-0" />
+                                        <span>{issueError}</span>
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Related Appointment Connection */}
-                            <div className="space-y-2">
-                                <label className="block text-xs font-black text-gray-500 uppercase tracking-wider pl-1">
-                                    Related Customer Appointment (Optional)
-                                </label>
-                                <select
-                                    value={issueForm.appointmentId}
-                                    onChange={(e) => {
-                                        setIssueForm((prev) => ({
-                                            ...prev,
-                                            appointmentId: e.target.value,
-                                        }));
-                                    }}
-                                    className="w-full h-11 sm:h-12 px-4 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none font-bold text-xs sm:text-sm text-gray-900 cursor-pointer"
-                                >
-                                    <option value="">— None (Not linked to a specific appointment) —</option>
-                                    {eligibleAppointments.slice(0, 40).map((apt) => {
-                                        const shortRef = apt.id
-                                            ? `APPT-${apt.id.replace(/-/g, "").slice(0, 6).toUpperCase()}`
-                                            : "APPT";
-                                        const custName = apt.customers?.name || apt.customer_name || "Customer";
-                                        const svcName = apt.services?.name || apt.service_name || "Service";
-                                        return (
-                                            <option key={apt.id} value={apt.id}>
-                                                {shortRef} • {custName} — {svcName} ({apt.appointment_date})
-                                            </option>
-                                        );
-                                    })}
-                                </select>
-                            </div>
-
-                            {/* Notes */}
-                            <div className="space-y-2">
-                                <label className="block text-xs font-black text-gray-500 uppercase tracking-wider pl-1">
-                                    Notes (Optional)
-                                </label>
-                                <textarea
-                                    rows={3}
-                                    value={issueForm.notes}
-                                    onChange={(e) =>
-                                        setIssueForm((prev) => ({
-                                            ...prev,
-                                            notes: e.target.value,
-                                        }))
-                                    }
-                                    placeholder="Add any additional details or remarks..."
-                                    className="w-full h-20 px-4 py-2.5 bg-gray-50 border border-pink-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none font-medium text-xs sm:text-sm text-gray-900 resize-none"
-                                />
-                            </div>
-
-                            {issueError && (
-                                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
-                                    <AlertCircle className="w-4 h-4 shrink-0" />
-                                    <span>{issueError}</span>
-                                </div>
-                            )}
-
-                            {/* Footer */}
-                            <div className="flex items-center justify-between gap-4 pt-5 border-t border-pink-100">
+                            {/* Pinned Modal Footer */}
+                            <div className="flex items-center justify-between gap-3 px-6 sm:px-8 py-3.5 border-t border-pink-100 bg-gray-50/70 shrink-0">
                                 <button
                                     type="button"
                                     disabled={isSubmittingIssue}
                                     onClick={() => setIsIssueModalOpen(false)}
-                                    className="px-8 py-3 bg-gray-50 text-gray-600 rounded-full font-bold hover:bg-gray-100 transition-all border border-gray-200 uppercase text-xs tracking-widest cursor-pointer"
+                                    className="px-5 py-2.5 bg-white text-gray-600 rounded-full font-semibold hover:bg-gray-100 transition-all border border-gray-200 uppercase text-[11px] tracking-wide cursor-pointer"
                                 >
                                     Cancel
                                 </button>
@@ -1301,18 +1655,27 @@ export default function InventoryPage() {
                                     disabled={
                                         isSubmittingIssue ||
                                         !issueForm.inventoryId ||
+                                        !issueForm.issuedById ||
                                         (isDeductiveTransaction && availableStockForSelected <= 0)
                                     }
-                                    className="px-8 py-3 bg-pink-500 text-white rounded-full font-black shadow-md shadow-pink-200 hover:bg-pink-600 disabled:opacity-50 transition-all uppercase text-xs tracking-widest flex items-center justify-center gap-2 cursor-pointer"
+                                    className="px-6 py-2.5 bg-pink-500 text-white rounded-full font-semibold shadow-md shadow-pink-200 hover:bg-pink-600 disabled:opacity-50 transition-all uppercase text-[11px] tracking-wide flex items-center justify-center gap-1.5 cursor-pointer"
                                 >
                                     {isSubmittingIssue ? (
                                         <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                             <span>Processing...</span>
                                         </>
                                     ) : (
                                         <>
-                                            <Send className="w-4 h-4" />
+                                            {issueForm.transactionType === "ISSUE" ? (
+                                                <Send className="w-3.5 h-3.5" />
+                                            ) : issueForm.transactionType === "RETURN" ? (
+                                                <RotateCcw className="w-3.5 h-3.5" />
+                                            ) : issueForm.transactionType === "RESTOCK" ? (
+                                                <Package className="w-3.5 h-3.5" />
+                                            ) : (
+                                                <ClipboardList className="w-3.5 h-3.5" />
+                                            )}
                                             <span>
                                                 {issueForm.transactionType === "ISSUE"
                                                     ? "Issue Inventory"

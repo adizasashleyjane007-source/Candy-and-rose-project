@@ -83,7 +83,7 @@ export const DEFAULT_LOYALTY_SETTINGS: LoyaltyRewardSettings = {
   is_active: true,
 };
 
-const MONTH_NAMES = [
+export const MONTH_NAMES = [
   "January",
   "February",
   "March",
@@ -97,6 +97,73 @@ const MONTH_NAMES = [
   "November",
   "December",
 ];
+
+/**
+ * Returns current timestamp decomposed in Asia/Manila (UTC+8).
+ * The Philippines does not observe Daylight Saving Time, so it is strictly UTC+8 year-round.
+ */
+export function getManilaDate(date: Date = new Date()): {
+  year: number;
+  monthIdx: number; // 0-11
+  day: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+} {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const partMap: Record<string, number> = {};
+  for (const p of parts) {
+    if (p.type !== "literal") {
+      partMap[p.type] = parseInt(p.value, 10);
+    }
+  }
+  return {
+    year: partMap.year || date.getFullYear(),
+    monthIdx: Math.max(0, Math.min(11, (partMap.month || 1) - 1)),
+    day: partMap.day || date.getDate(),
+    hours: partMap.hour === 24 ? 0 : partMap.hour || 0,
+    minutes: partMap.minute || 0,
+    seconds: partMap.second || 0,
+  };
+}
+
+/**
+ * Returns the PREVIOUS completed calendar month in Asia/Manila.
+ * e.g., on Nov 12, 2026 -> returns { year: 2026, monthIdx: 9, rankingPeriod: "2026-10", rankingPeriodLabel: "October 2026" }
+ */
+export function getPreviousCompletedMonthManila(now: Date = new Date()): {
+  year: number;
+  monthIdx: number;
+  rankingPeriod: string;
+  rankingPeriodLabel: string;
+} {
+  const manila = getManilaDate(now);
+  let prevYear = manila.year;
+  let prevMonthIdx = manila.monthIdx - 1;
+  if (prevMonthIdx < 0) {
+    prevMonthIdx = 11;
+    prevYear -= 1;
+  }
+  const periodMonthNum = String(prevMonthIdx + 1).padStart(2, "0");
+  const rankingPeriod = `${prevYear}-${periodMonthNum}`;
+  const rankingPeriodLabel = `${MONTH_NAMES[prevMonthIdx]} ${prevYear}`;
+  return {
+    year: prevYear,
+    monthIdx: prevMonthIdx,
+    rankingPeriod,
+    rankingPeriodLabel,
+  };
+}
 
 /**
  * Formats a reward description human-readably from settings or individual parameters.
@@ -190,27 +257,23 @@ export function getRankingPeriodInfo(
   const periodKey = `${safeYear}-${periodMonthNum}`;
   const periodLabel = `${MONTH_NAMES[safeMonth]} ${safeYear}`;
 
-  const periodStartDate = new Date(Date.UTC(safeYear, safeMonth, 1, 0, 0, 0, 0));
-  const periodEndDate = new Date(Date.UTC(safeYear, safeMonth, periodDays, 23, 59, 59, 999));
-
   // Explicit December -> January rollover (no month 13 calculation)
   const rewardYear = safeMonth === 11 ? safeYear + 1 : safeYear;
   const rewardMonth = safeMonth === 11 ? 0 : safeMonth + 1;
   const rewardDays = getDaysInMonth(rewardYear, rewardMonth);
+  const rewardMonthNum = String(rewardMonth + 1).padStart(2, "0");
 
-  const rewardStartObj = new Date(Date.UTC(rewardYear, rewardMonth, 1, 0, 0, 0, 0));
-  const rewardEndObj = new Date(Date.UTC(rewardYear, rewardMonth, rewardDays, 23, 59, 59, 999));
-
+  // Single authoritative rule: reward expires at the end of the calendar month
+  // following the ranking month, in the salon's timezone (Asia/Manila, UTC+8).
   const validUntilDisplay = `${MONTH_NAMES[rewardMonth]} ${rewardDays}, ${rewardYear}`;
 
-  const periodStart = periodStartDate.toISOString();
-  const periodEnd = periodEndDate.toISOString();
-  const rewardStartDate = rewardStartObj.toISOString();
-  const rewardEndDate = rewardEndObj.toISOString();
+  const periodStart = `${safeYear}-${periodMonthNum}-01T00:00:00+08:00`;
+  const periodEnd = `${safeYear}-${periodMonthNum}-${String(periodDays).padStart(2, "0")}T23:59:59.999+08:00`;
+  const rewardStartDate = `${rewardYear}-${rewardMonthNum}-01T00:00:00+08:00`;
+  const rewardEndDate = `${rewardYear}-${rewardMonthNum}-${String(rewardDays).padStart(2, "0")}T23:59:59.999+08:00`;
 
-  // Rewards are redeemable from the start of the ranking period through the end of the following reward month
-  const validFromIso = periodStart;
-  const validUntilIso = rewardEndDate;
+  const validFromIso = new Date(rewardStartDate).toISOString();
+  const validUntilIso = new Date(rewardEndDate).toISOString();
 
   return {
     periodKey,
@@ -319,7 +382,9 @@ export function computeMonthlyTop5Customers(
     if (!apt.appointment_date) return false;
     const d = new Date(apt.appointment_date);
     if (isNaN(d.getTime())) return false;
-    return d.getMonth() === monthIdx && d.getFullYear() === year;
+    // Group according to Asia/Manila calendar month & year
+    const manilaAppt = getManilaDate(d);
+    return manilaAppt.monthIdx === monthIdx && manilaAppt.year === year;
   });
 
   const customerMap = new Map<
@@ -338,8 +403,16 @@ export function computeMonthlyTop5Customers(
 
   filteredApps.forEach((app) => {
     const matchedBill = app.id ? paidBillByApptId.get(app.id) : null;
-    const price = Number(matchedBill?.amount ?? app.price ?? app.services?.price ?? 0);
-    if (price <= 0) return;
+    // Count full service total (original amount before discounts/loyalty deductions, including downpayment)
+    const rawPrice =
+      matchedBill?.original_amount ??
+      matchedBill?.subtotal ??
+      matchedBill?.amount ??
+      app.original_amount ??
+      app.price ??
+      app.services?.price ??
+      0;
+    const price = Math.max(0, Number(rawPrice) || 0);
 
     const matchedCustById = app.customer_id ? customerById.get(app.customer_id) : null;
     const rawName = (
@@ -380,7 +453,7 @@ export function computeMonthlyTop5Customers(
   });
 
   const sorted = Array.from(customerMap.values())
-    .filter((c) => c.spentValue > 0 && c.visits > 0)
+    .filter((c) => c.visits > 0)
     .sort((a, b) => {
       // 1. Primary: Total spending descending
       if (b.spentValue !== a.spentValue) return b.spentValue - a.spentValue;
@@ -757,5 +830,50 @@ export const LoyaltyDB = {
       5
     );
     return { top5, rewards: [] };
+  },
+
+  /**
+   * Finalizes the PREVIOUS completed calendar month in Asia/Manila idempotently.
+   * Safe to call from client on-page sync (Billing, Analytics, Settings) without secret.
+   */
+  async syncPreviousMonth(): Promise<{
+    top5: RankedTopCustomer[];
+    rewards: LoyaltyRewardRecord[];
+  }> {
+    const prev = getPreviousCompletedMonthManila();
+    return this.syncTop5ForMonth(prev.year, prev.monthIdx);
+  },
+
+  /**
+   * Fetches the latest loyalty sync log entry for admin status display.
+   */
+  async getLatestSyncLog(): Promise<{
+    id: string;
+    ranking_period: string;
+    ranking_period_label?: string | null;
+    triggered_by: string;
+    winners_created: number;
+    winners_skipped: number;
+    rewards_expired: number;
+    zero_price_services_count: number;
+    status: string;
+    created_at: string;
+  } | null> {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("loyalty_sync_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        return data as any;
+      }
+      return null;
+    } catch {
+      return null;
+    }
   },
 };

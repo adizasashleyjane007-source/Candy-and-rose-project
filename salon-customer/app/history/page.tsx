@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { 
   Calendar, Clock, Scissors, 
   Sparkles, AlertCircle, Plus, 
-  ArrowRight, Trash2, X, CheckCircle
+  ArrowRight, Trash2, X, CheckCircle,
+  Upload, ShieldCheck
 } from 'lucide-react';
 import SalonLayout from '@/components/salon-layout';
 import { useAuth } from '@/lib/auth-context';
@@ -31,6 +32,110 @@ export default function HistoryPage() {
   const [otherReasonText, setOtherReasonText] = useState<string>('');
   const [submittingCancel, setSubmittingCancel] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Downpayment Proof Upload States
+  const [uploadModalAppt, setUploadModalAppt] = useState<any>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string>('');
+  const [uploadingProof, setUploadingProof] = useState(false);
+
+  const handleOpenUploadModal = (appt: any) => {
+    setUploadModalAppt(appt);
+    setProofFile(null);
+    setProofPreview(null);
+    setUploadError('');
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const validExts = ['png', 'jpg', 'jpeg'];
+    const validMimes = ['image/png', 'image/jpeg', 'image/jpg'];
+
+    if (!validExts.includes(ext || '') || !validMimes.includes(file.type.toLowerCase())) {
+      setUploadError('Unsupported file type. Please upload a PNG, JPG, or JPEG image.');
+      setProofFile(null);
+      setProofPreview(null);
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('File size exceeds the 5 MB limit. Please upload an image under 5 MB.');
+      setProofFile(null);
+      setProofPreview(null);
+      return;
+    }
+
+    setUploadError('');
+    setProofFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setProofPreview(ev.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmitProof = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadModalAppt || !proofFile) {
+      setUploadError('Please select a payment receipt image to upload.');
+      return;
+    }
+
+    setUploadingProof(true);
+    setUploadError('');
+
+    try {
+      const ext = proofFile.name.split('.').pop()?.toLowerCase() || 'png';
+      const filename = `DP_PROOF_${uploadModalAppt.id}_${Date.now()}.${ext}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from('receipts')
+        .upload(filename, proofFile, { upsert: true });
+
+      if (uploadErr) {
+        throw new Error(uploadErr.message || 'Failed to upload receipt to storage.');
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('receipts')
+        .getPublicUrl(filename);
+      const publicUrl = publicUrlData?.publicUrl || '';
+
+      const updatedNotes = uploadModalAppt.notes
+        ? `${uploadModalAppt.notes} | Downpayment Proof: ${publicUrl} (Uploaded ${new Date().toISOString()})`
+        : `Downpayment Proof: ${publicUrl} (Uploaded ${new Date().toISOString()})`;
+
+      await supabase
+        .from('appointments')
+        .update({
+          notes: updatedNotes,
+          payment_status: 'Pending Verification',
+        })
+        .eq('id', uploadModalAppt.id);
+
+      await supabase.from('notifications').insert({
+        title: 'Downpayment Proof Uploaded',
+        message: `Customer ${uploadModalAppt.customer_name || 'Customer'} uploaded payment proof for Appointment #${uploadModalAppt.id.slice(0, 8)}.`,
+        type: 'billing',
+        is_read: false,
+      });
+
+      alert('Payment proof uploaded successfully! Our staff will verify your downpayment shortly.');
+      setUploadModalAppt(null);
+      setProofFile(null);
+      setProofPreview(null);
+      loadAppointments();
+    } catch (err: any) {
+      console.error('Upload proof error:', err);
+      setUploadError(err.message || 'Failed to upload proof. Please try again.');
+    } finally {
+      setUploadingProof(false);
+    }
+  };
 
   const loadAppointments = async () => {
     const activeUser = user;
@@ -166,7 +271,7 @@ export default function HistoryPage() {
   };
 
   const shownAppts = appointments.filter((a) => {
-    if (activeFilter === 'CURRENT') return a.status === 'Scheduled';
+    if (activeFilter === 'CURRENT') return a.status === 'Scheduled' || a.status === 'Pending Downpayment';
     if (activeFilter === 'COMPLETED') return a.status === 'Completed';
     if (activeFilter === 'CANCELLED') return a.status === 'Cancelled';
     return false;
@@ -326,13 +431,48 @@ export default function HistoryPage() {
                               Note: &ldquo;{appt.notes}&rdquo;
                             </p>
                           )}
+
+                          {appt.downpayment_required && (
+                            <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl text-xs text-amber-900 space-y-1 mt-2">
+                              <div className="flex justify-between items-center font-bold">
+                                <span className="flex items-center gap-1.5 text-amber-800">
+                                  <ShieldCheck size={14} className="text-amber-600" />
+                                  Downpayment Deposit:
+                                </span>
+                                <span className="text-pink-600 font-extrabold">
+                                  ₱{(Number(appt.downpayment_paid) || 0).toLocaleString()} / ₱{(Number(appt.downpayment_amount) || 0).toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-[11px] text-amber-700">
+                                <span>Status: <strong className="uppercase">{appt.downpayment_status || 'Pending'}</strong></span>
+                                {appt.downpayment_hold_until && (
+                                  <span>Hold Until: <strong>{new Date(appt.downpayment_hold_until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
+                                )}
+                              </div>
+                              {appt.pricing_flag === 'Needs Staff Pricing' && (
+                                <p className="text-[10px] text-yellow-800 font-semibold pt-0.5">
+                                  Awaiting staff pricing review
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
 
-                        <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 border-t sm:border-t-0 border-zinc-100 pt-3 sm:pt-0">
+                        <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2.5 border-t sm:border-t-0 border-zinc-100 pt-3 sm:pt-0">
                           <div className="text-left sm:text-right">
-                            <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider block">Price Paid</span>
+                            <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider block">Price</span>
                             <span className="font-serif text-xl font-bold text-zinc-950">₱{Number(appt.price || 0).toLocaleString()}</span>
                           </div>
+
+                          {/* Upload Proof for Pending Downpayment */}
+                          {appt.status === 'Pending Downpayment' && appt.downpayment_status !== 'Paid' && appt.downpayment_status !== 'Waived' && (
+                            <button
+                              onClick={() => handleOpenUploadModal(appt)}
+                              className="inline-flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-pink-600 hover:text-pink-700 transition-colors border border-pink-200 hover:border-pink-300 bg-pink-50 hover:bg-pink-100/70 px-4 py-2 rounded-full shadow-sm cursor-pointer"
+                            >
+                              <Upload size={12} /> Upload Proof
+                            </button>
+                          )}
 
                           {/* Cancellation Button */}
                           {activeFilter === 'CURRENT' && appt.status !== 'Cancelled' && appt.status !== 'Completed' && (
@@ -519,6 +659,90 @@ export default function HistoryPage() {
               >
                 OKAY
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* DOWNPAYMENT PROOF UPLOAD MODAL */}
+        {uploadModalAppt && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in"
+            onClick={() => setUploadModalAppt(null)}
+          >
+            <div 
+              className="relative w-[90%] max-w-[440px] my-auto rounded-3xl bg-white p-7 shadow-2xl animate-scale-in border border-pink-100 flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setUploadModalAppt(null)}
+                aria-label="Close"
+                className="absolute right-5 top-5 text-zinc-400 hover:text-zinc-700 transition-colors p-1.5 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-10 h-10 rounded-2xl bg-pink-50 border border-pink-200 flex items-center justify-center text-pink-600">
+                  <Upload size={18} />
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-semibold text-zinc-900 leading-tight">Upload Payment Proof</h3>
+                  <p className="text-xs text-zinc-500">Attach screenshot of your downpayment</p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs space-y-1 mb-4 text-amber-900">
+                <div className="flex justify-between font-bold">
+                  <span>Downpayment Required:</span>
+                  <span className="text-pink-600">₱{(Number(uploadModalAppt.downpayment_amount) || 0).toLocaleString()}</span>
+                </div>
+                {uploadModalAppt.downpayment_hold_until && (
+                  <div className="text-[11px] text-amber-800">
+                    Hold Deadline: <strong>{new Date(uploadModalAppt.downpayment_hold_until).toLocaleString()}</strong>
+                  </div>
+                )}
+              </div>
+
+              <form onSubmit={handleSubmitProof} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-2">
+                    Payment Receipt / Screenshot (PNG, JPG, max 5MB)
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    required
+                    onChange={handleFileSelect}
+                    className="w-full text-xs text-zinc-600 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-pink-50 file:text-pink-600 hover:file:bg-pink-100 cursor-pointer"
+                  />
+                  {uploadError && (
+                    <p className="text-xs text-red-600 font-semibold mt-1.5">{uploadError}</p>
+                  )}
+                </div>
+
+                {proofPreview && (
+                  <div className="w-full max-h-44 rounded-xl border border-zinc-200 overflow-hidden flex items-center justify-center bg-zinc-50">
+                    <img src={proofPreview} alt="Receipt preview" className="max-h-44 object-contain" />
+                  </div>
+                )}
+
+                <div className="flex gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setUploadModalAppt(null)}
+                    className="flex-1 h-11 rounded-full border border-zinc-200 text-zinc-700 font-bold text-xs uppercase tracking-wider hover:bg-zinc-50 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={uploadingProof || !proofFile}
+                    className="flex-1 h-11 rounded-full bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-pink-200 cursor-pointer"
+                  >
+                    {uploadingProof ? 'Uploading...' : 'Submit Proof'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

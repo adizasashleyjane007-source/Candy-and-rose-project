@@ -1,9 +1,10 @@
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid, LabelList } from "recharts";
-import { MoreHorizontal, TrendingUp, Scissors, PhilippinePeso, Calendar, X, Clock, Wallet, Loader2, Star, Sparkles, ChevronRight, Eye } from "lucide-react";
+import { MoreHorizontal, TrendingUp, Scissors, PhilippinePeso, Calendar, X, Clock, Wallet, Loader2, Star, Sparkles, ChevronRight, Eye, MessageSquare, Users } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Appointments, Billing, Customers, NailDesigns, SettingsDB, type Appointment, type NailDesign } from "@/lib/db";
-import { LoyaltyDB, computeMonthlyTop5Customers, type LoyaltyRewardRecord } from "@/lib/loyalty";
+import { LoyaltyDB, computeMonthlyTop5Customers, getManilaDate, type LoyaltyRewardRecord } from "@/lib/loyalty";
+import { fetchTopPerformerRanking, resolvePeriodRange, type StaffPerformanceMetrics } from "@/lib/top-performer";
 
 const monthsList = [
     "January", "February", "March", "April", "May", "June",
@@ -350,24 +351,15 @@ export function ServiceUsageAnalyticsChart({ selectedMonth: globalSelectedMonth 
 
 export function TopStaffChart({ selectedMonth: globalSelectedMonth }: { selectedMonth?: string }) {
     const [currentMonthIdx, setCurrentMonthIdx] = useState(new Date().getMonth());
-    const [staffDataList, setStaffDataList] = useState<any[]>([]);
+    const [useCustomMonth, setUseCustomMonth] = useState(false);
+    const [rankedStaff, setRankedStaff] = useState<StaffPerformanceMetrics[]>([]);
+    const [periodLabel, setPeriodLabel] = useState(monthsList[new Date().getMonth()]);
     const [loading, setLoading] = useState(true);
-    const [isMounted, setIsMounted] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
-
-    useEffect(() => {
-        setIsMounted(true);
-        const handleResize = () => {
-            setIsMobile(window.innerWidth < 640);
-        };
-        handleResize();
-        window.addEventListener("resize", handleResize);
-        return () => window.removeEventListener("resize", handleResize);
-    }, []);
 
     useEffect(() => {
         const now = new Date();
+        setUseCustomMonth(false);
         if (globalSelectedMonth === "Last Month") {
             const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
             setCurrentMonthIdx(lastMonth.getMonth());
@@ -377,151 +369,202 @@ export function TopStaffChart({ selectedMonth: globalSelectedMonth }: { selected
     }, [globalSelectedMonth]);
 
     useEffect(() => {
+        let active = true;
         const loadData = async () => {
             try {
                 setLoading(true);
-                const allApps = await Appointments.list();
-                const currentYear = new Date().getFullYear();
-                
-                const filteredApps = allApps.filter((apt) => {
-                    if (apt.status !== 'Completed' || !apt.appointment_date) return false;
-                    const d = new Date(apt.appointment_date);
-                    return d.getMonth() === currentMonthIdx && d.getFullYear() === currentYear;
-                });
-
-                const revenueMap: Record<string, number> = {};
-                filteredApps.forEach((apt) => {
-                    const stfName = apt.staff?.name || apt.staff_name;
-                    if (stfName && stfName.trim()) {
-                        const cleanName = stfName.trim();
-                        revenueMap[cleanName] = (revenueMap[cleanName] || 0) + (apt.price || 0);
-                    }
-                });
-
-                let sorted = Object.entries(revenueMap)
-                    .map(([name, revenue]) => ({ name, revenue }))
-                    .sort((a, b) => b.revenue - a.revenue)
-                    .slice(0, 4);
-
-                sorted.reverse();
-                setStaffDataList(sorted);
+                const range = resolvePeriodRange(
+                    useCustomMonth ? undefined : globalSelectedMonth,
+                    currentMonthIdx
+                );
+                const ranking = await fetchTopPerformerRanking(range);
+                if (!active) return;
+                setPeriodLabel(range.label);
+                setRankedStaff(ranking);
             } catch (error) {
-                console.error("Failed to load staff analytics:", error);
+                console.error("Failed to load top performer staff analytics:", error);
             } finally {
-                setLoading(false);
+                if (active) setLoading(false);
             }
         };
 
         loadData();
-    }, [currentMonthIdx]);
+        return () => {
+            active = false;
+        };
+    }, [globalSelectedMonth, currentMonthIdx, useCustomMonth]);
 
-    // Calculate dynamic width for YAxis to ensure complete visibility of staff names
-    const maxNameLength = staffDataList.reduce((max, item) => Math.max(max, (item.name || "").length), 0);
-    const dynamicYAxisWidth = isMobile
-        ? Math.max(90, Math.min(130, maxNameLength * 7.5 + 15))
-        : Math.max(115, Math.min(170, maxNameLength * 8.5 + 20));
+    const topPerformer = rankedStaff[0] || null;
 
     return (
         <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full min-h-[400px] min-w-0">
-            <div className="flex justify-between items-start mb-2">
+            <div className="flex justify-between items-start mb-4">
                 <div>
-                    <h3 className="text-xl font-bold text-gray-900 tracking-tight">Top Staff - <span className="text-pink-500">{monthsList[currentMonthIdx]}</span></h3>
-                    <p className="text-sm text-gray-500 mt-1">Ranked by generated revenue</p>
+                    <h3 className="text-xl font-bold text-gray-900 tracking-tight">
+                        Top Performer Staff - <span className="text-pink-500">{periodLabel}</span>
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                        Scored on reviews, feedback, repeat clients, demand, completed services &amp; reliability
+                    </p>
                 </div>
                 <div className="relative">
-                    <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-gray-400 hover:text-pink-500 transition-colors p-1">
+                    <button
+                        type="button"
+                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        className="text-gray-400 hover:text-pink-500 transition-colors p-1 cursor-pointer"
+                    >
                         <MoreHorizontal className="w-5 h-5" />
                     </button>
                     {isMenuOpen && (
                         <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-pink-50 py-2 z-20">
                             {monthsList.map((month, idx) => (
-                                <button key={month} onClick={() => { setCurrentMonthIdx(idx); setIsMenuOpen(false); }} className={`w-full text-left px-4 py-2 text-sm ${currentMonthIdx === idx ? 'bg-pink-50 text-pink-600 font-bold' : 'text-gray-600'}`}>{month}</button>
+                                <button
+                                    key={month}
+                                    type="button"
+                                    onClick={() => {
+                                        setCurrentMonthIdx(idx);
+                                        setUseCustomMonth(true);
+                                        setIsMenuOpen(false);
+                                    }}
+                                    className={`w-full text-left px-4 py-2 text-sm cursor-pointer ${
+                                        currentMonthIdx === idx && useCustomMonth
+                                            ? "bg-pink-50 text-pink-600 font-bold"
+                                            : "text-gray-600 hover:bg-gray-50"
+                                    }`}
+                                >
+                                    {month}
+                                </button>
                             ))}
                         </div>
                     )}
                 </div>
             </div>
-            <div className="flex-1 w-full min-h-[300px] min-w-0 relative">
-                {!isMounted || loading ? (
+
+            <div className="flex-1 w-full min-w-0 flex flex-col justify-between gap-4">
+                {loading ? (
                     <div className="w-full h-full min-h-[300px] flex items-center justify-center">
                         <Loader2 className="w-10 h-10 animate-spin text-pink-200" />
                     </div>
-                ) : staffDataList.length === 0 ? (
+                ) : !topPerformer ? (
                     <div className="w-full h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6">
-                        <p className="text-sm font-semibold text-gray-500">No staff revenue recorded for this period</p>
-                        <p className="text-xs text-gray-400 mt-1">Completed appointments with assigned staff will appear here.</p>
+                        <p className="text-sm font-semibold text-gray-500">No active staff records found</p>
+                        <p className="text-xs text-gray-400 mt-1">Active staff members from the database will appear here.</p>
                     </div>
                 ) : (
-                    <div className="w-full h-full min-h-[300px] min-w-0">
-                        <ResponsiveContainer width="100%" height={300} minWidth={0}>
-                            <BarChart
-                                data={staffDataList}
-                                layout="vertical"
-                                margin={{
-                                    top: 10,
-                                    right: isMobile ? 85 : 110,
-                                    left: isMobile ? 5 : 15,
-                                    bottom: 10,
-                                }}
-                            >
-                                <XAxis
-                                    type="number"
-                                    hide
-                                    domain={[0, (dataMax: number) => (dataMax > 0 ? Math.ceil(dataMax * 1.25) : 100)]}
-                                />
-                                <YAxis
-                                    dataKey="name"
-                                    type="category"
-                                    stroke="#111827"
-                                    fontSize={isMobile ? 11 : 13}
-                                    fontWeight={600}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    width={dynamicYAxisWidth}
-                                    tick={(tickProps: any) => (
-                                        <text
-                                            x={tickProps.x - dynamicYAxisWidth}
-                                            y={tickProps.y}
-                                            dy={4}
-                                            textAnchor="start"
-                                            fill="#111827"
-                                            fontSize={isMobile ? 11 : 13}
-                                            fontWeight={600}
-                                        >
-                                            {tickProps.payload?.value}
-                                        </text>
-                                    )}
-                                />
-                                <Tooltip
-                                    cursor={{ fill: "#f8fafc" }}
-                                    contentStyle={{ borderRadius: "12px", border: "1px solid #f1f5f9" }}
-                                    formatter={(value: any) => [
-                                        `₱${Number(value || 0).toLocaleString(undefined, {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                        })}`,
-                                        'Revenue',
-                                    ]}
-                                />
-                                <Bar dataKey="revenue" fill="#ec4899" radius={[0, 6, 6, 0]} barSize={isMobile ? 20 : 24}>
-                                    <LabelList
-                                        dataKey="revenue"
-                                        position="right"
-                                        fill="#111827"
-                                        fontSize={isMobile ? 11 : 12}
-                                        fontWeight={700}
-                                        offset={10}
-                                        formatter={(value: any) =>
-                                            `₱${Number(value || 0).toLocaleString(undefined, {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2,
-                                            })}`
-                                        }
-                                    />
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                    <>
+                        {/* #1 Top Performer Spotlight */}
+                        <div className="rounded-2xl border border-pink-200 bg-gradient-to-br from-pink-50/70 via-white to-white p-5 space-y-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="text-[11px] font-bold uppercase tracking-wider text-pink-600">
+                                        #1 Top Performer
+                                    </div>
+                                    <div className="text-xl font-bold text-gray-900 truncate">
+                                        {topPerformer.name}
+                                    </div>
+                                    <div className="text-xs text-gray-500 font-medium truncate">
+                                        {topPerformer.role}
+                                    </div>
+                                </div>
+
+                                <div className="text-left sm:text-right">
+                                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                                        Performance Score
+                                    </div>
+                                    <div className="text-2xl font-bold text-gray-900">
+                                        <span className="text-pink-600">{topPerformer.overallScore.toFixed(1)}</span>
+                                        <span className="text-sm font-semibold text-gray-400"> / 100</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                                <div className="bg-white border border-pink-100 rounded-xl px-3 py-2.5">
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-900">
+                                        <Star className="w-3.5 h-3.5 text-pink-500 fill-pink-500 shrink-0" />
+                                        <span>{topPerformer.reviewCount > 0 ? `${topPerformer.avgRating.toFixed(1)} Rating` : "No reviews"}</span>
+                                    </div>
+                                    <div className="text-[11px] text-gray-500 mt-0.5">
+                                        {topPerformer.reviewCount} {topPerformer.reviewCount === 1 ? "review" : "reviews"}
+                                    </div>
+                                </div>
+
+                                <div className="bg-white border border-pink-100 rounded-xl px-3 py-2.5">
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-900">
+                                        <MessageSquare className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                                        <span>{topPerformer.positiveReviewCount} Positive</span>
+                                    </div>
+                                    <div className="text-[11px] text-gray-500 mt-0.5">
+                                        Client feedback
+                                    </div>
+                                </div>
+
+                                <div className="bg-white border border-pink-100 rounded-xl px-3 py-2.5">
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-900">
+                                        <Users className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                                        <span>{topPerformer.repeatClients} Repeat</span>
+                                    </div>
+                                    <div className="text-[11px] text-gray-500 mt-0.5">
+                                        {topPerformer.repeatRate.toFixed(0)}% repeat rate
+                                    </div>
+                                </div>
+
+                                <div className="bg-white border border-pink-100 rounded-xl px-3 py-2.5">
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-900">
+                                        <Calendar className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                                        <span>{Math.round(topPerformer.demandScore)}% Demand</span>
+                                    </div>
+                                    <div className="text-[11px] text-gray-500 mt-0.5">
+                                        {topPerformer.completedCount} completed • {Math.round(topPerformer.reliabilityScore)}% reliable
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="text-xs font-medium text-pink-700 bg-pink-50/80 border border-pink-100 rounded-xl px-3.5 py-2">
+                                {topPerformer.whyTopReason}
+                            </div>
+                        </div>
+
+                        {/* Compact Active Staff Ranking */}
+                        <div className="space-y-2">
+                            <div className="text-[11px] font-bold uppercase tracking-wider text-gray-500 px-1">
+                                Active Staff Ranking
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {rankedStaff.map((staff, idx) => (
+                                    <div
+                                        key={staff.staffId}
+                                        className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border text-xs ${
+                                            idx === 0
+                                                ? "bg-pink-50/70 border-pink-200 text-gray-900 font-bold"
+                                                : "bg-gray-50/70 border-gray-100 text-gray-700 font-semibold"
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <span
+                                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                                                    idx === 0
+                                                        ? "bg-pink-500 text-white"
+                                                        : "bg-white border border-gray-200 text-gray-600"
+                                                }`}
+                                            >
+                                                {idx + 1}
+                                            </span>
+                                            <span className="truncate">{staff.name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <span className="text-[11px] text-gray-400 font-medium">
+                                                {staff.completedCount} done
+                                            </span>
+                                            <span className={idx === 0 ? "text-pink-600 font-bold" : "text-gray-900 font-bold"}>
+                                                {staff.overallScore.toFixed(1)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </>
                 )}
             </div>
         </div>
@@ -620,12 +663,29 @@ export function TopCustomersList({ selectedMonth: globalSelectedMonth }: { selec
         setIsHistoryModalOpen(true);
     };
 
+    const manilaNow = getManilaDate();
+    const isCurrentMonth =
+        currentYear === manilaNow.year && currentMonthIdx === manilaNow.monthIdx;
+
     return (
         <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-pink-100 flex flex-col h-full lg:col-span-1 min-h-[400px]">
             <div className="flex justify-between items-start mb-6">
                 <div>
-                    <h3 className="text-xl font-bold text-gray-900 tracking-tight">Top Customers - <span className="text-pink-500">{monthsList[currentMonthIdx]}</span></h3>
-                    <p className="text-xs text-gray-500 mt-1 font-medium">Top 5 customers automatically qualify for a monthly Loyalty Reward</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-xl font-bold text-gray-900 tracking-tight">
+                            Top Customers - <span className="text-pink-500">{monthsList[currentMonthIdx]}</span>
+                        </h3>
+                        {isCurrentMonth && (
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                Current standings (preview)
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1 font-medium">
+                        {isCurrentMonth
+                            ? "Current standings (preview) • Projected Top 5 (rewards officially finalized at calendar month end)"
+                            : "Top 5 customers automatically qualify for a monthly Loyalty Reward"}
+                    </p>
                 </div>
             </div>
             <div className="space-y-3.5 flex-1">
@@ -668,20 +728,28 @@ export function TopCustomersList({ selectedMonth: globalSelectedMonth }: { selec
                                         </div>
                                         <p className="text-xs text-gray-500 mt-0.5">Last visit: {customer.lastVisit}</p>
                                         <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-50 text-pink-700 border border-pink-200">
-                                                <span>⭐ Top 5 Loyalty Reward</span>
-                                                <span className="text-pink-400">•</span>
-                                                <span>{rewardDesc}</span>
-                                            </span>
-                                            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
-                                                rewardStatus === "AVAILABLE"
-                                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                                    : rewardStatus === "USED"
-                                                        ? "bg-gray-100 text-gray-600 border border-gray-200"
-                                                        : "bg-rose-50 text-rose-600 border border-rose-200"
-                                            }`}>
-                                                {rewardStatus}
-                                            </span>
+                                            {isCurrentMonth ? (
+                                                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-gray-50 text-gray-600 border border-gray-200">
+                                                    In Progress
+                                                </span>
+                                            ) : (
+                                                <>
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-50 text-pink-700 border border-pink-200">
+                                                        <span>⭐ Top 5 Loyalty Reward</span>
+                                                        <span className="text-pink-400">•</span>
+                                                        <span>{rewardDesc}</span>
+                                                    </span>
+                                                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
+                                                        rewardStatus === "AVAILABLE"
+                                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                            : rewardStatus === "USED"
+                                                                ? "bg-gray-100 text-gray-600 border border-gray-200"
+                                                                : "bg-rose-50 text-rose-600 border border-rose-200"
+                                                    }`}>
+                                                        {rewardStatus}
+                                                    </span>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
